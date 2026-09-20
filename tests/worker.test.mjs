@@ -30,3 +30,16 @@ test('same-origin invalid input returns a useful error without a remote request'
   const response=await worker.fetch(new Request('https://studio.example/api/read',{method:'POST',headers:{Origin:'https://studio.example','Content-Type':'application/json'},body:'{"url":"http://localhost"}'}));
   assert.equal(response.status,400);assert.match((await response.json()).error,/offentlig/);
 });
+test('follows Hallinc language redirect without executing downloaded JavaScript',async()=>{
+  const calls=[];
+  const html="<script>var a=['sv'];window.location.href='/'+(navigator.languages.find(l=>a.includes((l||'').toLowerCase().substring(0,2)))||a[0]).substring(0,2);</script>";
+  const result=await readPublic('https://hallinc.se/',false,async url=>{
+    calls.push(url);return new Response(calls.length===1?html:'<h1>HallInc</h1>',{headers:{'Content-Type':'text/html'}});
+  });
+  assert.deepEqual(calls,['https://hallinc.se/','https://hallinc.se/sv']);
+  assert.match(new TextDecoder().decode(result.body),/<h1>HallInc/);
+});
+test('HTML redirect chains cannot loop or access private addresses',async()=>{
+  await assert.rejects(readPublic('https://example.com',false,async()=>new Response('<script>window.location.href="http://127.0.0.1/";</script>',{headers:{'Content-Type':'text/html'}})),/offentlig/);
+  await assert.rejects(readPublic('https://example.com',false,async()=>new Response('<script>location.replace("/again");</script>',{headers:{'Content-Type':'text/html'}})),/många gånger/);
+});

@@ -112,3 +112,13 @@ test('importing a company keeps the chosen template', async () => {
   assert.equal(h.context.project.templateId, 'studio');
   assert.equal(JSON.parse(h.drafts.get('draft')).templateId, 'studio');
 });
+
+test('a rejected empty import preserves the current project and its draft',async()=>{
+  const h=harness();const original=h.context.project;h.context.markDirty();
+  const draft=h.drafts.get('draft');
+  h.context.api=async()=>{throw new Error('Hemsidan gav inget läsbart innehåll.');};
+  await h.startImport();
+  assert.equal(h.context.project,original);assert.equal(h.drafts.get('draft'),draft);
+  assert.equal(h.context.dirty,true);assert.equal(h.context.importBusy,false);
+  assert.match(h.context.$('importStatus').textContent,/inget läsbart/);
+});

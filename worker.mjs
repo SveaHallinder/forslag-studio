@@ -1,4 +1,19 @@
 const MAX_HTML = 2_000_000, MAX_IMAGE = 5_000_000;
+function scriptRedirect(html, source) {
+  // Recognize simple redirect shells; never execute third-party JavaScript.
+  if(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<!--[\s\S]*?-->|<[^>]*>/g,'').trim())return '';
+  for(const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) {
+    const script=match[1];
+    const literal=script.match(/(?:window\.)?location(?:\.href)?\s*=\s*(['"])([^'"\r\n]+)\1\s*(?:;|$)/)||script.match(/(?:window\.)?location\.(?:replace|assign)\(\s*(['"])([^'"\r\n]+)\1\s*\)/);
+    if(literal)return new URL(literal[2],source).href;
+    const languages=script.match(/\b(?:var|let|const)\s+([\w$]+)\s*=\s*\[((?:\s*['"][a-z]{2}['"]\s*,?)+)\]/i);
+    if(languages&&/navigator\.languages\.find\(/.test(script)&&/(?:window\.)?location\.href\s*=\s*['"]\/['"]\s*\+/.test(script)&&script.includes(languages[1]+'[0]')) {
+      const first=languages[2].match(/['"]([a-z]{2})['"]/i)[1];
+      return new URL('/'+first,source).href;
+    }
+  }
+  return '';
+}
 export function publicURL(value) {
   let url;
   try { url = new URL(String(value).includes('://') ? value : 'https://' + value); } catch { throw new Error('Ange en giltig företagsadress.'); }
@@ -27,6 +42,7 @@ export async function readPublic(value, image = false, requestFetch = fetch) {
     try { while(true) { const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>maximum)throw new Error('Innehållet är för stort för att importera.');chunks.push(value); } }
     finally { await reader.cancel(); }
     const body=new Uint8Array(size);let offset=0;for(const chunk of chunks){body.set(chunk,offset);offset+=chunk.length;}
+    if(!image){const next=scriptRedirect(new TextDecoder().decode(body),url);if(next){console.info('[mockup online fetch] Following document redirect');value=next;continue;}}
     return {body,mime,url:url.href};
   }
   throw new Error('Hemsidan omdirigerar för många gånger.');

@@ -33,3 +33,17 @@ Inga paketberoenden eller betalda API:er. Worker-koden använder Cloudflares pub
 49 automatiserade tester och syntaxkontroll passerar. I webbgränssnittet på localhost:4174 verifierades duplicering, namnbyte, sparande efter omladdning, import från Vegavista (19 bildkandidater och 6 bildkort), arkivering, återställning, skapad publik kundlänk samt HTML-export med inbäddade pilotbilder. Den tidigare lokala servern på 4173 användes inte av webbversionen.
 
 En granskning hittade att ett första foto utan alt-text kunde klassas som logotyp. Det är rättat och täcks av regressionstest. SVG-logotyper kan visas, men behöver bytas till rasterbild eller tas bort för en fristående HTML-export; feltexten förklarar det.
+
+## Rättning av Hallinc-import
+
+Hallincs rotadress svarade med HTTP 200 och endast 156 byte JavaScript som omdirigerar till `/sv/`. Importen behandlade detta som färdigt innehåll. Hämtaren följer nu identifierbara JavaScript-omdirigeringar, inklusive språkvalet, utan att köra koden. Varje ny adress valideras och kedjan delar gränser för tid och antal omdirigeringar. Allmän JavaScript-rendering ingår fortfarande inte.
+
+Importen tar även med lazy-loaded bakgrundsbilder och h4-rubriker, bevarar mellanrum vid radbrytningar och känner igen en första logotyp vars alt-text matchar domänen. Sidor utan läsbart innehåll ger fel; det öppna projektet och utkastet behålls.
+
+54 tester passerar, inklusive den verkliga typen av språkredirect, blockerade interna mål, omdirigeringsloop, tom import och utkastbevarande. Lokal UI-kontroll av `https://hallinc.se/` gav HallInc, beskrivning, svea@hallinc.se, 9 bildkandidater och 6 bildkort. Logotyp och huvudbild syntes i förhandsvisningen.
+
+### Tre steg för att kontrollera rättningen
+
+1. Ladda om webbverktyget och ange `https://hallinc.se/` under Företagets hemsida.
+2. Välj Hämta innehåll. Kontrollera HallInc, text, logotyp och bildkandidater; granska och välj lämpliga bilder innan delning.
+3. Spara, ladda om och öppna förslaget igen. Kontrollera att innehållet finns kvar och välj därefter Granska & dela.
