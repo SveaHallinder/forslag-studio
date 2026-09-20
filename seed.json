@@ -1,0 +1,89 @@
+{
+  "id": "vegavista",
+  "name": "Vegavista",
+  "source": "https://vegavista.se/",
+  "eyebrow": "Storbildsannonsering · Nära dina kunder",
+  "headline": "Stor synlighet.\nPrecis där det händer.",
+  "description": "Nå kunderna i deras vardag. Med Vega Vistas storbildsskärmar får ditt budskap plats i lokala miljöer, nära nästa köpbeslut.",
+  "accent": "#cdeb60",
+  "logo": "https://forslag-studio-vega.sveaha.chatgpt.site/assets/logo.png",
+  "hero": "https://forslag-studio-vega.sveaha.chatgpt.site/assets/hero.jpg",
+  "heroPosition": 50,
+  "email": "info@vegavista.se",
+  "phone": "",
+  "address": "Skeppsbron 38, 111 30 Stockholm",
+  "sectionTitle": "Rätt plats för ditt budskap.",
+  "sectionIntro": "Från Stockholm City till lokala mötesplatser. Utforska ett urval av Vega Vistas annonslägen.",
+  "aboutTitle": "Närmare kunden.\nNärmare nästa affär.",
+  "about": "Vega Vista erbjuder storbildsannonsering i lokala miljöer. Våra skärmar ger företag möjlighet att kommunicera ett tydligt erbjudande där människor handlar och rör sig.\n\nLokal synlighet bygger förtroende. Vi hjälper ditt budskap att ta plats nära målgruppen, när den är i köpläge.",
+  "cta": "Prata synlighet med oss",
+  "benefits": [
+    {
+      "title": "Nära kunden",
+      "description": "Ditt budskap i lokala miljöer, nära människors vardag."
+    },
+    {
+      "title": "I rätt ögonblick",
+      "description": "Kommunicera när målgruppen är i köpläge."
+    },
+    {
+      "title": "Bygg förtroende",
+      "description": "Lokal närvaro som gör ditt företag synligt."
+    },
+    {
+      "title": "Ett tydligt erbjudande",
+      "description": "Ge kunden en konkret anledning att ta nästa steg."
+    }
+  ],
+  "cards": [
+    {
+      "title": "Scheelegatan · Kungsholmen",
+      "description": "5 kvm storbildsskärm",
+      "image": "https://forslag-studio-vega.sveaha.chatgpt.site/assets/kungsholmen.jpg"
+    },
+    {
+      "title": "Kungsgatan · Stockholm City",
+      "description": "8 kvm storbildsskärm",
+      "image": "https://forslag-studio-vega.sveaha.chatgpt.site/assets/city.png"
+    },
+    {
+      "title": "Stora Nygatan · Gamla stan",
+      "description": "5 kvm storbildsskärm",
+      "image": "https://forslag-studio-vega.sveaha.chatgpt.site/assets/gamlastan.jpg"
+    },
+    {
+      "title": "Sergelgatan · Stockholm",
+      "description": "14 kvm storbildsskärm",
+      "image": "https://forslag-studio-vega.sveaha.chatgpt.site/assets/hero.jpg"
+    },
+    {
+      "title": "Tolv Stockholm · 3Arena",
+      "description": "150+ skärmar inklusive Jumbotron och storbildsskärm",
+      "image": "https://forslag-studio-vega.sveaha.chatgpt.site/assets/arena.jpg"
+    }
+  ],
+  "images": [
+    {
+      "url": "https://forslag-studio-vega.sveaha.chatgpt.site/assets/hero.jpg",
+      "label": "hero"
+    },
+    {
+      "url": "https://forslag-studio-vega.sveaha.chatgpt.site/assets/kungsholmen.jpg",
+      "label": "kungsholmen"
+    },
+    {
+      "url": "https://forslag-studio-vega.sveaha.chatgpt.site/assets/city.png",
+      "label": "city"
+    },
+    {
+      "url": "https://forslag-studio-vega.sveaha.chatgpt.site/assets/gamlastan.jpg",
+      "label": "gamlastan"
+    },
+    {
+      "url": "https://forslag-studio-vega.sveaha.chatgpt.site/assets/arena.jpg",
+      "label": "arena"
+    }
+  ],
+  "warnings": [],
+  "importedAt": "2026-09-20"
+}
