@@ -27,10 +27,14 @@ export async function readPublic(value, image = false, requestFetch = fetch) {
   for (let redirects = 0; redirects < 5; redirects++) {
     const url = publicURL(value);
     // Cloudflare's unbound public fetch has no access to a private network.
+    const started=Date.now();
+    console.info('[mockup online fetch] Request',url.hostname,redirects);
     const response = await requestFetch(url.href, {redirect:'manual', signal, headers:{Accept:image?'image/*':'text/html,application/xhtml+xml','User-Agent':'ForslagStudio/1.0'}});
+    console.info('[mockup online fetch] Headers',url.hostname,response.status,Date.now()-started);
     if ([301,302,303,307,308].includes(response.status)) {
       const next=response.headers.get('Location'); await response.body?.cancel();
       if (!next) throw new Error('Hemsidan skickade en omdirigering utan adress.');
+      console.info('[mockup online fetch] Redirect body released',url.hostname,Date.now()-started);
       value=new URL(next,url).href; continue;
     }
     if (!response.ok) { await response.body?.cancel(); throw new Error(`Hemsidan svarade med HTTP ${response.status}. Prova en annan adress eller fyll i manuellt.`); }
@@ -41,6 +45,7 @@ export async function readPublic(value, image = false, requestFetch = fetch) {
     const reader=response.body.getReader(), chunks=[];let size=0;
     try { while(true) { const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>maximum)throw new Error('Innehållet är för stort för att importera.');chunks.push(value); } }
     finally { await reader.cancel(); }
+    console.info('[mockup online fetch] Body',url.hostname,size,Date.now()-started);
     const body=new Uint8Array(size);let offset=0;for(const chunk of chunks){body.set(chunk,offset);offset+=chunk.length;}
     if(!image){const next=scriptRedirect(new TextDecoder().decode(body),url);if(next){console.info('[mockup online fetch] Following document redirect');value=next;continue;}}
     return {body,mime,url:url.href};
