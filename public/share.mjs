@@ -6,7 +6,6 @@ export async function encodeProject(raw, publicBase) {
   project.benefits = project.benefits.filter(b => b.title);
   project.warnings = [];
   project.id = '';
-  project.importedAt = '';
   const base = new URL(publicBase);
   if (!['https:', 'http:'].includes(base.protocol)) throw new Error('Demolänkens adress är ogiltig.');
   const absolute = value => value.startsWith('/assets/') ? new URL(value, base).href : value;

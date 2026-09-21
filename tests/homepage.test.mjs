@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {normalizeProject,renderDemo} from '../public/render.mjs';
 import {encodeProject,decodeProject} from '../public/share.mjs';
+import {readFileSync} from 'node:fs';
 
 test('original homepage navigation, CTA and section anchors survive a customer link',async()=>{
   const raw={name:'Företaget',headline:'Vi gör ert arbete enklare',cta:'Boka visning',ctaHref:'https://example.com/boka',navigation:[{label:'Lösningar',href:'#solutions'},{label:'Teamet',href:'https://example.com/team'}],cards:[{title:'Allt ni behöver',description:'Originalets copy. '.repeat(80),anchor:'solutions',image:'https://example.com/photo.jpg'}]};
@@ -30,4 +31,30 @@ test('an imported page without a menu or CTA gets no invented marketing copy',()
   assert.match(html,/<body data-imported="true"/);
   const hero=html.match(/<section class="hero-copy">([\s\S]*?)<\/section>/)[1];
   assert.doesNotMatch(hero,/<a|Utforska/);
+});
+
+test('adding a menu to an existing project preserves its introduction and hero action',()=>{
+  const seed=JSON.parse(readFileSync(new URL('../seed.json',import.meta.url),'utf8'));
+  const before=renderDemo(seed),after=renderDemo({...seed,navigation:[{label:'Egen meny',href:'#kontakt'}]});
+  assert.match(after,/<body data-imported="false"/);
+  assert.equal(after.match(/<section class="hero-copy">([\s\S]*?)<\/section>/)[1],before.match(/<section class="hero-copy">([\s\S]*?)<\/section>/)[1]);
+  assert.ok(after.includes(seed.sectionIntro));assert.match(after,/>Egen meny<\/a>/);
+});
+test('removing the final menu link from a text-only import does not invent navigation or actions in a shared demo',async()=>{
+  const p={name:'Original',headline:'Välkommen',importedAt:'2026-09-21T00:00:00Z',navigation:[],cards:[]};
+  const shared=await decodeProject(new URL(await encodeProject(p,'https://studio.example/demo.html')).hash);
+  const html=renderDemo(shared);
+  assert.equal(html,renderDemo(p));
+  assert.match(html,/<body data-imported="true"/);
+  assert.doesNotMatch(html.match(/<nav[^>]*>([\s\S]*?)<\/nav>/)[1],/<a/);
+  assert.doesNotMatch(html.match(/<section class="hero-copy">([\s\S]*?)<\/section>/)[1],/<a/);
+});
+test('previously issued text-only customer links without import dates retain their original menu and no hero action',async()=>{
+  // Older encoders cleared importedAt before issuing customer links.
+  const old={name:'Original',headline:'Välkommen',importedAt:'',navigation:[{label:'Om företaget',href:'https://example.com/om'}],cards:[]};
+  const shared=await decodeProject(new URL(await encodeProject(old,'https://studio.example/demo.html')).hash);
+  const html=renderDemo(shared);
+  assert.match(html,/<body data-imported="true"/);
+  assert.match(html,/>Om företaget<\/a>/);
+  assert.doesNotMatch(html.match(/<section class="hero-copy">([\s\S]*?)<\/section>/)[1],/<a/);
 });

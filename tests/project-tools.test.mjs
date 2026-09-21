@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assessProject, searchProjects, restoreProject } from '../public/project-tools.mjs';
+import * as projectTools from '../public/project-tools.mjs';
+const { assessProject, searchProjects, restoreProject } = projectTools;
 
 test('empty starter cannot be mistaken for a customer-ready proposal',()=>{
  const checks=assessProject({name:'Nytt förslag',headline:'Här börjar nästa kunds hemsida.'});
@@ -28,4 +29,22 @@ test('restoring a project copy never reuses its saved project id',()=>{
 });
 test('restore rejects non-project JSON without making a fake empty proposal',()=>{
  for(const data of ['null','[]','{}','{"name":7}','not json'])assert.throws(()=>restoreProject(data),/projekt/i);
+});
+
+test('project copies preserve all forty supported homepage blocks',()=>{
+ const raw={name:'Acme',headline:'Hej',cards:Array.from({length:40},(_,i)=>({title:'Block '+i,anchor:'section-'+i})),navigation:[{label:'Sista',href:'#section-39'}]};
+ const p=restoreProject(JSON.stringify(raw));assert.equal(p.cards.length,40);assert.deepEqual(p.navigation,raw.navigation);
+ assert.throws(()=>restoreProject(JSON.stringify({...raw,cards:[...raw.cards,{title:'Too much'}]})),/bildkort/i);
+});
+test('menu edits trim values and preserve safe destinations without changing their input',()=>{
+ assert.equal(typeof projectTools.prepareNavigation,'function');
+ const items=[{label:' Kontakt ',href:' https://example.com/contact '},{label:'Tjänster',href:'#section-1'}],original=JSON.stringify(items);
+ assert.deepEqual(projectTools.prepareNavigation(items),[{label:'Kontakt',href:'https://example.com/contact'},{label:'Tjänster',href:'#section-1'}]);
+ assert.equal(JSON.stringify(items),original);assert.deepEqual(projectTools.prepareNavigation([]),[]);
+});
+test('invalid menu edits identify the row instead of silently dropping its link',()=>{
+ assert.equal(typeof projectTools.prepareNavigation,'function');
+ for(const href of ['javascript:alert(1)','data:text/html,hi','https://user:secret@example.com','/contact',''])assert.throws(()=>projectTools.prepareNavigation([{label:'Kontakt',href}]),/Menylänk 1/);
+ assert.throws(()=>projectTools.prepareNavigation([{label:'',href:'https://example.com'}]),/Menylänk 1/);
+ assert.throws(()=>projectTools.prepareNavigation(Array.from({length:13},()=>({label:'Hem',href:'#start'}))),/12/);
 });

@@ -133,3 +133,19 @@ Underlag: UI UX Pro Max-sökningar om textkontrast, klickytor och reducerad rör
 3. Växla mellan Bild & berättelse, Studio och Tjänster. Kontrollera att rubriker, texter, bilder och destinationer finns kvar.
 4. Prova mobilvy och desktop. Kontrollera läsbredd, sektionsavstånd och att en lång meny ryms utan att täcka rubriken.
 5. Spara och skapa en kundlänk. Öppna den och kontrollera samma design samt synligt fokus när du tabbar mellan länkarna.
+
+## Redigera huvudmenyn och återställ större projekt
+
+Under Innehåll → Redigera meny går det att ändra text, destination och ordning, samt lägga till eller ta bort länkar. Välj ett befintligt innehållsblock för en intern länk eller ange en fullständig extern adress. Högst tolv länkar stöds. Ändringar används först vid Använd menyn; Avbryt lämnar förslaget orört. Felaktiga länkar markeras vid rätt fält. Manuellt skrivna ankare måste motsvara ett befintligt block; väljaren visar giltiga destinationer. Undersidor öppnas på originalets webbplats.
+
+UI UX Pro Max ligger till grund för tydliga fältfel, fokusmarkering och klickytor. Menyn följer med vid sparande, projektkopia och kunddelning. Befintliga förslags introduktion och huvudknapp behålls när deras meny redigeras. Textbaserade importer behåller sin layout även utan meny, och äldre kundlänkar utan importdatum fungerar fortsatt. Projektkopior kan återställas med upp till 40 innehållsblock, samma gräns som importen och visningen; tidigare avvisades fler än tolv.
+
+Verifierat: 66 Node-tester, lint och bygge. Lokal UI-kontroll av menytext, intern destination, ordning, tillägg, tolvgräns, ogiltig länk, Avbryt, sparande efter omladdning och samma meny i kundlänk. Dialogen ryms vid 375 px utan horisontellt överflöde. Återställning med 40 block och avvisning av 41 verifieras automatiskt. Inga nya beroenden eller ändringar av sparformatet. Importens tidigare begränsningar gäller fortfarande.
+
+### QA i fem steg
+
+1. Spara pågående utkast och ladda om http://localhost:4174 eller den publicerade appen. Öppna ett sparat förslag.
+2. Välj Innehåll → Redigera meny. Ändra en text, välj Överst på sidan och flytta länken. Välj Använd menyn och kontrollera förhandsvisningen.
+3. Öppna menyn igen och skriv en ogiltig destination. Använd menyn ska visa ett tydligt fältfel. Välj Avbryt och kontrollera att föregående meny är kvar.
+4. Spara, ladda om och skapa kundlänk via Granska & dela. Kontrollera texter, ordning och destinationer på kundsidan, även i mobilvy.
+5. Ladda ner en projektkopia från ett förslag med fler än tolv innehållsblock. Återställ den via Mina förslag och kontrollera sista blocket och menyn.

@@ -2,7 +2,7 @@ import { browserAPI } from './browser-api.mjs';
 import { normalizeProject, renderDemo, escapeHTML as e } from './render.mjs';
 import { encodeProject } from './share.mjs';
 import { templates, getTemplate } from './templates.mjs';
-import { assessProject, searchProjects, restoreProject } from './project-tools.mjs';
+import { assessProject, searchProjects, restoreProject, prepareNavigation } from './project-tools.mjs';
 
 const $ = id => document.getElementById(id);
 let project, config = {}, dirty = false, device = 'desktop', toastTimer, previewTimer, importBusy = false;
@@ -82,6 +82,47 @@ function imageOptions(selected) {
   if (selected && !images.some(i=>i.url===selected)) images.unshift({url:selected,label:'Vald bild'});
   return '<option value="">Ingen bild</option>' + images.map((image, i) => `<option value="${e(image.url)}" ${image.url===selected?'selected':''}>${e(image.label || 'Bild ' + (i+1))}</option>`).join('');
 }
+let navigationDraft=[], navigationProject;
+function renderNavigationSummary() {
+  $('navigationSummary').textContent=project.navigation.length?`${project.navigation.length} menylänkar · ${project.navigation.map(n=>n.label).join(' / ')}`:'Ingen egen meny ännu. Lägg till länkar till företagets sidor eller förslagets innehåll.';
+}
+function renderNavigationRows(focusIndex, focusField='label') {
+  const targets=[{label:'Överst på sidan',href:'#start'},...project.cards.filter(c=>c.anchor).map(c=>({label:c.title||'Innehållsblock',href:'#'+c.anchor})),{label:'Kontaktuppgifter',href:'#kontakt'}];
+  $('navigationRows').innerHTML=navigationDraft.map((item,i)=>`<fieldset class="navigation-row"><legend>Menylänk ${i+1}</legend><div class="navigation-actions"><button type="button" data-nav-move="${i}" data-direction="-1" aria-label="Flytta menylänk ${i+1} upp" ${i===0?'disabled':''}>↑</button><button type="button" data-nav-move="${i}" data-direction="1" aria-label="Flytta menylänk ${i+1} ned" ${i===navigationDraft.length-1?'disabled':''}>↓</button><button type="button" data-nav-remove="${i}" aria-label="Ta bort menylänk ${i+1}">Ta bort</button></div><label for="nav-label-${i}">Menytext</label><input id="nav-label-${i}" data-nav-index="${i}" data-nav-field="label" maxlength="70" value="${e(item.label)}"><label for="nav-href-${i}">Destination</label><input id="nav-href-${i}" data-nav-index="${i}" data-nav-field="href" maxlength="2000" value="${e(item.href)}" placeholder="https://foretaget.se/kontakt"><label for="nav-target-${i}">Eller länka inom förslaget</label><select id="nav-target-${i}" data-nav-target="${i}"><option value="">Välj innehållsblock…</option>${targets.map(t=>`<option value="${e(t.href)}">${e(t.label)}</option>`).join('')}</select><p id="nav-error-${i}" class="navigation-error" hidden></p></fieldset>`).join('')||'<p class="empty-state">Menyn är tom. Lägg till en länk för att hjälpa besökaren hitta rätt.</p>';
+  $('addNavigation').disabled=navigationDraft.length>=12;
+  $('navigationError').hidden=true;
+  if(focusIndex!==undefined)$(`nav-${focusField}-${focusIndex}`)?.focus();
+}
+$('editNavigation').addEventListener('click',()=>{
+  if(!project)return;
+  navigationProject=project;navigationDraft=project.navigation.map(n=>({...n}));renderNavigationRows();$('navigationDialog').showModal();
+});
+$('cancelNavigation').addEventListener('click',()=>$('navigationDialog').close());
+$('navigationRows').addEventListener('input',event=>{
+  const {navIndex,navField}=event.target.dataset;
+  if(navIndex!==undefined){navigationDraft[Number(navIndex)][navField]=event.target.value;event.target.removeAttribute('aria-invalid');$(`nav-error-${navIndex}`).hidden=true;$('navigationError').hidden=true;}
+});
+$('navigationRows').addEventListener('change',event=>{
+  const index=event.target.dataset.navTarget;
+  if(index!==undefined&&event.target.value){navigationDraft[Number(index)].href=event.target.value;renderNavigationRows(Number(index),'href');}
+});
+$('navigationRows').addEventListener('click',event=>{
+  const button=event.target.closest('[data-nav-remove],[data-nav-move]');if(!button)return;
+  const index=Number(button.dataset.navRemove??button.dataset.navMove);
+  if(button.dataset.navRemove!==undefined)navigationDraft.splice(index,1);
+  else {const next=index+Number(button.dataset.direction);if(next<0||next>=navigationDraft.length)return;[navigationDraft[index],navigationDraft[next]]=[navigationDraft[next],navigationDraft[index]];renderNavigationRows(next);return;}
+  renderNavigationRows(navigationDraft.length?Math.min(index,navigationDraft.length-1):undefined);
+  if(!navigationDraft.length)$('addNavigation').focus();
+});
+$('addNavigation').addEventListener('click',()=>{if(navigationDraft.length>=12)return;navigationDraft.push({label:'',href:''});renderNavigationRows(navigationDraft.length-1);});
+$('navigationForm').addEventListener('submit',event=>{
+  event.preventDefault();
+  if(project!==navigationProject){$('navigationDialog').close();return toast('Förslaget har bytts. Öppna menyn igen för rätt företag.');}
+  try {project.navigation=prepareNavigation(navigationDraft);renderNavigationSummary();markDirty();updatePreview();$('navigationDialog').close();toast('Menyn är uppdaterad. Spara utkastet för att behålla den.');}
+  catch(error){$('navigationError').textContent=error.message;$('navigationError').hidden=false;
+    if(error.index!==undefined){const field=$(`nav-${error.field}-${error.index}`),message=$(`nav-error-${error.index}`);message.textContent=error.message;message.hidden=false;field.setAttribute('aria-invalid','true');field.setAttribute('aria-describedby',message.id);field.focus();}
+  }
+});
 function renderCards() {
   $('cardsEditor').innerHTML = project.cards.map((card, i) => `<div class="card-editor"><div class="card-editor-header"><span>KORT ${String(i+1).padStart(2,'0')}</span><button data-remove-card="${i}" aria-label="Ta bort kort ${i+1}">×</button></div><label for="card-title-${i}">Rubrik</label><input id="card-title-${i}" data-card="${i}" data-property="title" maxlength="300" value="${e(card.title)}"><label for="card-description-${i}">Beskrivning</label><textarea id="card-description-${i}" data-card="${i}" data-property="description" rows="2" maxlength="6000">${e(card.description)}</textarea><label for="card-image-${i}">Bild</label><select id="card-image-${i}" data-card="${i}" data-property="image">${imageOptions(card.image)}</select></div>`).join('') || '<p class="empty-state">Inga bildkort ännu. Lägg till ett kort för en tjänst, produkt eller plats.</p>';
   $('addCard').disabled = project.cards.length >= 40;
@@ -136,7 +177,7 @@ function fillEditor() {
   $('savedState').textContent = dirty ? 'OSPARAT' : 'SPARAT';
   $('importStatus').className = 'import-status';
   $('importStatus').textContent = project.id === 'vegavista' ? 'Vegavista-pilot. Granska eventuella ändringar innan du delar.' : project.importedAt ? 'Importerat innehåll. Granska text och bildval innan du delar.' : 'Klistra in en företagslänk eller fyll i innehållet själv.';
-  renderCards(); renderImages(); renderBenefits(); updatePreview();
+  renderNavigationSummary(); renderCards(); renderImages(); renderBenefits(); updatePreview();
 }
 async function refreshProjects() {
   const sequence = ++libraryLoadSequence;
