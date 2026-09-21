@@ -122,3 +122,11 @@ test('a rejected empty import preserves the current project and its draft',async
   assert.equal(h.context.dirty,true);assert.equal(h.context.importBusy,false);
   assert.match(h.context.$('importStatus').textContent,/inget läsbart/);
 });
+
+test('import cannot start before the initial project has loaded',async()=>{
+  const h=harness();let calls=0;h.context.project=undefined;
+  h.context.api=async()=>{calls++;return {json:async()=>({name:'Too early'})};};
+  await h.startImport();
+  assert.equal(calls,0);
+  assert.equal(h.context.project,undefined);
+});

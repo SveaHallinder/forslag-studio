@@ -394,7 +394,7 @@ $('newProject').addEventListener('click',()=>{
 });
 $('showProjects').addEventListener('click',async()=>{ $('editorView').hidden=true;$('projectsView').hidden=false;$('dashboardResume').textContent=dirty?'Fortsätt med utkastet':'Fortsätt redigera';$('showProjects').classList.add('side-active');try{await refreshProjects();}catch(error){toast(error.message);} });
 $('importButton').addEventListener('click',async()=>{
-  if(importBusy)return;
+  if(importBusy||!project)return;
   const url=$('sourceUrl').value.trim();if(!url){$('sourceUrl').focus();return toast('Klistra in företagets webbadress.');}
   if(dirty&&!confirm('Importera ett nytt företag och ersätta det osparade utkastet?'))return;
   const importProject = project;
@@ -421,6 +421,7 @@ if(location.protocol !== 'file:')try {
   config = await (await api('/api/config')).json();
   project = await loadInitialProject();
   fillEditor();await refreshProjects();fitPreview();
+  $('sourceUrl').disabled=false;$('importButton').disabled=false;
   if(dirty)toast('Ditt senaste osparade utkast har återställts.');
 } catch(error) {
   $('importStatus').textContent=error.message + ' Ladda om sidan eller prova en vanlig webbläsarflik.';

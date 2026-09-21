@@ -66,4 +66,4 @@ Begränsningar: importen kör inte företagets JavaScript eller fullständig CSS
 4. Spara och ladda om. Byt mall och mobilvy: originalmeny och texter ska finnas kvar. Undersideslänkar öppnar originalet.
 5. Skapa kundlänk via Granska & dela och öppna den. Jämför innehåll och navigation med förhandsvisningen; kontrollera också projektkopia och HTML-export innan användning med kund.
 
-Automatiska kontroller: 58 Node-tester samt 16 regressioner med riktig DOM i `tests/import-browser.html`. Browserfilen serveras endast lokalt vid QA och ingår inte i den publicerade appen.
+Automatiska kontroller: 59 Node-tester samt 16 regressioner med riktig DOM i `tests/import-browser.html`. Browserfilen serveras endast lokalt vid QA och ingår inte i den publicerade appen.
