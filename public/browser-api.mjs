@@ -32,12 +32,15 @@ async function remote(path,body) {
   if(!response.ok){const data=await response.json().catch(()=>({}));throw problem(data.error||'Hämtningen misslyckades. Försök igen.',response.status);}return response;
 }
 async function importCompany(url) {
-  const page=await(await remote('/api/read',{url})).json(),project=extractContent(page.html,page.url);
+  const page=await(await remote('/api/read',{url})).json();
+  let project=extractContent(page.html,page.url);
+  const styles=await Promise.all(project.stylesheets.slice(0,2).map(async url=>{try{return (await(await remote('/api/style',{url})).json()).css;}catch{console.warn('[mockup online import] Brand stylesheet unavailable');return '';}}));
+  if(styles.some(Boolean))project=extractContent(page.html,page.url,styles.join('\n'));
   if(!project.email&&!project.phone){
     const contact=project.links.find(link=>{try{return new URL(link).hostname===new URL(page.url).hostname&&/kontakt|contact|om-oss|about/i.test(new URL(link).pathname);}catch{return false;}});
     if(contact)try{const extra=await(await remote('/api/read',{url:contact})).json(),details=extractContent(extra.html,extra.url);project.email=details.email;project.phone=details.phone;if(details.email||details.phone)project.warnings=project.warnings.filter(w=>!w.startsWith('Kontaktuppgifter saknas'));}catch{console.warn('[mockup online import] Contact page unavailable');}
   }
-  delete project.links;return project;
+  delete project.links;delete project.stylesheets;return project;
 }
 function dataURL(blob){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(problem('Bilden kunde inte läsas.'));reader.readAsDataURL(blob);});}
 async function exportDemo(input){
@@ -53,7 +56,7 @@ async function exportDemo(input){
 }
 export async function browserAPI(path,body) {
   try {
-    if(path==='/api/config')return reply({publicBase:'https://forslag-studio-vega.sveaha.chatgpt.site',hostingStatus:'public',storage:'browser'});
+    if(path==='/api/config')return reply({publicBase:new URL('/demo.html',location.href).href,hostingStatus:'public',storage:'browser'});
     if(path==='/api/import')return reply(await importCompany(body.url));
     if(path==='/api/export')return await exportDemo(body);
     if(!ready)ready=initialize().catch(error=>{ready=null;throw error;});await ready;

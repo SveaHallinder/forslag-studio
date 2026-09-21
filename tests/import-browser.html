@@ -1,0 +1,31 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><title>Importtester</title><body><h1>Importtester med riktig DOM</h1><pre id="results">Kör…</pre><script type="module">
+import {extractContent} from '/import-content.mjs';
+const outcomes=[];
+const check=(name,fn)=>{try{fn();outcomes.push('PASS '+name);}catch(e){outcomes.push('FAIL '+name+': '+e.message);}};
+const assert=(ok,msg)=>{if(!ok)throw Error(msg);};
+const html=`<html><head><title>Acme | Startsida</title><meta name="description" content="SEO-text som inte ska ersätta sidans introduktion"><style>:root{--brand-primary:#b63552}</style></head><body><header><a href="/"><img src="/acme.svg" alt="Acme" width="100"></a><nav><a href="/#repair">Reparation</a><a href="/team">Vårt team</a></nav></header><main><section id="intro"><div><h1>Vi lagar det du älskar</h1><p>Originalets riktiga introduktion.</p><a href="/book">Boka reparation</a></div><img src="/hero.jpg" width="1600" height="1000"></section><section id="repair"><article><img src="/repair.jpg" width="600" height="400"><div><h2>Reparation</h2><p>Första stycket.</p><p>Andra stycket.</p><ul><li>Med garanti</li><li>På plats</li></ul></div></article><article><h2>Service</h2><p>Service har ingen bild.</p></article></section><aside hidden><h2>Dold mobilkopia</h2></aside><div id="cookie-banner"><h2>Vi använder cookies</h2><p>Godkänn kakor.</p></div></main><footer><img src="/partner.jpg" width="900" height="600"><a href="mailto:info@acme.example">Mejla oss</a></footer></body></html>`;
+const p=extractContent(html,'https://acme.example/');
+check('synlig copy före metadata',()=>assert(p.description==='Originalets riktiga introduktion.',p.description));
+check('meny bevaras',()=>assert(p.navigation?.[0].label==='Reparation'&&p.navigation[1].label==='Vårt team','meny saknas'));
+check('hero och logotyp separeras',()=>assert(p.hero==='https://acme.example/hero.jpg'&&p.logo==='https://acme.example/acme.svg','fel hero eller logo'));
+check('sektion behåller stycken och lista',()=>assert(p.cards.find(c=>c.title==='Reparation')?.description==='Första stycket.\n\nAndra stycket.\n\nMed garanti\n\nPå plats',JSON.stringify(p.cards)));
+check('rätt bild inom sektion',()=>assert(p.cards.find(c=>c.title==='Reparation')?.image==='https://acme.example/repair.jpg'&&!p.cards.find(c=>c.title==='Service')?.image,'bild kopplad till fel text'));
+check('dolt innehåll och kakdialog bort',()=>assert(!p.cards.some(c=>/Dold|cookies/.test(c.title)),'skräpinnehåll'));
+check('originalets CTA',()=>assert(p.cta==='Boka reparation'&&p.ctaHref==='https://acme.example/book','CTA saknas'));
+check('uttrycklig brandfärg',()=>assert(p.accent==='#b63552',p.accent));
+const flat=extractContent('<main><h1>Hero</h1><p>Intro.</p><img src="/hero.jpg"><h2>Service</h2><p>Rätt text.</p><img src="/service.jpg"><h2>Annat</h2><p>Ingen bild.</p></main>','https://example.com/');
+check('platt HTML blandar inte sektioner',()=>assert(flat.description==='Intro.'&&flat.cards[0].description==='Rätt text.'&&flat.cards[0].image==='https://example.com/service.jpg'&&!flat.cards[1].image,JSON.stringify(flat.cards)));
+const semantic=extractContent('<header><nav><a href="/team">Team</a></nav></header><main><section><header><h2>Första synliga rubriken</h2></header><p>Intro.</p></section><section><h1>Senare rubrik</h1><p>Senare text.</p></section></main><footer><nav><a href="/privacy">Privacy</a></nav></footer>','https://example.com/');
+check('sektionens header och visuell ordning bevaras',()=>assert(semantic.headline==='Första synliga rubriken',semantic.headline));
+check('footer blir inte huvudmeny',()=>assert(semantic.navigation.length===1&&semantic.navigation[0].label==='Team',JSON.stringify(semantic.navigation)));
+const contact=extractContent('<h1>Kontakt</h1><a href="tel:+46%2070%20123%204567">Ring</a><a href="mailto:info%40example.com">Mail</a>','https://example.com/');
+check('kodade kontaktlänkar behålls',()=>assert(contact.phone==='+46 70 123 4567'&&contact.email==='info@example.com','kontakt tappades'));
+check('tom JavaScript-sida ger fel',()=>{let failed=false;try{extractContent('<script>loadApp()</scr'+'ipt>','https://example.com/');}catch{failed=true;}assert(failed,'tom import godkändes');});
+const photo=extractContent('<section><h1>Hej</h1><img src="/photo.jpg" width="1200" height="800"></section>','https://example.com/');
+check('foto utan alt blir inte logo',()=>assert(photo.hero==='https://example.com/photo.jpg'&&!photo.logo,'foto blev logo'));
+const hidden=extractContent('<section><h2>Desktop</h2><p>Text</p></section><section class="hide-lg"><h1>Mobilkopia</h1></section>','https://example.com/');
+check('dold responsiv kopia tas bort',()=>assert(hidden.headline==='Desktop'&&!hidden.cards.length,'mobilkopia kom med'));
+const customHeader=extractContent('<div class="ed-logo logo"><a href="/sv"><img src="/brand.png" alt="example.com"></a></div><main><h1>Hej</h1><section><h2>Våra kunder</h2><img src="/customer-logo.png" alt="Kundkommun"></section></main>','https://example.com/sv/');
+check('kundens logo ersätts aldrig av en partnerlogo',()=>assert(customHeader.logo==='https://example.com/brand.png',customHeader.logo));
+document.getElementById('results').textContent=outcomes.join('\n');
+</script></body></html>

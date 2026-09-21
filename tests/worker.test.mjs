@@ -43,3 +43,29 @@ test('HTML redirect chains cannot loop or access private addresses',async()=>{
   await assert.rejects(readPublic('https://example.com',false,async()=>new Response('<script>window.location.href="http://127.0.0.1/";</script>',{headers:{'Content-Type':'text/html'}})),/offentlig/);
   await assert.rejects(readPublic('https://example.com',false,async()=>new Response('<script>location.replace("/again");</script>',{headers:{'Content-Type':'text/html'}})),/många gånger/);
 });
+
+test('a stalled root connection retries www without changing path or retrying HTTP errors',async()=>{
+  const calls=[];
+  const result=await readPublic('https://example.com/',false,async url=>{
+    calls.push(url);if(calls.length===1)throw new DOMException('Timed out','TimeoutError');
+    return new Response('<h1>Företaget</h1>',{headers:{'Content-Type':'text/html'}});
+  });
+  assert.deepEqual(calls,['https://example.com/','https://www.example.com/']);
+  assert.equal(result.url,'https://www.example.com/');
+  let count=0;
+  await assert.rejects(readPublic('https://example.com/',false,async()=>{count++;return new Response('',{status:403});}),/403/);
+  assert.equal(count,1);
+});
+test('network fallback does not rewrite image or deep-link hostnames',async()=>{
+  for(const [url,image] of [['https://example.com/logo.png',true],['https://example.com/service',false]]){
+    const calls=[];
+    await assert.rejects(readPublic(url,image,async value=>{calls.push(value);throw new DOMException('Timed out','TimeoutError');}),/Timed out/);
+    assert.deepEqual(calls,[url]);
+  }
+});
+
+test('brand stylesheets use a separate bounded text-only route',async()=>{
+  const result=await readPublic('https://example.com/site.css','style',async()=>new Response(':root{--brand-primary:#123456}',{headers:{'Content-Type':'text/css'}}));
+  assert.equal(result.mime,'text/css');
+  await assert.rejects(readPublic('https://example.com/site.css','style',async()=>new Response('<html>blocked</html>',{headers:{'Content-Type':'text/html'}})),/stilmall/);
+});

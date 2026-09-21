@@ -83,8 +83,8 @@ function imageOptions(selected) {
   return '<option value="">Ingen bild</option>' + images.map((image, i) => `<option value="${e(image.url)}" ${image.url===selected?'selected':''}>${e(image.label || 'Bild ' + (i+1))}</option>`).join('');
 }
 function renderCards() {
-  $('cardsEditor').innerHTML = project.cards.map((card, i) => `<div class="card-editor"><div class="card-editor-header"><span>KORT ${String(i+1).padStart(2,'0')}</span><button data-remove-card="${i}" aria-label="Ta bort kort ${i+1}">×</button></div><label for="card-title-${i}">Rubrik</label><input id="card-title-${i}" data-card="${i}" data-property="title" maxlength="140" value="${e(card.title)}"><label for="card-description-${i}">Beskrivning</label><textarea id="card-description-${i}" data-card="${i}" data-property="description" rows="2" maxlength="600">${e(card.description)}</textarea><label for="card-image-${i}">Bild</label><select id="card-image-${i}" data-card="${i}" data-property="image">${imageOptions(card.image)}</select></div>`).join('') || '<p class="empty-state">Inga bildkort ännu. Lägg till ett kort för en tjänst, produkt eller plats.</p>';
-  $('addCard').disabled = project.cards.length >= 12;
+  $('cardsEditor').innerHTML = project.cards.map((card, i) => `<div class="card-editor"><div class="card-editor-header"><span>KORT ${String(i+1).padStart(2,'0')}</span><button data-remove-card="${i}" aria-label="Ta bort kort ${i+1}">×</button></div><label for="card-title-${i}">Rubrik</label><input id="card-title-${i}" data-card="${i}" data-property="title" maxlength="300" value="${e(card.title)}"><label for="card-description-${i}">Beskrivning</label><textarea id="card-description-${i}" data-card="${i}" data-property="description" rows="2" maxlength="6000">${e(card.description)}</textarea><label for="card-image-${i}">Bild</label><select id="card-image-${i}" data-card="${i}" data-property="image">${imageOptions(card.image)}</select></div>`).join('') || '<p class="empty-state">Inga bildkort ännu. Lägg till ett kort för en tjänst, produkt eller plats.</p>';
+  $('addCard').disabled = project.cards.length >= 40;
 }
 function renderImages() {
   $('heroThumbnail').hidden = !project.hero;
@@ -347,7 +347,7 @@ $('benefitsEditor').addEventListener('input', event => {
     project.benefits[Number(benefit)][property] = event.target.value; markDirty(); updatePreview();
   }
 });
-$('addCard').addEventListener('click', () => { if(project.cards.length<12) { project.cards.push({title:'',description:'',image:''}); renderCards(); markDirty(); } });
+$('addCard').addEventListener('click', () => { if(project.cards.length<40) { project.cards.push({title:'',description:'',image:''}); renderCards(); markDirty(); } });
 $('imageGrid').addEventListener('click', event => { const b=event.target.closest('[data-image]'); if(b){ project.hero=project.images[Number(b.dataset.image)].url; renderImages(); markDirty(); updatePreview(); } });
 $('clearHero').addEventListener('click', ()=>{project.hero='';renderImages();markDirty();updatePreview();});
 $('clearLogo').addEventListener('click', ()=>{project.logo='';markDirty();updatePreview();});
@@ -409,7 +409,7 @@ $('importButton').addEventListener('click',async()=>{
       return;
     }
     project=imported;dirty=true;fillEditor();markDirty();
-    $('importStatus').className='import-status';$('importStatus').textContent=`${project.images.length} bilder och ${project.cards.length} bildkort hittades. Granska förslaget nedan.`;
+    $('importStatus').className='import-status';$('importStatus').textContent=`${project.images.length} bildkandidater och ${project.cards.length} innehållsblock hittades. Granska förslaget nedan.`;
     toast('Företagets innehåll är inlagt.');
   }catch(error){$('importStatus').className='import-status error';$('importStatus').textContent=error.name==='TimeoutError'?'Hämtningen tog för lång tid. Ditt utkast finns kvar; försök igen eller fortsätt manuellt.':error.message;}
   finally{importBusy=false;$('importButton').disabled=false;$('importButton').innerHTML='Hämta innehåll <span>→</span>';}

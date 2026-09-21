@@ -9,6 +9,11 @@ export function imageURL(value) {
   if (/^data:image\/(png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=]+$/.test(url)) return url;
   try { const p = new URL(url); return ['https:', 'http:'].includes(p.protocol) && !p.username && !p.password ? p.href : ''; } catch { return ''; }
 }
+export function linkURL(value) {
+  const raw=String(value||'').trim();
+  if(/^#[a-zA-Z0-9_-]+$/.test(raw))return raw;
+  try{const u=new URL(raw);return ['https:','http:','mailto:','tel:'].includes(u.protocol)&&!u.username&&!u.password?u.href:'';}catch{return '';}
+}
 export function normalizeProject(raw = {}) {
   return {
     templateId: getTemplate(raw.templateId).id,
@@ -17,7 +22,7 @@ export function normalizeProject(raw = {}) {
     source: /^https?:\/\//.test(raw.source ?? '') ? text(raw.source, 2000) : '',
     eyebrow: text(raw.eyebrow, 100),
     headline: text(raw.headline, 180) || 'En ny plats för ert företag.',
-    description: text(raw.description, 1200),
+    description: text(raw.description, 6000),
     accent: /^#[a-f0-9]{6}$/i.test(raw.accent ?? '') ? raw.accent : '#cdeb60',
     logo: imageURL(raw.logo), hero: imageURL(raw.hero),
     heroPosition: Math.max(0, Math.min(100, Number.isFinite(Number(raw.heroPosition ?? 50)) ? Number(raw.heroPosition ?? 50) : 50)),
@@ -27,10 +32,12 @@ export function normalizeProject(raw = {}) {
     sectionTitle: text(raw.sectionTitle, 140) || 'Upptäck vad vi erbjuder',
     sectionIntro: text(raw.sectionIntro, 600),
     aboutTitle: text(raw.aboutTitle, 180), about: text(raw.about, 1500),
-    cta: text(raw.cta, 50) || 'Kontakta oss',
+    cta: text(raw.cta, 100) || 'Kontakta oss',
+    ctaHref: linkURL(raw.ctaHref),
+    navigation: (Array.isArray(raw.navigation)?raw.navigation:[]).slice(0,12).map(n=>({label:text(n?.label,70),href:linkURL(n?.href)})).filter(n=>n.label&&n.href),
     benefits: (Array.isArray(raw.benefits) ? raw.benefits : []).slice(0, 4).map(b => ({title:text(b.title,100),description:text(b.description,350)})),
-    cards: (Array.isArray(raw.cards) ? raw.cards : []).slice(0, 12).map(c => ({title:text(c.title,140),description:text(c.description,600),image:imageURL(c.image)})).filter(c => c.title || c.description || c.image),
-    images: (Array.isArray(raw.images) ? raw.images : []).slice(0, 40).map(i => ({url:imageURL(i.url),label:text(i.label,160)})).filter(i => i.url),
+    cards: (Array.isArray(raw.cards) ? raw.cards : []).slice(0, 40).map(c => ({title:text(c.title,300),description:text(c.description,6000),image:imageURL(c.image),...(c.href?{href:linkURL(c.href)}:{}),...(c.anchor?{anchor:/^[a-zA-Z0-9_-]{1,100}$/.test(c.anchor)?c.anchor:''}:{})})).filter(c => c.title || c.description || c.image),
+    images: (Array.isArray(raw.images) ? raw.images : []).slice(0, 80).map(i => ({url:imageURL(i.url),label:text(i.label,160)})).filter(i => i.url),
     warnings: (Array.isArray(raw.warnings) ? raw.warnings : []).slice(0,10).map(w=>text(w,250)),
     importedAt: text(raw.importedAt,80),
   };
@@ -52,13 +59,19 @@ export function renderDemo(raw, options = {}) {
   const contact = p.email ? `mailto:${p.email}` : p.phone ? `tel:${p.phone.replace(/[^+\d]/g,'')}` : '';
   const benefits = `${p.benefits.length?`<div class="benefits" style="--benefit-count:${p.benefits.length}">${p.benefits.map(b=>`<div class="benefit"><h3>${e(b.title)}</h3><i></i><p>${e(b.description)}</p></div>`).join('')}</div>`:''}`;
   const visual = `<div class="visual ${p.hero?'':'no-image'}">${p.templateId==='story'?benefits:''}${p.hero?`${pic(p.hero,p.name+' – verksamhetsbild','hero-image',false)}<div class="image-label">${e(p.name)}</div>`:''}</div>`;
+  const imported=p.navigation.length>0||!!p.ctaHref||p.cards.some(c=>c.anchor);
+  const navLinks=p.navigation.map(n=>`<a href="${e(n.href)}" ${/^https?:/.test(n.href)?'target="_blank" rel="noopener noreferrer" title="Öppnar företagets original"':''}>${e(n.label)}</a>`).join('');
   const body = `<div class="demo-note">Designförslag · Framtagen för ${e(p.name)}</div>
-  <div class="shell"><header class="nav"><a class="brand" href="#" aria-label="${e(p.name)} startsida">${p.logo ? pic(p.logo,p.name,'',false):e(p.name)}</a><nav class="nav-links" aria-label="Huvudmeny">${p.cards.length?'<a href="#erbjudande">Utforska</a>':''}${p.about?'<a href="#om">Om oss</a>':''}<a class="nav-contact" href="#kontakt">${e(p.cta)}</a></nav></header>
-  <main><div class="hero-layout"><section class="hero-copy">${p.eyebrow?`<div class="eyebrow">${e(p.eyebrow)}</div>`:''}<h1>${e(p.headline)}</h1>${p.description?`<p>${e(p.description)}</p>`:''}<a class="button" href="${p.cards.length?'#erbjudande':'#kontakt'}">${p.cards.length?'Utforska vårt utbud':e(p.cta)}<span aria-hidden="true">↗</span></a></section>
+  <div class="shell"><header class="nav"><a class="brand" href="#" aria-label="${e(p.name)} startsida">${p.logo ? pic(p.logo,p.name,'',false):e(p.name)}</a><nav class="nav-links" aria-label="Huvudmeny">${imported?navLinks:`${p.cards.length?'<a href="#erbjudande">Utforska</a>':''}${p.about?'<a href="#om">Om oss</a>':''}<a class="nav-contact" href="#kontakt">${e(p.cta)}</a>`}</nav></header>
+  <main id="start"><div class="hero-layout"><section class="hero-copy">${p.eyebrow?`<div class="eyebrow">${e(p.eyebrow)}</div>`:''}<h1>${e(p.headline)}</h1>${p.description?`<p>${e(p.description)}</p>`:''}${!imported||p.ctaHref?`<a class="button" href="${e(p.ctaHref||(p.cards.length?'#erbjudande':'#kontakt'))}" ${/^https?:/.test(p.ctaHref)?'target="_blank" rel="noopener noreferrer"':''}>${imported?e(p.cta):p.cards.length?'Utforska vårt utbud':e(p.cta)}<span aria-hidden="true">↗</span></a>`:''}</section>
   ${visual}</div>${p.templateId!=='story'?benefits:''}
-  ${p.cards.length?`<section class="section" id="erbjudande"><div class="section-top"><div><p class="section-kicker">${e(p.name)} / Utvalt</p><h2>${e(p.sectionTitle)}</h2></div>${p.sectionIntro?`<p>${e(p.sectionIntro)}</p>`:''}</div><div class="cards">${p.cards.map((c,i)=>`<article class="card">${c.image?pic(c.image,c.title):`<div class="card-placeholder" aria-hidden="true">${String(i+1).padStart(2,'0')}</div>`}<div class="card-meta"><div><h3>${e(c.title)}</h3>${c.description?`<p>${e(c.description)}</p>`:''}</div><span class="card-number">${String(i+1).padStart(2,'0')}</span></div></article>`).join('')}</div></section>`:''}
+  ${p.cards.length?`<section class="section" id="erbjudande"><div class="section-top" ${imported?'hidden':''}><div><p class="section-kicker">${e(p.name)} / Utvalt</p><h2>${e(p.sectionTitle)}</h2></div>${p.sectionIntro?`<p>${e(p.sectionIntro)}</p>`:''}</div><div class="cards">${p.cards.map((c,i)=>`<article class="card" ${c.anchor?`id="${e(c.anchor)}"`:""}>${c.image?pic(c.image,c.title):`<div class="card-placeholder" aria-hidden="true">${String(i+1).padStart(2,'0')}</div>`}<div class="card-meta"><div><h3>${c.href?`<a href="${e(c.href)}" ${/^https?:/.test(c.href)?'target="_blank" rel="noopener noreferrer"':''}>${e(c.title)} ↗</a>`:e(c.title)}</h3>${c.description?`<p>${e(c.description)}</p>`:''}</div><span class="card-number">${String(i+1).padStart(2,'0')}</span></div></article>`).join('')}</div></section>`:''}
   ${p.about?`<section class="section about" id="om"><div><p class="section-kicker">Om ${e(p.name)}</p><h2>${e(p.aboutTitle || p.name)}</h2></div><p>${e(p.about)}</p></section>`:''}
-  <section class="contact" id="kontakt"><div><p class="section-kicker" style="color:#bcc9b8">Ta nästa steg</p><h2>${e(p.cta)}.</h2><div class="contact-links">${p.email?`<a href="mailto:${e(p.email)}">${e(p.email)}</a>`:''}${p.phone?`<a href="tel:${e(p.phone.replace(/[^+\d]/g,''))}">${e(p.phone)}</a>`:''}${p.address?`<span>${e(p.address)}</span>`:''}${!contact?'<span class="contact-empty">Kontaktuppgifter saknas i det här designförslaget.</span>':''}</div></div>${contact?`<a class="button accent" href="${e(contact)}">${p.email?'Skicka ett mejl':'Ring oss'}<span aria-hidden="true">↗</span></a>`:''}</section></main>
+  <section class="contact" id="kontakt"><div><p class="section-kicker" style="color:#bcc9b8">Ta nästa steg</p><h2>${p.ctaHref?'Kontakt':e(p.cta)+'.'}</h2><div class="contact-links">${p.email?`<a href="mailto:${e(p.email)}">${e(p.email)}</a>`:''}${p.phone?`<a href="tel:${e(p.phone.replace(/[^+\d]/g,''))}">${e(p.phone)}</a>`:''}${p.address?`<span>${e(p.address)}</span>`:''}${!contact?'<span class="contact-empty">Kontaktuppgifter saknas i det här designförslaget.</span>':''}</div></div>${contact?`<a class="button accent" href="${e(contact)}">${p.email?'Skicka ett mejl':'Ring oss'}<span aria-hidden="true">↗</span></a>`:''}</section></main>
   <footer class="footer"><span class="brand-name">${e(p.name)}</span><span class="source">Designförslag · Innehåll och bilder från ${p.source?`<a href="${e(p.source)}" rel="noopener noreferrer" target="_blank">företagets webbplats</a>`:'företaget'}.</span></footer></div>`;
-  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${templateCSS}</style></head><body data-template="${p.templateId}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}</body></html>`;
+  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${templateCSS}${homepageCSS}</style></head><body data-imported="${imported}" data-template="${p.templateId}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}</body></html>`;
 }
+
+const homepageCSS=`
+[hidden]{display:none!important}body[data-imported="true"] .hero-copy .button{background:var(--accent);color:var(--accent-ink)}body[data-imported="true"] .cards{display:flex;flex-direction:column;gap:56px}body[data-imported="true"] .card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:center;padding-top:0}body[data-imported="true"] .card:not(:has(img)){display:block;max-width:850px}body[data-imported="true"] .card img{height:auto;max-height:520px;object-fit:contain}body[data-imported="true"] .card h3{font-size:30px}body[data-imported="true"] .card p{font-size:16px;line-height:1.8}body[data-imported="true"] .card-placeholder,body[data-imported="true"] .card-number{display:none}.nav-links{flex-wrap:wrap;gap:14px 24px}.nav:has(.nav-links a:nth-child(5)){height:auto;min-height:94px;padding-top:18px;padding-bottom:18px}.nav-links a{overflow-wrap:anywhere}.card[id]{scroll-margin-top:30px}@media(max-width:760px){.nav{height:auto!important;min-height:80px;flex-wrap:wrap;padding-top:18px!important;padding-bottom:18px!important;gap:14px}.nav-links{width:100%;gap:12px 20px;padding-bottom:4px}.nav-links>a:not(.nav-contact){display:block}.brand{max-width:100%}body[data-imported="true"] .card{grid-template-columns:1fr;gap:22px}body[data-imported="true"] .card:nth-child(even)>:first-child{order:0}body[data-imported="true"] .card h3{font-size:26px}}
+`;

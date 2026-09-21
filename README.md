@@ -47,3 +47,23 @@ Importen tar även med lazy-loaded bakgrundsbilder och h4-rubriker, bevarar mell
 1. Ladda om webbverktyget och ange `https://hallinc.se/` under Företagets hemsida.
 2. Välj Hämta innehåll. Kontrollera HallInc, text, logotyp och bildkandidater; granska och välj lämpliga bilder innan delning.
 3. Spara, ladda om och öppna förslaget igen. Kontrollera att innehållet finns kvar och välj därefter Granska & dela.
+
+## Korrekt startsida — 21 september
+
+Denna ändring fokuserar på startsidan. Fler mallar och importerade undersidor är uppskjutna enligt användarens val. Menyetiketter och CTA hämtas från originalet. Ankare som kan kopplas till importerade innehållsblock stannar i demon; övriga länkar öppnar originalet. Nya kundlänkar använder `/demo.html` på verktygets egen domän och samma renderare som redigeraren. Tidigare delade länkar påverkas inte.
+
+Importen väljer text och bilder inom samma DOM-block och använder innehållet mellan rubriker när avgränsande behållare saknas. Stycken och listor bevaras. Dolda responsiva kopior, navigationsinnehåll, fotnavigering och formulärfält ska inte bli innehållskort. Originalets explicit angivna brandfärg, temafärg eller huvudknappsfärg används när den kan läsas; osäker färg/logotyp/hero markeras för granskning. Upp till två stilmallar läses som text, aldrig som körbar kod. Ingen ny dependency har lagts till.
+
+Hämtningen provar www-adressen för en startsida om den första anslutningen tar mer än sju sekunder eller får ett nätverksfel. Totalt gäller fortfarande 22 sekunder och alla mål valideras. Bildadresser och undersidor ändras inte. Serverloggar visar värdnamn, steg och tid, utan frågesträngar.
+
+Begränsningar: importen kör inte företagets JavaScript eller fullständig CSS-layout. Animationer, formulär och betalflöden återskapas inte. Konfigurerade bakgrunder/video kan representeras med originalets stillbild. Högst 40 textblock med 6 000 tecken per block och 80 bildkandidater tas med; långa sidor får en varning. Ett block använder en vald bild, övriga bilder finns som kandidater. Granska därför förslaget mot originalet innan kunddelning.
+
+### QA i fem steg
+
+1. Öppna `http://localhost:4174` eller publicerade verktyget. Importera `hallinc.se`: kontrollera första rubriken ”Vi realiserar era digitala drömmar.”, blå accent, logo och menyn Hem/Tjänster/Kontakt/Annat.
+2. Importera `vegavista.se`: kontrollera Maximal synlighet, originalets bakgrundsbild, meny samt att varje plats har sin egen storlek och bild.
+3. Importera `verkli.com`: kontrollera omdirigering till `www.verkli.com/waitlist`, rubriken ”Your story. Goes further.” och att ”Loading signup” inte ingår.
+4. Spara och ladda om. Byt mall och mobilvy: originalmeny och texter ska finnas kvar. Undersideslänkar öppnar originalet.
+5. Skapa kundlänk via Granska & dela och öppna den. Jämför innehåll och navigation med förhandsvisningen; kontrollera också projektkopia och HTML-export innan användning med kund.
+
+Automatiska kontroller: 58 Node-tester samt 16 regressioner med riktig DOM i `tests/import-browser.html`. Browserfilen serveras endast lokalt vid QA och ingår inte i den publicerade appen.

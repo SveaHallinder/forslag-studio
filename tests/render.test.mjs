@@ -20,7 +20,7 @@ test('missing business details do not become fake contact links or invented proo
 test('project limits bound hostile or oversized imported content', () => {
   const p = normalizeProject({ name: 'A'.repeat(1000), accent: 'red;}</style><script>', cards: Array(100).fill({ title: 'B' }) });
   assert.ok(p.name.length <= 100);
-  assert.ok(p.cards.length <= 12);
+  assert.ok(p.cards.length <= 40);
   assert.match(p.accent, /^#[a-f0-9]{6}$/i);
 });
 
