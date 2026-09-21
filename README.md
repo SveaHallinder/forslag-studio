@@ -149,3 +149,24 @@ Verifierat: 66 Node-tester, lint och bygge. Lokal UI-kontroll av menytext, inter
 3. Öppna menyn igen och skriv en ogiltig destination. Använd menyn ska visa ett tydligt fältfel. Välj Avbryt och kontrollera att föregående meny är kvar.
 4. Spara, ladda om och skapa kundlänk via Granska & dela. Kontrollera texter, ordning och destinationer på kundsidan, även i mobilvy.
 5. Ladda ner en projektkopia från ett förslag med fler än tolv innehållsblock. Återställ den via Mina förslag och kontrollera sista blocket och menyn.
+
+## Leveranskontroll: startsida, redigering och export
+
+Importen bevarar nu enkel sidbyggartext i div-element och föredrar högupplösta responsiva bilder framför små src-filer. Uttryckliga lazy-bilder behåller företräde framför vanliga platshållare. Bakgrundsbilder från lästa stilmallar kopplas till rätt innehållsblock och deras relativa adresser löses mot stilmallens slutadress efter omdirigering. Riktiga innehållsbilder går före CSS-dekorationer, även när bilden är liten. Motstridiga eller villkorliga bakgrunder och sidomfattande dekorationer väljs inte automatiskt.
+
+Innehållsblock kan flyttas upp/ned med text, bild och sektionsankare tillsammans. Blockets rubriklänk kan ändras eller tömmas. Granska & dela hittar ogiltiga huvudknappslänkar och länkar till borttagna block; Rätta leder till rätt fält. Menyredigeraren accepterar bara interna ankare som finns i förslaget. Mobilens projektlista kan nu innehålla många förslag utan att göra hela sidan bredare än skärmen.
+
+Fristående HTML-export stöder SVG-logotyper: bilden läses som en bild och konverteras till PNG, högst 2048 px per sida, före inbäddning. SVG-markup följer aldrig med in i kundfilen. Trasiga logotyper ger ett tydligt fel; rasterbilder behålls. Tidigare notering om att SVG alltid måste bytas manuellt gäller inte längre.
+
+Verifierat lokalt: 71 Node-tester, 61 DOM-importtester, tre bildexporttester, lint och bygge. Full UI-import av HallInc, Vegavista och Verkli gav rätt företagsnamn och huvudrubriker. HallInc kontrollerades genom blockflytt, avsiktligt trasig länk, rättning, sparande, omladdning, skapad kundlänk och lyckad HTML-export med inbäddade bilder. Alla sju valda bilder laddade i kunddemon efter scrollning. Med 21 sparade testprojekt gav 320, 375 och 820 px ingen horisontell sidöverskjutning. Blockens åtgärdsknappar är 44 × 44 px.
+
+Omfattning: färdigt arbetsflöde för den godkända startsidesversionen med tre designer. Importen analyserar offentlig HTML och upp till två stilmallar; den kör inte företagets JavaScript. Blockerande eller helt JavaScript-renderade webbplatser kräver manuellt innehåll. Säljaren granskar alltid innehåll och bildkopplingar. Formulär, betalflöden, importerade undersidor och fler branschmallar ingår inte i denna version. Inga nya paket, konton eller projektfält har införts.
+
+### QA i sex steg
+
+1. Spara pågående utkast och ladda om http://localhost:4174 eller den publicerade appen. Importera HallInc, Vegavista eller Verkli och jämför huvudrubrik, meny, logotyp och innehåll med originalet.
+2. Flytta ett innehållsblock nedåt. Kontrollera att dess bild och text följer med. Ändra länken under blocket.
+3. Skriv tillfälligt `#saknas` som blocklänk och öppna Granska & dela. Länken ska markeras och delning stoppas. Välj Rätta, ange en giltig adress och prova igen.
+4. Spara, ladda om och skapa kundlänk. Kontrollera samma ordning och innehåll, klicka en intern menylänk och scrolla tills bilderna laddats.
+5. Ladda ner fristående HTML. Kontrollera att nedladdningen slutförs med inbäddade bilder. Ett förslag med SVG-logo ska kunna exporteras utan manuellt byte av logo.
+6. Prova mobilstorlek med många sparade projekt. Sidans innehåll ska rymmas utan sidleds-scroll; projektlistan får scrollas separat.

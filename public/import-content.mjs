@@ -1,6 +1,31 @@
 const clean=value=>String(value||'').replace(/\s+/g,' ').replace(/([.!?])(?=[A-ZÅÄÖ])/g,'$1 ').trim();
 const headings='h1,h2,h3,h4';
-const imageSelector='img,[data-background],[data-bg-image],[style*="background-image"],[data-current-styles],video[poster]';
+const imageSelector='img,[data-background],[data-bg-image],[style*="background"],[data-current-styles],video[poster],[data-import-background]';
+function collectBackgrounds(doc,sources) {
+  doc.querySelectorAll('[data-import-background]').forEach(el=>el.removeAttribute('data-import-background'));
+  if(typeof CSSStyleSheet==='undefined')return;
+  const candidates=new Map(),uncertain=new Set();
+  for(const source of sources){
+    const sheet=new CSSStyleSheet();try{sheet.replaceSync(source.css);}catch{continue;}
+    const visit=(rules,conditional=false)=>{
+      for(const rule of rules){
+        if(!rule.selectorText&&rule.cssRules){visit(rule.cssRules,true);continue;}
+        const value=rule.style?.backgroundImage;if(!value||!rule.selectorText)continue;
+        // Never turn a hover state or a pseudo-element decoration into a photo.
+        if(/::|:(?:hover|focus|active|visited|before|after)\b/i.test(rule.selectorText))continue;
+        let nodes;try{nodes=doc.querySelectorAll(rule.selectorText);}catch{continue;}
+        const matches=[...value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)];let url='';
+        if(matches.length===1)try{const u=new URL(matches[0][2],source.url);if(/^https?:$/.test(u.protocol)&&!u.username&&!u.password)url=u.href;}catch{}
+        for(const node of nodes){
+          if(conditional||!url){uncertain.add(node);continue;}
+          if(!candidates.has(node))candidates.set(node,new Set());candidates.get(node).add(url);
+        }
+      }
+    };visit(sheet.cssRules);
+  }
+  // Conflicting declarations need manual selection, not a guessed CSS cascade.
+  for(const [node,urls] of candidates)if(urls.size===1&&!uncertain.has(node)&&!node.matches('html,body')&&node.querySelectorAll(headings).length<=1&&!node.style.backgroundImage)node.setAttribute('data-import-background',[...urls][0]);
+}
 function removeCSSHidden(doc,css) {
   // Parse without attaching source CSS or fetching its URLs. Ambiguous responsive
   // overrides are kept: this is deliberately not a full browser layout engine.
@@ -36,7 +61,10 @@ export function extractContent(html, source, styles='') {
   const meta=name=>doc.querySelector(`meta[property="${name}"],meta[name="${name}"]`)?.getAttribute('content')||'';
   const absolute=value=>{try{const u=new URL(value,source);return ['http:','https:','mailto:','tel:'].includes(u.protocol)&&!u.username&&!u.password?u.href:'';}catch{return '';}};
   const unconditional=n=>!n.getAttribute('media')||/^(all|screen)$/i.test(n.getAttribute('media').trim());
-  const css=[...doc.querySelectorAll('style')].map(n=>unconditional(n)?n.textContent:`@media ${n.getAttribute('media')}{${n.textContent}}`).join('\n')+'\n'+styles;
+  const styleSources=[...doc.querySelectorAll('style')].map(n=>({css:unconditional(n)?n.textContent:`@media ${n.getAttribute('media')}{${n.textContent}}`,url:source}));
+  styleSources.push(...(Array.isArray(styles)?styles:[{css:styles,url:source}]));
+  const css=styleSources.map(s=>s.css).join('\n');
+  collectBackgrounds(doc,styleSources);
   const kitId=doc.body.className.match(/\belementor-kit-(\d+)\b/)?.[1],pageId=doc.querySelector('[data-elementor-type="wp-page"]')?.getAttribute('data-elementor-id');
   const stylesheetScore=n=>kitId&&n.id===`elementor-post-${kitId}-css`?4:pageId&&n.id===`elementor-post-${pageId}-css`?3:/site\.css|custom|theme/i.test(n.url)?2:new URL(n.url).origin===new URL(source).origin?1:0;
   const stylesheets=[...new Set([...doc.querySelectorAll('link[rel="stylesheet"][href]')].filter(unconditional).map(n=>({id:n.id,url:absolute(n.getAttribute('href'))})).filter(n=>/^https?:/.test(n.url)).sort((a,b)=>stylesheetScore(b)-stylesheetScore(a)).map(n=>n.url))].slice(0,2);
@@ -83,8 +111,9 @@ export function extractContent(html, source, styles='') {
     const plainBackground=/^(?:https?:\/\/|\/|\.{1,2}\/|[^\s:()#?]+\.(?:avif|gif|jpe?g|png|svg|webp)(?:[?#]|$))/i.test(background)?background:'';
     const srcset=(el.getAttribute('data-srcset')||el.getAttribute('srcset')||'').trim();
     const responsive=!/data:/i.test(srcset)&&([...srcset.matchAll(/(?:^|\s|,)([^\s]+?)\s+(\d+(?:\.\d+)?)[wx](?=\s*(?:,|$))/g)].map(match=>({url:match[1],size:Number(match[2])})).filter(i=>i.size&&/^https?:/.test(absolute(i.url))).sort((a,b)=>b.size-a.size)[0]?.url||(/^\S+$/.test(srcset)?srcset.replace(/,+$/,''):''));
-    const direct=[el.getAttribute('data-src'),el.getAttribute('data-lazy-src'),el.getAttribute('src')].find(value=>value&&/^https?:/.test(absolute(value)));
-    const raw=configured||el.getAttribute('poster')||(el.tagName==='IMG'?direct||responsive:backgroundURL||plainBackground);
+    const lazy=[el.getAttribute('data-src'),el.getAttribute('data-lazy-src')].find(value=>value&&/^https?:/.test(absolute(value)));
+    const direct=el.getAttribute('src');
+    const raw=configured||el.getAttribute('poster')||(el.tagName==='IMG'?(el.getAttribute('data-srcset')&&responsive)||lazy||responsive||direct:backgroundURL||plainBackground||el.getAttribute('data-import-background'));
     const url=raw&&!raw.startsWith('data:')?absolute(raw):'';
     if(!/^https?:/.test(url))return null;
     const label=clean(el.getAttribute('alt')||el.getAttribute('aria-label')),dimensions=(el.getAttribute('data-image-dimensions')||'').match(/^(\d+)x(\d+)$/)||new URL(url).pathname.match(/-(\d+)x(\d+)\.[a-z]+$/i);
@@ -101,11 +130,11 @@ export function extractContent(html, source, styles='') {
     }catch{return false;}
   });
   const logo=headerImage?.url||'';
-  const pictures=imageNodes.filter(i=>i.url!==logo&&!excluded(i.el)&&!(/logo|icon|favicon|sprite/i.test(i.label+' '+i.url))&&(!i.width||i.width>=64)&&(!i.height||i.height>=64));
+  const pictures=imageNodes.filter(i=>i.url!==logo&&!excluded(i.el)&&!(/logo|icon|favicon|sprite/i.test(i.label+' '+i.url))&&(!i.width||i.width>=64)&&(!i.height||i.height>=64)).sort((a,b)=>Number(a.el.hasAttribute('data-import-background'))-Number(b.el.hasAttribute('data-import-background')));
   const photos=pictures.filter(i=>(!i.width||i.width>=300)&&(!i.height||i.height>=180));
   const scope=heroHeading?scopeFor(heroHeading):main;
   const textIn=node=>{
-    const nodes=[...node.querySelectorAll('p,li')].filter(el=>!excluded(el));
+    const nodes=[...node.querySelectorAll('p,li,div')].filter(el=>!excluded(el)&&!el.closest('button,[role="button"]')&&(el.tagName!=='DIV'||(!el.closest('a')&&!el.querySelector('h1,h2,h3,h4,h5,h6,p,li,div,section,article,a,button,img'))));
     return nodes.filter(el=>!nodes.some(parent=>parent!==el&&parent.contains(el))).map(el=>clean(el.textContent)).filter(v=>v&&!/^(loading|laddar|please wait)(?:\b|…)/i.test(v)).filter((v,i,a)=>a.indexOf(v)===i).join('\n\n');
   };
   const headline=clean(heroHeading?.textContent);
@@ -125,7 +154,7 @@ export function extractContent(html, source, styles='') {
     if(heading===heroHeading||cards.length>=40)continue;
     const title=clean(heading.textContent),block=scopeFor(heading),description=textIn(block);
     const key=title+'|'+description;if(seenCards.has(key))continue;seenCards.add(key);
-    const image=(photos.find(i=>i.url!==hero&&block.contains(i.el))||pictures.find(i=>i.url!==hero&&block.contains(i.el)))?.url||'';
+    const image=(photos.find(i=>i.url!==hero&&!i.el.hasAttribute('data-import-background')&&block.contains(i.el))||pictures.find(i=>i.url!==hero&&block.contains(i.el)))?.url||'';
     const anchor='section-'+(cards.length+1);
     for(let el=heading;el&&el!==main&&el!==doc.body;el=el.parentElement){if(el.id&&!anchors.has(el.id))anchors.set(el.id,anchor);}
     const action=heading.closest('a[href]')||block.querySelectorAll('a[href]')[0];

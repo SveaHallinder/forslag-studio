@@ -69,3 +69,19 @@ test('brand stylesheets use a separate bounded text-only route',async()=>{
   assert.equal(result.mime,'text/css');
   await assert.rejects(readPublic('https://example.com/site.css','style',async()=>new Response('<html>blocked</html>',{headers:{'Content-Type':'text/html'}})),/stilmall/);
 });
+
+test('SVG logo bytes can be fetched for rasterized HTML export while HTML remains rejected',async()=>{
+ const svg='<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><rect width="100" height="40"/></svg>';
+ const result=await readPublic('https://example.com/logo.svg',true,async()=>new Response(svg,{headers:{'Content-Type':'image/svg+xml'}}));
+ assert.equal(result.mime,'image/svg+xml');assert.equal(new TextDecoder().decode(result.body),svg);
+ await assert.rejects(readPublic('https://example.com/logo.svg',true,async()=>new Response('<html>error</html>',{headers:{'Content-Type':'text/html'}})),/Bilden/);
+});
+
+test('stylesheet response retains its redirected URL for relative background images',async()=>{
+ const originalFetch=globalThis.fetch;
+ try{
+  globalThis.fetch=async url=>url.endsWith('/old.css')?new Response(null,{status:302,headers:{Location:'https://cdn.example/css/site.css'}}):new Response('.hero{background:url(../photo.jpg)}',{headers:{'Content-Type':'text/css'}});
+  const response=await createWorker({}).fetch(new Request('https://studio.example/api/style',{method:'POST',headers:{Origin:'https://studio.example','Content-Type':'application/json'},body:JSON.stringify({url:'https://example.com/old.css'})}));
+  assert.equal(response.status,200);assert.equal((await response.json()).url,'https://cdn.example/css/site.css');
+ }finally{globalThis.fetch=originalFetch;}
+});

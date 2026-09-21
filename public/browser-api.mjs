@@ -34,8 +34,8 @@ async function remote(path,body) {
 async function importCompany(url) {
   const page=await(await remote('/api/read',{url})).json();
   let project=extractContent(page.html,page.url);
-  const styles=await Promise.all(project.stylesheets.slice(0,2).map(async url=>{try{return (await(await remote('/api/style',{url})).json()).css;}catch{console.warn('[mockup online import] Brand stylesheet unavailable');return '';}}));
-  if(styles.some(Boolean))project=extractContent(page.html,page.url,styles.join('\n'));
+  const styles=await Promise.all(project.stylesheets.slice(0,2).map(async url=>{try{const result=await(await remote('/api/style',{url})).json();return {css:result.css,url:result.url||url};}catch{console.warn('[mockup online import] Brand stylesheet unavailable');return null;}}));
+  if(styles.some(Boolean))project=extractContent(page.html,page.url,styles.filter(Boolean));
   if(!project.email&&!project.phone){
     const contact=project.links.find(link=>{try{return new URL(link).hostname===new URL(page.url).hostname&&/kontakt|contact|om-oss|about/i.test(new URL(link).pathname);}catch{return false;}});
     if(contact)try{const extra=await(await remote('/api/read',{url:contact})).json(),details=extractContent(extra.html,extra.url);project.email=details.email;project.phone=details.phone;if(details.email||details.phone)project.warnings=project.warnings.filter(w=>!w.startsWith('Kontaktuppgifter saknas'));}catch{console.warn('[mockup online import] Contact page unavailable');}
@@ -43,11 +43,24 @@ async function importCompany(url) {
   delete project.links;delete project.stylesheets;return project;
 }
 function dataURL(blob){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(problem('Bilden kunde inte läsas.'));reader.readAsDataURL(blob);});}
+export async function imageDataURL(blob) {
+  if(blob.type.split(';')[0]!=='image/svg+xml')return dataURL(blob);
+  // An SVG loaded only as an image cannot execute its scripts. Export raster
+  // pixels, never third-party SVG markup, into the standalone customer file.
+  const url=URL.createObjectURL(blob),image=new Image();let timer;
+  try{
+    await new Promise((resolve,reject)=>{timer=setTimeout(()=>reject(problem('Logotypen tog för lång tid att läsa.')),10000);image.onload=resolve;image.onerror=()=>reject(problem('SVG-logotypen kunde inte läsas. Välj en PNG-logotyp.'));image.src=url;});
+    if(!image.naturalWidth||!image.naturalHeight)throw problem('SVG-logotypen saknar en läsbar bildstorlek.');
+    const scale=Math.min(1,2048/Math.max(image.naturalWidth,image.naturalHeight)),canvas=document.createElement('canvas');
+    canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));
+    canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);return canvas.toDataURL('image/png');
+  }finally{clearTimeout(timer);image.src='';URL.revokeObjectURL(url);}
+}
 async function exportDemo(input){
   const p=normalizeProject(input),urls=[...new Set([p.hero,p.logo,...p.cards.map(c=>c.image)].filter(Boolean))],mapping=new Map();let size=0;
   for(let start=0;start<urls.length;start+=3)await Promise.all(urls.slice(start,start+3).map(async url=>{
     let data;
-    try {data=url.startsWith('data:')?url:await dataURL(await(await remote('/api/image',{url})).blob());}
+    try {data=url.startsWith('data:')?url:await imageDataURL(await(await remote('/api/image',{url})).blob());}
     catch(error){throw problem('En bild kunde inte bäddas in: '+error.message+' Byt eller ta bort bilden/logotypen under Bilder och försök igen. Ingen ofullständig export skapades.');}
     size+=data.length;if(size>30_000_000)throw problem('Bilderna är för stora för en fristående demosida. Välj färre eller mindre bilder.');mapping.set(url,data);
   }));

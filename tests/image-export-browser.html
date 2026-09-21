@@ -1,0 +1,14 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><title>Bildexporttester</title><h1>Bildexport med riktig webbläsare</h1><pre id="results">Kör…</pre><script type="module">
+const results=[];const assert=(v,m)=>{if(!v)throw Error(m);};
+try{
+ const {imageDataURL}=await import('/browser-api.mjs');
+ const svg='<svg xmlns="http://www.w3.org/2000/svg" width="200" height="80"><rect width="200" height="80" fill="#234567"/></svg>';
+ const data=await imageDataURL(new Blob([svg],{type:'image/svg+xml'}));
+ assert(data.startsWith('data:image/png;base64,'),'SVG blev inte PNG');
+ const image=new Image();image.src=data;await image.decode();assert(image.naturalWidth===200&&image.naturalHeight===80,'Fel bildstorlek');
+ results.push('PASS SVG konverteras till en fristående PNG med rätt storlek');
+ const same=await imageDataURL(await(await fetch(data)).blob());assert(same===data,'Rasterbild ändrades');results.push('PASS befintlig PNG bevaras');
+ let failed=false;try{await imageDataURL(new Blob(['inte svg'],{type:'image/svg+xml'}));}catch{failed=true;}assert(failed,'Trasig SVG godkändes');results.push('PASS trasig SVG ger tydligt fel');
+}catch(error){results.push('FAIL '+error.message);}
+document.querySelector('#results').textContent=results.join('\n');
+</script></html>

@@ -48,3 +48,17 @@ test('invalid menu edits identify the row instead of silently dropping its link'
  assert.throws(()=>projectTools.prepareNavigation([{label:'',href:'https://example.com'}]),/Menylänk 1/);
  assert.throws(()=>projectTools.prepareNavigation(Array.from({length:13},()=>({label:'Hem',href:'#start'}))),/12/);
 });
+
+test('sharing catches links to removed blocks and unsafe CTA destinations',()=>{
+ const raw={name:'Acme',headline:'Hej',navigation:[{label:'Borta',href:'#section-1'}],ctaHref:'javascript:alert(1)',cards:[{title:'Kvar',anchor:'section-2',href:'#missing'}]};
+ const failed=assessProject(raw).filter(c=>c.blocking&&!c.ok);
+ assert.ok(failed.some(c=>c.id==='navigation'));assert.ok(failed.some(c=>c.id==='cta'));assert.ok(failed.some(c=>c.id==='card-links'));assert.equal(failed.find(c=>c.id==='card-links').field,'card-href-0');
+});
+test('valid internal and original-site destinations pass review',()=>{
+ const raw={name:'Acme',headline:'Hej',navigation:[{label:'Här',href:'#section-2'},{label:'Original',href:'https://example.com/about'}],ctaHref:'#start',cards:[{title:'Kvar',anchor:'section-2',href:'https://example.com/services'}]};
+ assert.equal(assessProject(raw).some(c=>c.blocking&&!c.ok),false);
+});
+test('menu editor validates internal destinations against the current proposal',()=>{
+ assert.throws(()=>projectTools.prepareNavigation([{label:'Borta',href:'#section-1'}],{cards:[]}),/Menylänk 1/);
+ assert.deepEqual(projectTools.prepareNavigation([{label:'Kvar',href:'#section-2'}],{cards:[{title:'Kvar',anchor:'section-2'}]}),[{label:'Kvar',href:'#section-2'}]);
+});

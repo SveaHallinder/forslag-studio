@@ -118,13 +118,13 @@ $('addNavigation').addEventListener('click',()=>{if(navigationDraft.length>=12)r
 $('navigationForm').addEventListener('submit',event=>{
   event.preventDefault();
   if(project!==navigationProject){$('navigationDialog').close();return toast('Förslaget har bytts. Öppna menyn igen för rätt företag.');}
-  try {project.navigation=prepareNavigation(navigationDraft);renderNavigationSummary();markDirty();updatePreview();$('navigationDialog').close();toast('Menyn är uppdaterad. Spara utkastet för att behålla den.');}
+  try {project.navigation=prepareNavigation(navigationDraft,project);renderNavigationSummary();markDirty();updatePreview();$('navigationDialog').close();toast('Menyn är uppdaterad. Spara utkastet för att behålla den.');}
   catch(error){$('navigationError').textContent=error.message;$('navigationError').hidden=false;
     if(error.index!==undefined){const field=$(`nav-${error.field}-${error.index}`),message=$(`nav-error-${error.index}`);message.textContent=error.message;message.hidden=false;field.setAttribute('aria-invalid','true');field.setAttribute('aria-describedby',message.id);field.focus();}
   }
 });
 function renderCards() {
-  $('cardsEditor').innerHTML = project.cards.map((card, i) => `<div class="card-editor"><div class="card-editor-header"><span>KORT ${String(i+1).padStart(2,'0')}</span><button data-remove-card="${i}" aria-label="Ta bort kort ${i+1}">×</button></div><label for="card-title-${i}">Rubrik</label><input id="card-title-${i}" data-card="${i}" data-property="title" maxlength="300" value="${e(card.title)}"><label for="card-description-${i}">Beskrivning</label><textarea id="card-description-${i}" data-card="${i}" data-property="description" rows="2" maxlength="6000">${e(card.description)}</textarea><label for="card-image-${i}">Bild</label><select id="card-image-${i}" data-card="${i}" data-property="image">${imageOptions(card.image)}</select></div>`).join('') || '<p class="empty-state">Inga bildkort ännu. Lägg till ett kort för en tjänst, produkt eller plats.</p>';
+  $('cardsEditor').innerHTML = project.cards.map((card, i) => `<div class="card-editor"><div class="card-editor-header"><span>BLOCK ${String(i+1).padStart(2,'0')}</span><div class="card-actions"><button data-move-card="${i}" data-direction="-1" aria-label="Flytta block ${i+1} upp" ${i===0?'disabled':''}>↑</button><button data-move-card="${i}" data-direction="1" aria-label="Flytta block ${i+1} ned" ${i===project.cards.length-1?'disabled':''}>↓</button><button data-remove-card="${i}" aria-label="Ta bort block ${i+1}">×</button></div></div><label for="card-title-${i}">Rubrik</label><input id="card-title-${i}" data-card="${i}" data-property="title" maxlength="300" value="${e(card.title)}"><label for="card-description-${i}">Beskrivning</label><textarea id="card-description-${i}" data-card="${i}" data-property="description" rows="2" maxlength="6000">${e(card.description)}</textarea><label for="card-image-${i}">Bild</label><select id="card-image-${i}" data-card="${i}" data-property="image">${imageOptions(card.image)}</select><label for="card-href-${i}">Länk <span>Valfri, på rubriken</span></label><input id="card-href-${i}" data-card="${i}" data-property="href" value="${e(card.href||'')}" maxlength="2000" placeholder="https://företaget.se/tjänst"></div>`).join('') || '<p class="empty-state">Inga bildkort ännu. Lägg till ett kort för en tjänst, produkt eller plats.</p>';
   $('addCard').disabled = project.cards.length >= 40;
 }
 function renderImages() {
@@ -269,7 +269,7 @@ function reviewBeforeShare() {
   $('reviewChecks').innerHTML = checks.map(c=>`<div class="review-check ${c.ok?'complete':'needs-review'}"><span role="img" aria-label="${c.ok?'Klart':'Behöver granskas'}">${c.ok?'✓':'○'}</span><div><strong>${e(c.label)}</strong>${!c.ok?`<p>${e(c.help)}</p>`:''}</div>${!c.ok?`<button class="text-button" data-review-field="${c.field}" data-review-tab="${c.tab}">Rätta</button>`:''}</div>`).join('');
   const blocked = checks.some(c=>c.blocking&&!c.ok);
   $('confirmShare').disabled = blocked;
-  $('reviewBlocker').textContent = blocked ? 'Fyll i företagsnamn och en egen huvudrubrik innan du skapar en kundlänk.' : 'Du kan dela även utan bilder eller kontaktväg. Granska påminnelserna först.';
+  $('reviewBlocker').textContent = blocked ? 'Rätta de markerade uppgifterna och länkarna innan du skapar en kundlänk.' : 'Du kan dela även utan bilder eller kontaktväg. Granska påminnelserna först.';
   $('reviewDialog').showModal();
 }
 $('reviewChecks').addEventListener('click',event=>{
@@ -378,6 +378,8 @@ $('cardsEditor').addEventListener('input', event => {
   if (card !== undefined) { project.cards[Number(card)][property] = event.target.value; markDirty(); updatePreview(); }
 });
 $('cardsEditor').addEventListener('click', event => {
+  const move = event.target.closest('[data-move-card]');
+  if(move){const index=Number(move.dataset.moveCard),next=index+Number(move.dataset.direction);if(next<0||next>=project.cards.length)return;[project.cards[index],project.cards[next]]=[project.cards[next],project.cards[index]];renderCards();markDirty();updatePreview();$('card-title-'+next).focus();return;}
   const button = event.target.closest('[data-remove-card]');
   if (button) { project.cards.splice(Number(button.dataset.removeCard),1); renderCards(); markDirty(); updatePreview(); }
 });
