@@ -18,6 +18,13 @@ test('imported links and brand values cannot inject scripts or CSS',()=>{
   assert.doesNotMatch(renderDemo(p),/<script>|background:url/);
 });
 
+test('plain contact details and small section images survive a customer link',async()=>{
+  const raw={name:'Café',headline:'Välkommen',phone:'033-41 31 86',address:'Österlånggatan 51, 503 37 Borås',cards:[{title:'Sortiment',image:'https://example.com/lemon.png',anchor:'section-1'}]};
+  const p=await decodeProject(new URL(await encodeProject(raw,'https://studio.example/demo.html')).hash);
+  assert.equal(p.phone,raw.phone);assert.equal(p.address,raw.address);assert.equal(p.cards[0].image,raw.cards[0].image);
+  const html=renderDemo(p);assert.match(html,/href="tel:033413186"/);assert.match(html,/Österlånggatan 51, 503 37 Borås/);assert.match(html,/https:\/\/example.com\/lemon.png/);
+});
+
 test('an imported page without a menu or CTA gets no invented marketing copy',()=>{
   const html=renderDemo({name:'Original',headline:'Enda rubriken',cards:[{title:'Information',description:'Riktig text',anchor:'section-1'}]});
   assert.match(html,/<body data-imported="true"/);

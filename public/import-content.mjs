@@ -43,13 +43,19 @@ export function extractContent(html, source, styles='') {
   const hasForms=!!doc.querySelector('form');
   removeCSSHidden(doc,css);
   doc.querySelectorAll('form,dialog:not([open]),[inert],[data-state="closed"],script,style,noscript,svg,template,iframe,object,embed,[hidden],[class~="hide-lg"],[class~="hidden-lg"],[class~="d-lg-none"],[style*="display:none"],[style*="display: none"],#cookie-banner,#cookie-consent,#onetrust-banner-sdk,[class*="cookie-banner"],[class*="cookie-consent"],[id*="CookieConsent"]').forEach(el=>el.remove());
-  doc.querySelectorAll('br').forEach(el=>el.replaceWith(' '));
-  const primaryNav=[...doc.querySelectorAll('header nav,header [role="navigation"],.ed-menu,nav,[role="navigation"],header [class*="menu"]')].find(el=>!el.closest('footer,aside'));
-  const originalNav=[...(primaryNav?.querySelectorAll('a[href]')||[])];
+  doc.querySelectorAll('br').forEach(el=>el.replaceWith('\n'));
+  const navScore=el=>/^(?:huvudmeny|huvudnavigation|main(?: navigation| menu)?|primary(?: navigation| menu)?)$/i.test(el.getAttribute('aria-label')||'')?100:el.matches('.max-mega-menu')?80:/(?:^|[\s_-])primary(?:$|[\s_-])/i.test(el.className+' '+el.id)?60:/footer|social|breadcrumb|utility/i.test(el.className+' '+el.id+' '+el.getAttribute('aria-label'))?-50:el.closest('header,[data-elementor-type="header"]')?10:0;
+  const primaryNav=[...doc.querySelectorAll('.max-mega-menu,header nav,header [role="navigation"],.ed-menu,nav,[role="navigation"],header [class*="menu"]')].filter(el=>!el.closest('footer,aside,[data-elementor-type="footer"],[aria-hidden="true"]')&&[...el.querySelectorAll('a[href]')].some(link=>clean(link.textContent)&&absolute(link.getAttribute('href')))).sort((a,b)=>navScore(b)-navScore(a))[0];
+  const menuDestination=link=>!!link&&!!absolute(link.getAttribute('href'))&&!['','#'].includes((link.getAttribute('href')||'').trim())&&!(link.matches('[role="button"],[aria-controls]')&&(link.getAttribute('href')||'').startsWith('#'));
+  const originalNav=[...(primaryNav?.querySelectorAll('a[href]')||[])].filter(link=>{
+    if(!menuDestination(link))return false;
+    for(let parentItem=link.closest('li')?.parentElement?.closest('li');parentItem&&primaryNav.contains(parentItem);parentItem=parentItem.parentElement?.closest('li'))if(menuDestination([...parentItem.querySelectorAll('a[href]')].find(anchor=>anchor.closest('li')===parentItem)))return false;
+    return true;
+  });
   const navigation=[],seenNav=new Set();
   for(const link of originalNav){const label=clean(link.textContent),href=absolute(link.getAttribute('href')),toggle=link.matches('[role="button"],[aria-controls]')&&(link.getAttribute('href')||'').startsWith('#');if(toggle||link.closest('.skip-link,.screen-reader-text,.menu-toggle,.search-toggle,.mobile-menu-anchor')||!label||label.length>70||!href||seenNav.has(label.toLowerCase())||navigation.length>=12)continue;seenNav.add(label.toLowerCase());navigation.push({label,href});}
   const main=doc.querySelector('main,[role="main"]')||doc.body;
-  const excluded=el=>!!el.closest('nav,footer,.ed-menu,[role="navigation"],[role="dialog"],aside')||!!el.closest('header')?.querySelector('nav,[role="navigation"]');
+  const excluded=el=>!!el.closest('nav,footer,.ed-menu,.max-mega-menu,[role="navigation"],[role="dialog"],aside,[data-elementor-type="header"],[data-elementor-type="footer"]')||!!el.closest('header')?.querySelector('nav,[role="navigation"]');
   const contentHeadings=[...main.querySelectorAll(headings)].filter(el=>!excluded(el)&&clean(el.textContent)&&!/^cookie|^kakor|^privacy preferences/i.test(clean(el.textContent)));
   const heroHeading=contentHeadings[0];
   const wrapperFor=heading=>{
@@ -75,7 +81,10 @@ export function extractContent(html, source, styles='') {
     let configured='';try{configured=JSON.parse(el.getAttribute('data-current-styles')||'{}').backgroundImage?.assetUrl||'';}catch{}
     const background=el.getAttribute('data-bg-image')||el.getAttribute('data-background')||'',backgroundURL=(background||el.getAttribute('style')||'').match(/url\(\s*(['"]?)(.*?)\1\s*\)/i)?.[2];
     const plainBackground=/^(?:https?:\/\/|\/|\.{1,2}\/|[^\s:()#?]+\.(?:avif|gif|jpe?g|png|svg|webp)(?:[?#]|$))/i.test(background)?background:'';
-    const raw=configured||el.getAttribute('poster')||(el.tagName==='IMG'?(el.getAttribute('data-src')||el.getAttribute('data-lazy-src')||el.getAttribute('src')||el.getAttribute('srcset')?.split(',').at(-1)?.trim().split(/\s+/)[0]):backgroundURL||plainBackground);
+    const srcset=(el.getAttribute('data-srcset')||el.getAttribute('srcset')||'').trim();
+    const responsive=!/data:/i.test(srcset)&&([...srcset.matchAll(/(?:^|\s|,)([^\s]+?)\s+(\d+(?:\.\d+)?)[wx](?=\s*(?:,|$))/g)].map(match=>({url:match[1],size:Number(match[2])})).filter(i=>i.size&&/^https?:/.test(absolute(i.url))).sort((a,b)=>b.size-a.size)[0]?.url||(/^\S+$/.test(srcset)?srcset.replace(/,+$/,''):''));
+    const direct=[el.getAttribute('data-src'),el.getAttribute('data-lazy-src'),el.getAttribute('src')].find(value=>value&&/^https?:/.test(absolute(value)));
+    const raw=configured||el.getAttribute('poster')||(el.tagName==='IMG'?direct||responsive:backgroundURL||plainBackground);
     const url=raw&&!raw.startsWith('data:')?absolute(raw):'';
     if(!/^https?:/.test(url))return null;
     const label=clean(el.getAttribute('alt')||el.getAttribute('aria-label')),dimensions=(el.getAttribute('data-image-dimensions')||'').match(/^(\d+)x(\d+)$/)||new URL(url).pathname.match(/-(\d+)x(\d+)\.[a-z]+$/i);
@@ -92,7 +101,8 @@ export function extractContent(html, source, styles='') {
     }catch{return false;}
   });
   const logo=headerImage?.url||'';
-  const photos=imageNodes.filter(i=>i.url!==logo&&!excluded(i.el)&&!(/logo|icon|favicon|sprite/i.test(i.label+' '+i.url))&&(!i.width||i.width>=300)&&(!i.height||i.height>=180));
+  const pictures=imageNodes.filter(i=>i.url!==logo&&!excluded(i.el)&&!(/logo|icon|favicon|sprite/i.test(i.label+' '+i.url))&&(!i.width||i.width>=64)&&(!i.height||i.height>=64));
+  const photos=pictures.filter(i=>(!i.width||i.width>=300)&&(!i.height||i.height>=180));
   const scope=heroHeading?scopeFor(heroHeading):main;
   const textIn=node=>{
     const nodes=[...node.querySelectorAll('p,li')].filter(el=>!excluded(el));
@@ -115,7 +125,7 @@ export function extractContent(html, source, styles='') {
     if(heading===heroHeading||cards.length>=40)continue;
     const title=clean(heading.textContent),block=scopeFor(heading),description=textIn(block);
     const key=title+'|'+description;if(seenCards.has(key))continue;seenCards.add(key);
-    const image=photos.find(i=>i.url!==hero&&block.contains(i.el))?.url||'';
+    const image=(photos.find(i=>i.url!==hero&&block.contains(i.el))||pictures.find(i=>i.url!==hero&&block.contains(i.el)))?.url||'';
     const anchor='section-'+(cards.length+1);
     for(let el=heading;el&&el!==main&&el!==doc.body;el=el.parentElement){if(el.id&&!anchors.has(el.id))anchors.set(el.id,anchor);}
     const action=heading.closest('a[href]')||block.querySelectorAll('a[href]')[0];
@@ -131,8 +141,14 @@ export function extractContent(html, source, styles='') {
   const cta=clean(heroLink?.textContent),ctaHref=heroLink?mapLink(absolute(heroLink.getAttribute('href'))):'';
   const links=[...doc.querySelectorAll('a[href]')].map(el=>absolute(el.getAttribute('href'))).filter(Boolean);
   const decodeContact=value=>{try{return decodeURIComponent(value||'');}catch{return '';}};
-  const email=decodeContact(links.find(u=>u.startsWith('mailto:'))?.slice(7).split('?')[0]);
-  const phone=decodeContact(links.find(u=>u.startsWith('tel:'))?.slice(4));
+  const contactRegion='footer,aside,address,[id*="kontakt"],[id*="contact"],[id*="adress"],[class*="contact"]';
+  const contactBlocks=[...doc.querySelectorAll('p,li,address')].sort((a,b)=>Number(!!b.closest(contactRegion))-Number(!!a.closest(contactRegion))),contactLines=contactBlocks.flatMap(el=>el.textContent.split('\n').map(clean));
+  const textPhone=contactLines.map(line=>line.match(/^(?:telefon|tel\.?|phone|mobil|ring(?: för [^:]{1,35})?)\s*:\s*([+\d][\d ()-]{5,34})/i)?.[1]?.trim()).find(value=>value&&value.replace(/\D/g,'').length>=7&&value.replace(/\D/g,'').length<=15)||'';
+  const textEmail=contactLines.map(line=>line.match(/^(?:e-?post|e-?mail|mejl)\s*:\s*([\w.+-]+@[\w.-]+\.[a-z]{2,})/i)?.[1]).find(Boolean)||'';
+  const email=decodeContact(links.find(u=>u.startsWith('mailto:'))?.slice(7).split('?')[0])||textEmail;
+  const phone=decodeContact(links.find(u=>u.startsWith('tel:'))?.slice(4))||textPhone;
+  const postal=contactBlocks.filter(el=>el.closest(contactRegion)).map(el=>el.textContent.match(/([^\n]{3,80}\d[^\n]{0,10})\n\s*(\d{3}\s?\d{2}\s+[^\n]{2,60})/)).find(Boolean);
+  const address=postal?[clean(postal[1]),clean(postal[2])].join(', '):'';
   const inlineStyles=[...doc.querySelectorAll('[style]')].map(el=>el.getAttribute('style')).join('\n');
   const brand=brandColor(css+'\n'+inlineStyles),theme=meta('theme-color');
   const buttonStyle=heroLink?.getAttribute('style')||'';
@@ -150,5 +166,5 @@ export function extractContent(html, source, styles='') {
   if(!email&&!phone)warnings.push('Kontaktuppgifter saknas. Lägg till dem under Detaljer.');
   if(!headline&&!description&&!cards.length&&!email&&!phone)throw new Error('Hemsidan gav inget läsbart innehåll. Den kan kräva JavaScript eller blockera hämtning. Prova adressen till själva innehållssidan. Ditt öppna förslag är kvar.');
   if(contentHeadings.length>41||description.length>6000||cards.some(c=>c.description.length>6000))warnings.push('Startsidan är mycket lång. Delar har kortats; jämför med originalet före delning.');
-  return {name,source,headline:headline||name,description,logo,hero,email,phone,accent,cards,navigation,cta:cta||'Kontakta oss',ctaHref,images:[...new Map(imageNodes.map(i=>[i.url,{url:i.url,label:i.label}])).values()].slice(0,80),warnings,links,stylesheets,sectionTitle:'',importedAt:new Date().toISOString()};
+  return {name,source,headline:headline||name,description,logo,hero,email,phone,address,accent,cards,navigation,cta:cta||'Kontakta oss',ctaHref,images:[...new Map(imageNodes.map(i=>[i.url,{url:i.url,label:i.label}])).values()].slice(0,80),warnings,links,stylesheets,sectionTitle:'',importedAt:new Date().toISOString()};
 }

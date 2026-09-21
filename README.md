@@ -99,3 +99,21 @@ Verifierat: 59 Node-tester och 37 DOM-regressioner. Full UI-import av Café Orio
 3. Spara, ladda om och kontrollera att innehåll och färg finns kvar. Välj Granska & dela och öppna demolänken; menyn ska leda till originalets undersidor.
 4. Importera `www.cafeorion.se`. Kontrollera namnet Café Orion och att huvudbilden är första bilden från originalets bildspel. Granska kvarvarande påminnelser om färg och kontaktuppgifter.
 5. Spara och kontrollera desktop och mobil innan kunddelning. Prova också Hallinc, Vegavista eller Verkli för att jämföra med tidigare fungerande importer.
+
+## Huvudmeny, kontaktuppgifter och bildkopplingar
+
+Importen väljer märkta huvudmenyer och stöder Max Mega Menu. Tomma menyknappar kan inte längre slå ut menyn, vilket rättar Vegavistas navigation. Vanliga undermenyer behåller sin föräldralänk; när föräldern endast öppnar en dropdown tas dess riktiga länkar med i den befintliga platta menyn. Undersidor öppnas fortfarande på originalet.
+
+Uttryckligt märkta telefonnummer och mejladresser i vanlig text hämtas, med kontaktområden prioriterade framför brödtext. Kontaktlänkar går först. Gatuadress med postnummer kan läsas i kontaktområden. Exempeltext, organisationsnummer och öppettider ska inte bli kontaktuppgifter. Mindre bilder kan användas i sitt innehållsblock utan att bli huvudbild. Lazy-srcset med dataplatsmarkör och kommatecken i bildadressen stöds.
+
+Verifierat: 60 Node-tester, 52 DOM-regressioner, lint och bygge. Jämförelse med originalinnehåll från sex webbplatser. Lokal UI-import av Café Orion visar telefon, adress, huvudbild och två mindre sektionsbilder; kontaktuppgifter följer med till sparande och kundlänk. Vegavistas fyra menylänkar visas efter import. Optinets huvudmeny och verkliga Om Optinet/Kontakta oss-länkar visas, och alla 11 valda bilder laddade i mobilförhandsvisningen. Ingen ny dependency eller ändring av sparformatet.
+
+Kvarvarande begränsningar: JavaScript-renderade sidor och CSS-bilder utan läsbar bildkälla stöds inte fullständigt. Färg utan säker källa kräver manuellt val. Ljusa transparenta logotyper, exempelvis Optinets, behöver granskas mot mallens bakgrund. Importen bevarar en bild per block och använder en platt meny; den återskapar inte originalets interaktiva undermenyer. Fler mallar och importerade undersidor är fortfarande uppskjutna.
+
+### QA i fem steg
+
+1. Öppna http://localhost:4174 eller den publicerade länken. Spara pågående arbete och ladda om för att få uppdateringen.
+2. Importera `www.cafeorion.se`. Kontrollera telefon `033-41 31 86`, adress `Österlånggatan 51, 503 37 Borås` och bilderna för Stort sortiment respektive Presentkort.
+3. Spara och ladda om. Skapa kundlänk via Granska & dela; kontrollera samma kontaktuppgifter, telefonlänk och bilder där.
+4. Spara före nästa import. Importera `vegavista.se`: menyn ska innehålla DooH, Media, För fastighetsägare och Om oss.
+5. Importera `www.optinet.se`. Kontrollera huvudmenyn, länkarna Om Optinet och Kontakta oss samt bilder i mobilvyn. Granska logotypens kontrast och välj en lämplig variant före kunddelning.
