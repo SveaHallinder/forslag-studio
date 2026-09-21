@@ -2,6 +2,9 @@ export const templates = Object.freeze([
   {id:'story',name:'Bild & berättelse',description:'Luftig och ljus. För lokala företag, inredning och verksamheter med mycket att visa.',reference:'Mall 17',source:'https://www.figma.com/design/9Fp2kHtdlxKhsP6obpL9Df/?node-id=806-897'},
   {id:'studio',name:'Studio',description:'Mörk, stor typografi och ett bildgalleri. För kreativa företag, arkitektur och varumärken.',reference:'Lit Collective',source:'https://www.figma.com/design/fZEahfhBaRw9R48e53twLu/?node-id=4-3670'},
   {id:'services',name:'Tjänster',description:'Delad huvudsektion och tydliga erbjudanden. För teknik, rådgivning och tjänsteföretag.',reference:'Optinet',source:'https://www.figma.com/design/fZEahfhBaRw9R48e53twLu/?node-id=4-4523'},
+  {id:'dining',name:'Café & restaurang',description:'Varmt papper, generösa matbilder och klassisk typografi. För caféer, restauranger och hotell.',reference:'Mat & gästfrihet'},
+  {id:'wellness',name:'Hälsa & skönhet',description:'Lugn, ljus design med mjuka bildformer. För salonger, träning, kliniker och behandlingar.',reference:'Hälsa & välmående'},
+  {id:'retail',name:'Butik & sortiment',description:'Tydliga bildytor och ett luftigt sortimentsgalleri. För butiker, inredning och produkter.',reference:'Handel & produkter'},
 ]);
 
 export function getTemplate(id) {
@@ -112,4 +115,67 @@ body[data-template="services"]{background:#f8f9f6;color:#17241f}
   [data-template="services"] .footer{margin:0 22px}
 }
 @media print{[data-template="studio"] .hero-copy{margin:35px 0}[data-template="studio"] .card:nth-child(even){padding-top:0}[data-template="services"] .hero-image{height:300px}[data-template="services"] .card{break-inside:avoid}}
+
+/* Industry layouts preserve the same content, images and working navigation. */
+html body[data-template="dining"]{background:#f5f0e7;color:#342b24}
+html body[data-template="dining"] .shell{max-width:1380px}
+html body[data-template="dining"] .hero-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:64px;align-items:center;padding:64px 0}
+html body[data-template="dining"] .hero-copy{margin:0;text-align:left}
+html body[data-template="dining"] h1,html body[data-template="dining"] .card h3,html body[data-template="dining"] .contact h2{font-family:Georgia,'Times New Roman',serif;font-weight:400;letter-spacing:-.045em}
+html body[data-template="dining"] .hero-copy h1{margin-left:0;font-size:clamp(40px,5.5vw,76px)}
+html body[data-template="dining"] .hero-copy>p{margin:24px 0;color:#65584b}
+html body[data-template="dining"] .eyebrow{justify-content:flex-start;color:#65584b}
+html body[data-template="dining"] .hero-image{height:560px;border-radius:46% 46% 8px 8px}
+html body[data-template="dining"] .button{border-radius:4px}
+html body[data-template="dining"] .cards{display:flex;flex-direction:column;gap:0}
+html body[data-template="dining"] .card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:64px;padding:48px 0;border-top:1px solid #d6cabc;align-items:center}
+html body[data-template="dining"] .card:nth-child(even)>img{order:2}
+html body[data-template="dining"] .card img{border-radius:8px;object-fit:contain;max-height:480px;height:auto}
+html body[data-template="dining"] .card h3{font-size:36px}
+html body[data-template="dining"] .card p{color:#65584b;font-size:16px;line-height:1.85}
+html body[data-template="dining"] .contact{background:#342b24;border-radius:8px}
+html body[data-template="wellness"]{background:#f5f8f5;color:#233c35}
+html body[data-template="wellness"] .hero-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:64px;align-items:center;padding:76px 0}
+html body[data-template="wellness"] .hero-copy{margin:0;text-align:left}
+html body[data-template="wellness"] .hero-copy h1{margin-left:0;font-weight:450;letter-spacing:-.04em;font-size:clamp(38px,5vw,66px)}
+html body[data-template="wellness"] .hero-copy>p{margin:24px 0;color:#52675f}
+html body[data-template="wellness"] .eyebrow{justify-content:flex-start;color:#52675f}
+html body[data-template="wellness"] .hero-image{height:550px;border-radius:160px 32px 160px 32px}
+html body[data-template="wellness"] .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px}
+html body[data-template="wellness"] .card{display:block;padding:28px!important;border:1px solid #d8e2dc;border-radius:24px;background:#fff}
+html body[data-template="wellness"] .card img{height:300px;object-fit:contain;border-radius:16px;margin-bottom:28px}
+html body[data-template="wellness"] .card h3{font-size:28px;font-weight:500}
+html body[data-template="wellness"] .card p{color:#52675f;font-size:16px;line-height:1.85}
+html body[data-template="wellness"] .contact{background:#233c35;border-radius:32px}
+html body[data-template="retail"]{background:#fff;color:#202420}
+html body[data-template="retail"] .shell{max-width:1440px}
+html body[data-template="retail"] .hero-copy{max-width:950px;margin:68px auto 40px}
+html body[data-template="retail"] .hero-copy h1{font-size:clamp(40px,5.5vw,76px);font-weight:650;letter-spacing:-.05em}
+html body[data-template="retail"] .hero-image{height:560px;border-radius:0}
+html body[data-template="retail"] .button{border-radius:0}
+html body[data-template="retail"] .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:40px 28px}
+html body[data-template="retail"] .card{display:block;padding:0!important;border:0}
+html body[data-template="retail"] .card img{width:100%;height:300px;object-fit:contain;border-radius:0;background:#f5f5f2;margin-bottom:24px}
+html body[data-template="retail"] .card h3{font-size:26px;line-height:1.2}
+html body[data-template="retail"] .card p{font-size:15px;line-height:1.8;color:#586058}
+html body[data-template="retail"] .contact{border-radius:0;background:#202420}
+html body:is([data-template="dining"],[data-template="wellness"]) .hero-layout:has(.no-image){display:block}
+html body:is([data-template="dining"],[data-template="wellness"]) .hero-layout:has(.no-image) .hero-copy{max-width:850px}
+html body:is([data-template="dining"],[data-template="wellness"],[data-template="retail"]) .hero-copy .button{background:var(--accent);color:var(--accent-ink)}
+html body:is([data-template="dining"],[data-template="wellness"],[data-template="retail"]) .card:not(:has(img)){display:block}
+html body:is([data-template="dining"],[data-template="wellness"],[data-template="retail"]) .card-meta{margin:0;min-width:0}
+html body:is([data-template="dining"],[data-template="wellness"],[data-template="retail"]) .card-placeholder{display:none}
+@media(max-width:1000px){html body[data-template="retail"] .cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){
+ html body:is([data-template="dining"],[data-template="wellness"]) .hero-layout{grid-template-columns:1fr;gap:32px;padding:40px 0}
+ html body:is([data-template="dining"],[data-template="wellness"],[data-template="retail"]) .hero-copy h1{font-size:clamp(34px,9vw,49px);line-height:1.12}
+ html body:is([data-template="dining"],[data-template="wellness"],[data-template="retail"]) .hero-image{height:350px}
+ html body[data-template="dining"] .hero-image{border-radius:42% 42% 8px 8px}
+ html body[data-template="wellness"] .hero-image{border-radius:90px 24px 90px 24px}
+ html body[data-template="dining"] .card{grid-template-columns:1fr;gap:24px;padding:32px 0}
+ html body[data-template="dining"] .card:nth-child(even)>img{order:0}
+ html body:is([data-template="wellness"],[data-template="retail"]) .cards{grid-template-columns:1fr;gap:24px}
+ html body[data-template="wellness"] .card{padding:22px!important}
+ html body:is([data-template="dining"],[data-template="wellness"],[data-template="retail"]) .card h3{font-size:28px}
+}
 `;

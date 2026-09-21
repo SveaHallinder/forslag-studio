@@ -1,12 +1,35 @@
 # Förslag Studio online
 
-Webbversion för en säljare som ska kunna börja direkt från en länk, utan installation eller konto. Samma tre mallar och redigeringsflöde som den lokala versionen.
+Webbversion för en säljare som ska kunna börja direkt från en länk, utan installation eller konto. Sex mallar och stöd för startsida plus upp till fem undersidor.
 
 Projekt sparas i IndexedDB i den egna webbläsaren. Andra besökare får en egen projektlista. Ingen projektdata lagras på servern, och listan synkas inte mellan enheter. Rensad webbplatsdata, privat läge eller byte av webbläsare kan innebära att sparade projekt inte finns kvar. Ladda ner **Projektkopia** som backup och öppna den på en annan dator vid behov.
 
 Servern hämtar offentlig HTML och bildfiler för import respektive export. Text, mallar och bildval granskas av säljaren innan delning. JavaScript-beroende eller blockerande företagssidor kan kräva manuell redigering. Kundlänkar använder den befintliga publika demovisaren och fungerar oberoende av säljarens webbläsare.
 
 Inga paketberoenden eller betalda API:er. Worker-koden använder Cloudflares publika nätverksåtkomst utan privata nätverkskopplingar. Adresser och omdirigeringar valideras, svarsstorlek och tid begränsas. Publik hämtning följer plattformens användningsgränser.
+
+## Aktuell version: sex designer och importerade undersidor
+
+Markera **Ta med upp till fem undersidor från menyn** vid import. Verktyget hämtar unika sidlänkar på samma webbplats, med högst två sidimporter samtidigt. Sidor som inte kan hämtas lämnar startsidan intakt och deras menylänkar går till originalet. Fler än fem sidlänkar, dokument, externa sidor och länkar med sökparametrar importeras inte. Omdirigeringar och läsbara sektionsankare kopplas till den importerade sidan.
+
+**Sida att redigera** väljer innehåll, bildval och kontaktuppgifter. Företagsnamn, meny, logotyp, accentfärg och mall gäller hela webbplatsen. Sparande, projektkopior, kundlänkar och HTML-export inkluderar alla importerade sidor. Det nya valfria `pages`-fältet är godkänt av användaren; gamla projekt och länkar fungerar fortsatt. Granskningen kontrollerar även undersidornas rubriker och länkar och leder till rätt sida vid Rätta.
+
+Tre nya uttryck finns utöver Bild & berättelse, Studio och Tjänster: **Café & restaurang**, **Hälsa & skönhet** och **Butik & sortiment**. De använder samma originalinnehåll, inga påhittade produkter, priser eller recensioner. Kunddemon växlar mellan importerade sidor med samma meny. Bakåtknappen och omladdning behåller vald sida. Länkar till originalets formulär eller saknade avsnitt fortsätter gå till originalet. HTML-export bäddar in använda bilder på samtliga sidor och avbryts tydligt om en bild inte går att hämta.
+
+Begränsningar: detta är designförslag, inte återbyggda betalningar, bokningssystem eller formulär. Importen läser offentlig HTML och upp till två stilmallar per sida; den kör inte företagets JavaScript. Sidor med botblockering eller innehåll som kräver JavaScript kan behöva fyllas i manuellt. Navigationen är platt, högst tolv länkar; varje innehållsblock har en bild. Säljaren behöver fortsatt jämföra innehåll, branding och bildval med originalet. Ingen ny dependency, betald tjänst eller gemensam säljarinloggning har lagts till.
+
+Verifierat i denna uppdatering: 94 automatiserade tester, 61 DOM-importtester, lint och bygge. Café Orion importerades via det riktiga gränssnittet med fem undersidor. Separat sidredigering, sparande/omladdning, mallbyte, delningsgranskning och sidval i förhandsvisning testades. Kundlänkens nya version visas även i samma flik. Delad och fristående navigering klarade Bakåt, omladdning, sektionslänkar och extern formulärlänk. De tre nya designerna och redigeraren ryms vid 375 px. Nedladdad HTML innehöll sex sidmallar och 23 inbäddade bildreferenser, utan externa bildreferenser.
+
+### QA i sex steg
+
+1. Öppna http://localhost:4174 eller den publicerade appen. Spara pågående utkast och ladda om. Importera `https://www.cafeorion.se/` med undersidor markerade.
+2. Välj Om Caféet under Sida att redigera. Ändra dess rubrik, återgå till Startsida och kontrollera att startsidans rubrik är kvar. Prova också sidval i förhandsvisningens meny.
+3. Byt mellan de sex mallarna. Kontrollera originaltext, bilder och menylänkar på desktop och mobil. Spara och ladda om; undersidans ändring och valt utseende ska finnas kvar.
+4. Töm tillfälligt en undersidas huvudrubrik. Granska & dela ska stoppa delning och Rätta öppna den sidan. Återställ rubriken och skapa kundlänk.
+5. Öppna kundlänken, växla mellan startsida och undersidor och prova Bakåt samt omladdning. En ny demolänk i samma flik ska visa den nya versionen. Länkar till sidor eller formulär som inte importerats ska gå till originalet.
+6. Ladda ner HTML och projektkopia. Öppna HTML-filen och prova undersidorna med inbäddade bilder. Återställ projektkopian och kontrollera samma sidor och innehåll.
+
+Äldre leveransanteckningar nedan beskriver tidigare versioner; uppgifterna om enbart tre mallar och startsida är ersatta av denna version.
 
 ## Lokal kontroll
 

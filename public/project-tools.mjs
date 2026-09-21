@@ -18,7 +18,7 @@ export function prepareNavigation(items,rawProject) {
   });
 }
 
-export function assessProject(raw = {}) {
+function assessPage(raw = {}) {
   const p = normalizeProject(raw);
   const name = String(raw.name ?? '').trim();
   const headline = String(raw.headline ?? '').trim();
@@ -34,6 +34,18 @@ export function assessProject(raw = {}) {
   ];
 }
 
+export function assessProject(raw = {}) {
+  const checks=assessPage(raw);
+  for(const [pageIndex,page] of (Array.isArray(raw.pages)?raw.pages:[]).slice(0,5).entries()){
+    if(!page||typeof page!=='object')continue;
+    for(const check of assessPage(page)){
+      if(['name','navigation'].includes(check.id)||check.ok)continue;
+      checks.push({...check,label:(page.name||'Sida '+(pageIndex+2))+': '+check.label,pageIndex});
+    }
+  }
+  return checks;
+}
+
 export function searchProjects(projects, query) {
   const needle = String(query ?? '').trim().toLocaleLowerCase('sv');
   return projects.filter(p=>String(p.name ?? '').toLocaleLowerCase('sv').includes(needle));
@@ -46,5 +58,16 @@ export function restoreProject(source) {
   if(raw.cards!==undefined&&(!Array.isArray(raw.cards)||raw.cards.length>40||raw.cards.some(c=>!c||typeof c!=='object')))throw new Error('Projektets bildkort är ogiltiga.');
   if(raw.benefits!==undefined&&(!Array.isArray(raw.benefits)||raw.benefits.some(b=>!b||typeof b!=='object')))throw new Error('Projektets fördelar är ogiltiga.');
   if(raw.images!==undefined&&(!Array.isArray(raw.images)||raw.images.some(i=>!i||typeof i!=='object')))throw new Error('Projektets bilder är ogiltiga.');
+  if(raw.pages!==undefined){
+    if(!Array.isArray(raw.pages)||raw.pages.length>5)throw new Error('Projektets undersidor är ogiltiga. Högst fem undersidor stöds.');
+    const seen=new Set();
+    const pageKey=value=>{const url=new URL(value);if(!['https:','http:'].includes(url.protocol)||url.username||url.password)throw new Error();url.hash='';return url.href.replace(/\/(?=\?|$)/,'');};
+    if(raw.source)try{seen.add(pageKey(raw.source));}catch{}
+    for(const page of raw.pages)try{
+      if(!page||typeof page!=='object'||Array.isArray(page)||page.pages!==undefined)throw new Error();
+      const key=pageKey(page.source);if(seen.has(key))throw new Error();seen.add(key);
+      restoreProject(JSON.stringify(page));
+    }catch{throw new Error('En undersida i projektkopian är ogiltig eller förekommer flera gånger. Originalfilen är oförändrad.');}
+  }
   return normalizeProject({...raw,id:''});
 }

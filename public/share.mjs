@@ -2,16 +2,14 @@ import { normalizeProject } from './render.mjs';
 
 export async function encodeProject(raw, publicBase) {
   const project = normalizeProject(raw);
-  project.images = [];
-  project.benefits = project.benefits.filter(b => b.title);
-  project.warnings = [];
-  project.id = '';
   const base = new URL(publicBase);
   if (!['https:', 'http:'].includes(base.protocol)) throw new Error('Demolänkens adress är ogiltig.');
   const absolute = value => value.startsWith('/assets/') ? new URL(value, base).href : value;
-  project.hero = absolute(project.hero);
-  project.logo = absolute(project.logo);
-  project.cards.forEach(card => card.image = absolute(card.image));
+  for(const page of [project,...(project.pages||[])]){
+    page.images=[];page.warnings=[];page.id='';page.benefits=page.benefits.filter(b=>b.title);
+    page.hero=absolute(page.hero);page.logo=absolute(page.logo);
+    page.cards.forEach(card=>card.image=absolute(card.image));
+  }
   const content = new Blob([JSON.stringify(project)]);
   if(content.size > 1500000) throw new Error('Förslaget innehåller för mycket bilddata för en kundlänk. Välj färre uppladdade bilder eller ladda ner demosidan som HTML.');
   const stream = content.stream().pipeThrough(new CompressionStream('gzip'));

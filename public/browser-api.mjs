@@ -31,16 +31,55 @@ async function remote(path,body) {
   const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(30000)});
   if(!response.ok){const data=await response.json().catch(()=>({}));throw problem(data.error||'Hämtningen misslyckades. Försök igen.',response.status);}return response;
 }
-async function importCompany(url) {
+async function readCompany(url,extraContact=true) {
   const page=await(await remote('/api/read',{url})).json();
   let project=extractContent(page.html,page.url);
   const styles=await Promise.all(project.stylesheets.slice(0,2).map(async url=>{try{const result=await(await remote('/api/style',{url})).json();return {css:result.css,url:result.url||url};}catch{console.warn('[mockup online import] Brand stylesheet unavailable');return null;}}));
   if(styles.some(Boolean))project=extractContent(page.html,page.url,styles.filter(Boolean));
-  if(!project.email&&!project.phone){
+  if(extraContact&&!project.email&&!project.phone){
     const contact=project.links.find(link=>{try{return new URL(link).hostname===new URL(page.url).hostname&&/kontakt|contact|om-oss|about/i.test(new URL(link).pathname);}catch{return false;}});
     if(contact)try{const extra=await(await remote('/api/read',{url:contact})).json(),details=extractContent(extra.html,extra.url);project.email=details.email;project.phone=details.phone;if(details.email||details.phone)project.warnings=project.warnings.filter(w=>!w.startsWith('Kontaktuppgifter saknas'));}catch{console.warn('[mockup online import] Contact page unavailable');}
   }
   delete project.links;delete project.stylesheets;return project;
+}
+async function importCompany(url,includePages=true) {
+  const project=await readCompany(url);project.pages=[];
+  if(!includePages){delete project.sourceAnchors;return project;}
+  const root=new URL(project.source),seen=new Set([root.origin+root.pathname.replace(/\/$/,'')]),targets=[];
+  for(const item of project.navigation){
+    let target;try{target=new URL(item.href,root);}catch{continue;}
+    const key=target.origin+target.pathname.replace(/\/$/,'');
+    if(target.origin!==root.origin||seen.has(key)||target.search||/\.(?:pdf|zip|jpe?g|png|svg|webp)$/i.test(target.pathname))continue;
+    seen.add(key);target.hash='';targets.push({label:item.label,url:target.href});
+  }
+  const failed=[],aliases=new Map();
+  for(let start=0;start<Math.min(5,targets.length);start+=2){
+    const batch=await Promise.all(targets.slice(start,Math.min(start+2,5)).map(async target=>{
+      try{const page=await readCompany(target.url,false);aliases.set(target.url,page.source);return {...page,name:target.label};}
+      catch{console.warn('[mockup online import] Subpage unavailable',new URL(target.url).pathname);failed.push(target.label);return null;}
+    }));project.pages.push(...batch.filter(Boolean));
+  }
+  const content=[project,...project.pages],key=url=>url.origin+url.pathname.replace(/\/$/,'')+url.search;
+  const relink=href=>{
+    if(!/^https?:/.test(href||''))return href;
+    try{
+      const url=new URL(href),original=new URL(href);url.hash='';
+      const target=content.find(page=>key(new URL(page.source))===key(new URL(aliases.get(url.href)||url.href)));
+      if(!target)return href;
+      const mapped=original.hash&&target.sourceAnchors?.[decodeURIComponent(original.hash.slice(1))];
+      return target.source+(mapped?'#'+mapped:original.hash);
+    }catch{return href;}
+  };
+  for(const page of content){
+    page.navigation=page.navigation?.map(item=>({...item,href:relink(item.href)}))||[];
+    page.ctaHref=relink(page.ctaHref);page.cards=page.cards?.map(card=>({...card,...(card.href?{href:relink(card.href)}:{})}))||[];
+    page.warnings=(page.warnings||[]).filter(w=>!w.startsWith('Menylänkar till undersidor öppnar'));
+  }
+  content.forEach(page=>delete page.sourceAnchors);
+  if(project.navigation.some(item=>/^https?:/.test(item.href)&&!content.some(page=>{try{return key(new URL(page.source))===key(new URL(item.href));}catch{return false;}})))project.warnings.push('Menylänkar till sidor som inte importerats öppnar företagets original.');
+  if(failed.length)project.warnings.unshift('Kunde inte hämta: '+failed.join(', ')+'. Menylänkarna öppnar originalet.');
+  if(targets.length>5)project.warnings.push('Högst fem undersidor hämtas. Övriga menylänkar öppnar originalet.');
+  return project;
 }
 function dataURL(blob){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(problem('Bilden kunde inte läsas.'));reader.readAsDataURL(blob);});}
 export async function imageDataURL(blob) {
@@ -57,20 +96,20 @@ export async function imageDataURL(blob) {
   }finally{clearTimeout(timer);image.src='';URL.revokeObjectURL(url);}
 }
 async function exportDemo(input){
-  const p=normalizeProject(input),urls=[...new Set([p.hero,p.logo,...p.cards.map(c=>c.image)].filter(Boolean))],mapping=new Map();let size=0;
+  const p=normalizeProject(input),content=[p,...(p.pages||[])],urls=[...new Set([p.logo,...content.flatMap(page=>[page.hero,...page.cards.map(c=>c.image)])].filter(Boolean))],mapping=new Map();let size=0;
   for(let start=0;start<urls.length;start+=3)await Promise.all(urls.slice(start,start+3).map(async url=>{
     let data;
     try {data=url.startsWith('data:')?url:await imageDataURL(await(await remote('/api/image',{url})).blob());}
     catch(error){throw problem('En bild kunde inte bäddas in: '+error.message+' Byt eller ta bort bilden/logotypen under Bilder och försök igen. Ingen ofullständig export skapades.');}
     size+=data.length;if(size>30_000_000)throw problem('Bilderna är för stora för en fristående demosida. Välj färre eller mindre bilder.');mapping.set(url,data);
   }));
-  p.hero=mapping.get(p.hero)||'';p.logo=mapping.get(p.logo)||'';p.cards=p.cards.map(c=>({...c,image:mapping.get(c.image)||''}));p.images=[];
+  for(const page of content){page.hero=mapping.get(page.hero)||'';page.logo=mapping.get(page.logo)||'';page.cards=page.cards.map(c=>({...c,image:mapping.get(c.image)||''}));page.images=[];}
   return new Response(renderDemo(p),{headers:{'Content-Type':'text/html; charset=utf-8'}});
 }
 export async function browserAPI(path,body) {
   try {
     if(path==='/api/config')return reply({publicBase:new URL('/demo.html',location.href).href,hostingStatus:'public',storage:'browser'});
-    if(path==='/api/import')return reply(await importCompany(body.url));
+    if(path==='/api/import')return reply(await importCompany(body.url,body.includePages!==false));
     if(path==='/api/export')return await exportDemo(body);
     if(!ready)ready=initialize().catch(error=>{ready=null;throw error;});await ready;
     if(path==='/api/projects'||path==='/api/archived')return reply(await transaction([path==='/api/projects'?'active':'archive'],'readonly',async tx=>{

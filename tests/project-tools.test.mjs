@@ -62,3 +62,14 @@ test('menu editor validates internal destinations against the current proposal',
  assert.throws(()=>projectTools.prepareNavigation([{label:'Borta',href:'#section-1'}],{cards:[]}),/Menylänk 1/);
  assert.deepEqual(projectTools.prepareNavigation([{label:'Kvar',href:'#section-2'}],{cards:[{title:'Kvar',anchor:'section-2'}]}),[{label:'Kvar',href:'#section-2'}]);
 });
+
+test('review points to the subpage containing an invalid headline or link',()=>{
+ const raw={name:'Acme',headline:'Start',source:'https://example.com',pages:[{name:'Team',source:'https://example.com/team',headline:'',ctaHref:'#missing'}]};
+ const failed=assessProject(raw).filter(c=>c.blocking&&!c.ok);
+ assert.ok(failed.some(c=>c.id==='headline'&&c.pageIndex===0));assert.ok(failed.some(c=>c.id==='cta'&&c.pageIndex===0));assert.ok(failed.every(c=>c.label.startsWith('Team:')));
+});
+test('project backup rejects malformed subpages instead of silently losing them',()=>{
+ const root={name:'Acme',headline:'Start'};
+ for(const pages of [{},[null],[{name:'About',headline:'About',source:'javascript:alert(1)'}],Array.from({length:6},(_,i)=>({name:'Page',headline:'Page',source:'https://example.com/'+i}))])assert.throws(()=>restoreProject(JSON.stringify({...root,pages})),/undersid/i);
+ const p=restoreProject(JSON.stringify({...root,pages:[{name:'About',headline:'About',source:'https://example.com/about',cards:[{title:'Team'}]}]}));assert.equal(p.pages[0].cards[0].title,'Team');
+});

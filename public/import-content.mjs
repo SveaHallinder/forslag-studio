@@ -189,11 +189,11 @@ export function extractContent(html, source, styles='') {
   if(scope.querySelectorAll('video,[data-current-styles]').length&&hero)warnings.push('Rörligt eller konfigurerat bakgrundsmaterial visas som originalets stillbild i förslaget.');
   if(hasForms)warnings.push('Originalets formulär har inte återskapats. Använd en knapp till originalet för anmälan, bokning eller köp.');
   if(navigation.some(n=>/^https?:/.test(n.href)))warnings.push('Menylänkar till undersidor öppnar företagets original. Bara startsidan har fått ny design.');
-  if(!brand)warnings.push(buttonColor?'Färgen kommer från originalets huvudknapp. Kontrollera den före delning.':/^#[a-f\d]{6}$/i.test(theme)?'Färgen kommer från sidans tema. Kontrollera att den stämmer med varumärket.':'Ingen säker varumärkesfärg hittades. Välj rätt färg under Detaljer.');
+  if(!brand)warnings.push(buttonColor?'Färgen kommer från originalets huvudknapp. Kontrollera den före delning.':/^#[a-f\d]{6}$/i.test(theme)?'Färgen kommer från sidans tema. Kontrollera att den stämmer med varumärket.':'Ingen säker varumärkesfärg hittades. Välj rätt accentfärg under Innehåll.');
   if(!logo)warnings.push('Logotyp kunde inte identifieras säkert. Lägg till den under Bilder.');
   if(!hero)warnings.push('Ingen säker huvudbild hittades vid huvudrubriken. Välj huvudbild under Bilder.');
   if(!email&&!phone)warnings.push('Kontaktuppgifter saknas. Lägg till dem under Detaljer.');
   if(!headline&&!description&&!cards.length&&!email&&!phone)throw new Error('Hemsidan gav inget läsbart innehåll. Den kan kräva JavaScript eller blockera hämtning. Prova adressen till själva innehållssidan. Ditt öppna förslag är kvar.');
   if(contentHeadings.length>41||description.length>6000||cards.some(c=>c.description.length>6000))warnings.push('Startsidan är mycket lång. Delar har kortats; jämför med originalet före delning.');
-  return {name,source,headline:headline||name,description,logo,hero,email,phone,address,accent,cards,navigation,cta:cta||'Kontakta oss',ctaHref,images:[...new Map(imageNodes.map(i=>[i.url,{url:i.url,label:i.label}])).values()].slice(0,80),warnings,links,stylesheets,sectionTitle:'',importedAt:new Date().toISOString()};
+  return {sourceAnchors:Object.fromEntries(anchors),name,source,headline:headline||name,description,logo,hero,email,phone,address,accent,cards,navigation,cta:cta||'Kontakta oss',ctaHref,images:[...new Map(imageNodes.map(i=>[i.url,{url:i.url,label:i.label}])).values()].slice(0,80),warnings,links,stylesheets,sectionTitle:'',importedAt:new Date().toISOString()};
 }

@@ -1,11 +1,14 @@
 import { browserAPI } from './browser-api.mjs';
-import { normalizeProject, renderDemo, escapeHTML as e } from './render.mjs';
+import { normalizeProject, renderDemo, installDemoNavigation, escapeHTML as e } from './render.mjs';
 import { encodeProject } from './share.mjs';
 import { templates, getTemplate } from './templates.mjs';
 import { assessProject, searchProjects, restoreProject, prepareNavigation } from './project-tools.mjs';
 
 const $ = id => document.getElementById(id);
 let project, config = {}, dirty = false, device = 'desktop', toastTimer, previewTimer, importBusy = false;
+let activePage = -1, editingSite, previewSource;
+function currentContent() { return project.pages?.[activePage] || project; }
+function fieldOwner(field) { return ['name','accent'].includes(field) ? project : currentContent(); }
 const draftKey = 'forslag-studio-draft-v1';
 let projectIndex = [], archiveIndex = [], projectLoadSequence = 0, libraryLoadSequence = 0, libraryView = 'active', archiveBusy = false, archiveTarget = '';
 
@@ -61,24 +64,25 @@ function updatePreview() {
   clearTimeout(previewTimer);
   previewTimer = setTimeout(() => {
     const frame = $('preview');
-    let top = 0; try { top = frame.contentWindow.scrollY; } catch {}
+    let top = 0; try { if(previewSource===currentContent().source)top = frame.contentWindow.scrollY; } catch {}
+    previewSource=currentContent().source;
     frame.onload = () => {
       try {
         frame.contentWindow.scrollTo(0, top);
-        frame.contentDocument.querySelectorAll('a[href^="#"]').forEach(link=>link.addEventListener('click',event=>{
-          event.preventDefault();
-          const id=link.getAttribute('href').slice(1);
-          if(id)frame.contentDocument.getElementById(id)?.scrollIntoView({behavior:'smooth'});
-          else frame.contentWindow.scrollTo({top:0,behavior:'smooth'});
-        }));
+        installDemoNavigation(frame.contentDocument,frame.contentWindow);
+        frame.contentDocument.addEventListener('demo-page-change',event=>{
+          const index=(project.pages||[]).findIndex(page=>page.source===event.detail.source);
+          if(index===activePage)return;
+          activePage=index;previewSource=currentContent().source;fillEditor(true);
+        });
       } catch {}
     };
-    frame.srcdoc = renderDemo(project);
+    frame.srcdoc = renderDemo(project,{pageSource:currentContent().source});
     updateTitle();
   }, 160);
 }
 function imageOptions(selected) {
-  const images = [...project.images];
+  const images = [...currentContent().images];
   if (selected && !images.some(i=>i.url===selected)) images.unshift({url:selected,label:'Vald bild'});
   return '<option value="">Ingen bild</option>' + images.map((image, i) => `<option value="${e(image.url)}" ${image.url===selected?'selected':''}>${e(image.label || 'Bild ' + (i+1))}</option>`).join('');
 }
@@ -124,18 +128,18 @@ $('navigationForm').addEventListener('submit',event=>{
   }
 });
 function renderCards() {
-  $('cardsEditor').innerHTML = project.cards.map((card, i) => `<div class="card-editor"><div class="card-editor-header"><span>BLOCK ${String(i+1).padStart(2,'0')}</span><div class="card-actions"><button data-move-card="${i}" data-direction="-1" aria-label="Flytta block ${i+1} upp" ${i===0?'disabled':''}>↑</button><button data-move-card="${i}" data-direction="1" aria-label="Flytta block ${i+1} ned" ${i===project.cards.length-1?'disabled':''}>↓</button><button data-remove-card="${i}" aria-label="Ta bort block ${i+1}">×</button></div></div><label for="card-title-${i}">Rubrik</label><input id="card-title-${i}" data-card="${i}" data-property="title" maxlength="300" value="${e(card.title)}"><label for="card-description-${i}">Beskrivning</label><textarea id="card-description-${i}" data-card="${i}" data-property="description" rows="2" maxlength="6000">${e(card.description)}</textarea><label for="card-image-${i}">Bild</label><select id="card-image-${i}" data-card="${i}" data-property="image">${imageOptions(card.image)}</select><label for="card-href-${i}">Länk <span>Valfri, på rubriken</span></label><input id="card-href-${i}" data-card="${i}" data-property="href" value="${e(card.href||'')}" maxlength="2000" placeholder="https://företaget.se/tjänst"></div>`).join('') || '<p class="empty-state">Inga bildkort ännu. Lägg till ett kort för en tjänst, produkt eller plats.</p>';
-  $('addCard').disabled = project.cards.length >= 40;
+  $('cardsEditor').innerHTML = currentContent().cards.map((card, i) => `<div class="card-editor"><div class="card-editor-header"><span>BLOCK ${String(i+1).padStart(2,'0')}</span><div class="card-actions"><button data-move-card="${i}" data-direction="-1" aria-label="Flytta block ${i+1} upp" ${i===0?'disabled':''}>↑</button><button data-move-card="${i}" data-direction="1" aria-label="Flytta block ${i+1} ned" ${i===currentContent().cards.length-1?'disabled':''}>↓</button><button data-remove-card="${i}" aria-label="Ta bort block ${i+1}">×</button></div></div><label for="card-title-${i}">Rubrik</label><input id="card-title-${i}" data-card="${i}" data-property="title" maxlength="300" value="${e(card.title)}"><label for="card-description-${i}">Beskrivning</label><textarea id="card-description-${i}" data-card="${i}" data-property="description" rows="2" maxlength="6000">${e(card.description)}</textarea><label for="card-image-${i}">Bild</label><select id="card-image-${i}" data-card="${i}" data-property="image">${imageOptions(card.image)}</select><label for="card-href-${i}">Länk <span>Valfri, på rubriken</span></label><input id="card-href-${i}" data-card="${i}" data-property="href" value="${e(card.href||'')}" maxlength="2000" placeholder="https://företaget.se/tjänst"></div>`).join('') || '<p class="empty-state">Inga bildkort ännu. Lägg till ett kort för en tjänst, produkt eller plats.</p>';
+  $('addCard').disabled = currentContent().cards.length >= 40;
 }
 function renderImages() {
-  $('heroThumbnail').hidden = !project.hero;
-  if (project.hero) $('heroThumbnail').src = project.hero;
-  $('imageGrid').innerHTML = project.images.map((image, i) => `<button class="image-choice ${project.hero===image.url?'selected':''}" data-image="${i}" aria-label="Välj ${e(image.label || 'bild '+(i+1))}" title="${e(image.label || 'Bild '+(i+1))}"><img src="${e(image.url)}" alt="${e(image.label)}" loading="lazy" referrerpolicy="no-referrer"></button>`).join('');
-  $('imagesEmpty').hidden = !!project.images.length;
+  $('heroThumbnail').hidden = !currentContent().hero;
+  if (currentContent().hero) $('heroThumbnail').src = currentContent().hero;
+  $('imageGrid').innerHTML = currentContent().images.map((image, i) => `<button class="image-choice ${currentContent().hero===image.url?'selected':''}" data-image="${i}" aria-label="Välj ${e(image.label || 'bild '+(i+1))}" title="${e(image.label || 'Bild '+(i+1))}"><img src="${e(image.url)}" alt="${e(image.label)}" loading="lazy" referrerpolicy="no-referrer"></button>`).join('');
+  $('imagesEmpty').hidden = !!currentContent().images.length;
 }
 function renderBenefits() {
   $('benefitsEditor').innerHTML = Array.from({length:4}, (_,i) => {
-    const b = project.benefits[i] || {title:'',description:''};
+    const b = currentContent().benefits[i] || {title:'',description:''};
     return `<div class="benefit-editor"><label for="benefit-${i}">Fördel ${i+1}</label><input id="benefit-${i}" data-benefit="${i}" data-property="title" value="${e(b.title)}" placeholder="Lämna tomt för att dölja" maxlength="100"><textarea data-benefit="${i}" data-property="description" aria-label="Beskrivning av fördel ${i+1}" rows="2" maxlength="350">${e(b.description)}</textarea></div>`;
   }).join('');
 }
@@ -168,17 +172,25 @@ $('templateGallery').addEventListener('click',event=>{
   $('templateDialog').close();
 });
 new ResizeObserver(fitTemplatePreviews).observe($('templateGallery'));
-function fillEditor() {
+function fillEditor(keepPreview = false) {
+  if(editingSite!==project){activePage=-1;editingSite=project;}
+  if(activePage>=(project.pages?.length||0))activePage=-1;
   updateTemplateLabel();
-  document.querySelectorAll('[data-field]').forEach(input => input.value = project[input.dataset.field] ?? '');
+  $('pageSelect').innerHTML='<option value="-1">Startsida</option>'+(project.pages||[]).map((p,i)=>`<option value="${i}">${e(p.name||'Sida '+(i+2))}</option>`).join('');
+  $('pageSelect').value=String(activePage);
+  $('pageHelp').textContent=activePage<0?'Du redigerar startsidan. Namn, meny, logotyp och design gäller hela webbplatsen.':'Du redigerar '+currentContent().name+'. Namn, meny, logotyp och design gäller hela webbplatsen.';
+  $('pageOriginal').hidden=!currentContent().source;
+  $('pageOriginal').href=currentContent().source||'#';
+  document.querySelectorAll('[data-field]').forEach(input => input.value = fieldOwner(input.dataset.field)[input.dataset.field] ?? '');
   $('sourceUrl').value = project.source;
-  $('warnings').textContent = project.warnings.join(' ');
-  $('warnings').hidden = !project.warnings.length;
+  $('warnings').textContent = currentContent().warnings.join(' ');
+  $('warnings').hidden = !currentContent().warnings.length;
   $('savedState').textContent = dirty ? 'OSPARAT' : 'SPARAT';
   $('importStatus').className = 'import-status';
   $('importStatus').textContent = project.id === 'vegavista' ? 'Vegavista-pilot. Granska eventuella ändringar innan du delar.' : project.importedAt ? 'Importerat innehåll. Granska text och bildval innan du delar.' : 'Klistra in en företagslänk eller fyll i innehållet själv.';
-  renderNavigationSummary(); renderCards(); renderImages(); renderBenefits(); updatePreview();
+  renderNavigationSummary(); renderCards(); renderImages(); renderBenefits(); if(!keepPreview)updatePreview();else updateTitle();
 }
+$('pageSelect').addEventListener('change',()=>{activePage=Number($('pageSelect').value);fillEditor();});
 async function refreshProjects() {
   const sequence = ++libraryLoadSequence;
   const responses = await Promise.all([api('/api/projects'),api('/api/archived')]);
@@ -266,7 +278,7 @@ async function openSavedProject(id, duplicate = false) {
 function reviewBeforeShare() {
   $('reviewTemplate').textContent = 'Vald design: ' + getTemplate(project.templateId).name;
   const checks = assessProject(project);
-  $('reviewChecks').innerHTML = checks.map(c=>`<div class="review-check ${c.ok?'complete':'needs-review'}"><span role="img" aria-label="${c.ok?'Klart':'Behöver granskas'}">${c.ok?'✓':'○'}</span><div><strong>${e(c.label)}</strong>${!c.ok?`<p>${e(c.help)}</p>`:''}</div>${!c.ok?`<button class="text-button" data-review-field="${c.field}" data-review-tab="${c.tab}">Rätta</button>`:''}</div>`).join('');
+  $('reviewChecks').innerHTML = checks.map(c=>`<div class="review-check ${c.ok?'complete':'needs-review'}"><span role="img" aria-label="${c.ok?'Klart':'Behöver granskas'}">${c.ok?'✓':'○'}</span><div><strong>${e(c.label)}</strong>${!c.ok?`<p>${e(c.help)}</p>`:''}</div>${!c.ok?`<button class="text-button" data-review-field="${c.field}" data-review-tab="${c.tab}" data-review-page="${c.pageIndex??-1}">Rätta</button>`:''}</div>`).join('');
   const blocked = checks.some(c=>c.blocking&&!c.ok);
   $('confirmShare').disabled = blocked;
   $('reviewBlocker').textContent = blocked ? 'Rätta de markerade uppgifterna och länkarna innan du skapar en kundlänk.' : 'Du kan dela även utan bilder eller kontaktväg. Granska påminnelserna först.';
@@ -274,7 +286,7 @@ function reviewBeforeShare() {
 }
 $('reviewChecks').addEventListener('click',event=>{
   const button=event.target.closest('[data-review-field]');if(!button)return;
-  $('reviewDialog').close();showEditor();
+  $('reviewDialog').close();showEditor();activePage=Number(button.dataset.reviewPage??-1);fillEditor();
   document.querySelector(`[data-tab="${button.dataset.reviewTab}"]`).click();
   const field=$(button.dataset.reviewField);
   (field.hidden ? field.previousElementSibling : field).scrollIntoView({behavior:'smooth',block:'center'});
@@ -347,7 +359,7 @@ async function share() {
   $('shareButton').disabled = true;
   try {
     const sharingProject = project;
-    if(assessProject(project).some(c=>c.blocking&&!c.ok))throw new Error('Fyll i företagsnamn och huvudrubrik innan du delar.');
+    if(assessProject(project).some(c=>c.blocking&&!c.ok))throw new Error('Rätta markerade uppgifter och länkar på webbplatsens sidor innan du delar.');
     const shareSnapshot = normalizeProject(project);
     await save(false);
     if(project !== sharingProject) return toast('Projektet byttes under sparningen. Skapa en länk från det projekt du vill visa.');
@@ -359,14 +371,14 @@ async function share() {
     $('shareIntro').textContent = publicReady ? 'Öppna länken på mobilen eller skicka den inför nästa samtal.' : 'Förhandsvisningen fungerar på den här datorn. Publik hosting är ännu inte ansluten.';
     $('shareWarning').hidden = publicReady;
     $('shareWarning').textContent = 'Detta är en lokal länk. Skicka den inte till kunden ännu. Ladda ner en fristående demosida eller anslut den publika visningssidan.';
-    $('shareHelp').textContent = 'Länken visar den här versionen och ändras inte när du redigerar. ' + (shareSnapshot.images.some(i=>/^https?:/.test(i.url)) ? 'Bilder från andra sajter måste vara fortsatt tillgängliga. HTML-exporten sparar egna kopior.' : 'Spara hela länken, inklusive delen efter #.');
+    $('shareHelp').textContent = 'Länken visar den här versionen och ändras inte när du redigerar. ' + ([shareSnapshot,...(shareSnapshot.pages||[])].some(p=>[p.hero,p.logo,...p.cards.map(c=>c.image)].some(url=>/^https?:/.test(url))) ? 'Bilder från andra sajter måste vara fortsatt tillgängliga. HTML-exporten sparar egna kopior.' : 'Spara hela länken, inklusive delen efter #.');
     $('shareDialog').showModal();
   } catch(error) { toast(error.message); }
   finally { $('shareButton').disabled = false; }
 }
 
 document.querySelectorAll('[data-field]').forEach(input => input.addEventListener('input', () => {
-  project[input.dataset.field] = input.type === 'range' ? Number(input.value) : input.value;
+  fieldOwner(input.dataset.field)[input.dataset.field] = input.type === 'range' ? Number(input.value) : input.value;
   markDirty(); updatePreview();
 }));
 document.querySelectorAll('[data-tab]').forEach(button => button.addEventListener('click', () => {
@@ -375,24 +387,24 @@ document.querySelectorAll('[data-tab]').forEach(button => button.addEventListene
 }));
 $('cardsEditor').addEventListener('input', event => {
   const {card, property} = event.target.dataset;
-  if (card !== undefined) { project.cards[Number(card)][property] = event.target.value; markDirty(); updatePreview(); }
+  if (card !== undefined) { currentContent().cards[Number(card)][property] = event.target.value; markDirty(); updatePreview(); }
 });
 $('cardsEditor').addEventListener('click', event => {
   const move = event.target.closest('[data-move-card]');
-  if(move){const index=Number(move.dataset.moveCard),next=index+Number(move.dataset.direction);if(next<0||next>=project.cards.length)return;[project.cards[index],project.cards[next]]=[project.cards[next],project.cards[index]];renderCards();markDirty();updatePreview();$('card-title-'+next).focus();return;}
+  if(move){const index=Number(move.dataset.moveCard),next=index+Number(move.dataset.direction);if(next<0||next>=currentContent().cards.length)return;[currentContent().cards[index],currentContent().cards[next]]=[currentContent().cards[next],currentContent().cards[index]];renderCards();markDirty();updatePreview();$('card-title-'+next).focus();return;}
   const button = event.target.closest('[data-remove-card]');
-  if (button) { project.cards.splice(Number(button.dataset.removeCard),1); renderCards(); markDirty(); updatePreview(); }
+  if (button) { currentContent().cards.splice(Number(button.dataset.removeCard),1); renderCards(); markDirty(); updatePreview(); }
 });
 $('benefitsEditor').addEventListener('input', event => {
   const {benefit, property} = event.target.dataset;
   if (benefit !== undefined) {
-    while (project.benefits.length <= Number(benefit)) project.benefits.push({title:'',description:''});
-    project.benefits[Number(benefit)][property] = event.target.value; markDirty(); updatePreview();
+    while (currentContent().benefits.length <= Number(benefit)) currentContent().benefits.push({title:'',description:''});
+    currentContent().benefits[Number(benefit)][property] = event.target.value; markDirty(); updatePreview();
   }
 });
-$('addCard').addEventListener('click', () => { if(project.cards.length<40) { project.cards.push({title:'',description:'',image:''}); renderCards(); markDirty(); } });
-$('imageGrid').addEventListener('click', event => { const b=event.target.closest('[data-image]'); if(b){ project.hero=project.images[Number(b.dataset.image)].url; renderImages(); markDirty(); updatePreview(); } });
-$('clearHero').addEventListener('click', ()=>{project.hero='';renderImages();markDirty();updatePreview();});
+$('addCard').addEventListener('click', () => { if(currentContent().cards.length<40) { currentContent().cards.push({title:'',description:'',image:''}); renderCards(); markDirty(); } });
+$('imageGrid').addEventListener('click', event => { const b=event.target.closest('[data-image]'); if(b){ currentContent().hero=currentContent().images[Number(b.dataset.image)].url; renderImages(); markDirty(); updatePreview(); } });
+$('clearHero').addEventListener('click', ()=>{currentContent().hero='';renderImages();markDirty();updatePreview();});
 $('clearLogo').addEventListener('click', ()=>{project.logo='';markDirty();updatePreview();});
 async function readImage(file, isLogo) {
   if (!file || !['image/jpeg','image/png','image/webp'].includes(file.type)) throw new Error('Välj en JPG-, PNG- eller WebP-bild.');
@@ -405,9 +417,11 @@ async function readImage(file, isLogo) {
 }
 for(const id of ['imageUpload','logoUpload']) $(id).addEventListener('change',async event=>{
   const file=event.target.files[0]; if(!file)return;
+  const target=currentContent(),site=project;
   try { const url=await readImage(file,id==='logoUpload');
+    if(project!==site)return toast('Bilden lades åt sidan eftersom du bytte projekt.');
     if(id==='logoUpload')project.logo=url;
-    else { project.hero=url;project.images.unshift({url,label:file.name});project.images=project.images.slice(0,40); }
+    else { target.hero=url;target.images.unshift({url,label:file.name});target.images=target.images.slice(0,40); }
     renderImages();renderCards();markDirty();updatePreview();toast('Bilden är inlagd.');
   }catch(error){toast(error.message);}finally{event.target.value='';}
 });
@@ -443,16 +457,16 @@ $('importButton').addEventListener('click',async()=>{
   const importProject = project;
   const importSnapshot = JSON.stringify(project);
   importBusy=true;$('importButton').disabled=true;$('importButton').textContent='Hämtar hemsidan…';
-  $('importStatus').className='import-status loading';$('importStatus').textContent='Läser text, bilder och kontaktuppgifter. Det kan ta upp till en minut.';
+  $('importStatus').className='import-status loading';$('importStatus').textContent='Läser startsidan och valda undersidor. Behåll fliken öppen; det kan ta ett par minuter.';
   try{
-    const imported=normalizeProject({...await(await api('/api/import',{url})).json(),templateId:importProject.templateId});
+    const imported=normalizeProject({...await(await api('/api/import',{url,includePages:$('includePages').checked!==false})).json(),templateId:importProject.templateId});
     if(project !== importProject || JSON.stringify(project) !== importSnapshot){
       $('importStatus').className='import-status';
       $('importStatus').textContent='Importen lades åt sidan eftersom du ändrade eller bytte projekt. Dina senaste ändringar finns kvar.';
       return;
     }
     project=imported;dirty=true;fillEditor();markDirty();
-    $('importStatus').className='import-status';$('importStatus').textContent=`${project.images.length} bildkandidater och ${project.cards.length} innehållsblock hittades. Granska förslaget nedan.`;
+    $('importStatus').className='import-status';$('importStatus').textContent=`Startsida${project.pages?.length?' + '+project.pages.length+' undersidor':''} hämtad. ${project.images.length} bildkandidater och ${project.cards.length} innehållsblock på startsidan. Granska varje sida nedan.`;
     toast('Företagets innehåll är inlagt.');
   }catch(error){$('importStatus').className='import-status error';$('importStatus').textContent=error.name==='TimeoutError'?'Hämtningen tog för lång tid. Ditt utkast finns kvar; försök igen eller fortsätt manuellt.':error.message;}
   finally{importBusy=false;$('importButton').disabled=false;$('importButton').innerHTML='Hämta innehåll <span>→</span>';}

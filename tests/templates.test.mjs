@@ -11,7 +11,7 @@ test('older projects and unknown template IDs keep the original layout',()=>{
   }
 });
 
-for(const templateId of ['story','studio','services']) {
+for(const templateId of ['story','studio','services','dining','wellness','retail']) {
   test(`${templateId} survives project copies and public links without losing content`,async()=>{
     const original={name:'Åkes ateljé',headline:'Rum för bättre idéer',templateId,heroPosition:0,hero:'/assets/hero.jpg',cards:[{title:'Vårt arbete',description:'En egen beskrivning',image:'/assets/city.png'}],benefits:[{title:'Lokalt',description:'Nära dig'}]};
     const restored=restoreProject(JSON.stringify({...original,id:'source'}));
