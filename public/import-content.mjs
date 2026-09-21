@@ -1,6 +1,23 @@
 const clean=value=>String(value||'').replace(/\s+/g,' ').replace(/([.!?])(?=[A-ZÅÄÖ])/g,'$1 ').trim();
 const headings='h1,h2,h3,h4';
 const imageSelector='img,[data-background],[style*="background-image"],[data-current-styles],video[poster]';
+function removeCSSHidden(doc,css) {
+  // Parse without attaching source CSS or fetching its URLs. Ambiguous responsive
+  // overrides are kept: this is deliberately not a full browser layout engine.
+  if(typeof CSSStyleSheet==='undefined')return;
+  const sheet=new CSSStyleSheet(),hidden=new Set(),visible=new Set();
+  try{sheet.replaceSync(css);}catch{return;}
+  const visit=(rules,conditional=false)=>{
+    for(const rule of rules){
+      if(!rule.selectorText&&rule.cssRules){visit(rule.cssRules,true);continue;}
+      const display=rule.style?.display;if(!display||!rule.selectorText)continue;
+      let nodes;try{nodes=doc.querySelectorAll(rule.selectorText);}catch{continue;}
+      for(const node of nodes){if(display!=='none')visible.add(node);else if(!conditional)hidden.add(node);}
+    }
+  };
+  visit(sheet.cssRules);
+  for(const node of hidden)if(!visible.has(node)&&(!node.style.display||node.style.display==='none'))node.remove();
+}
 export function brandColor(css) {
   // Only explicit brand variables, never the most frequent arbitrary CSS colour.
   const match=String(css).match(/--(?:[\w-]*-)?(?:brand(?:-primary|-color)?|primary(?:-color)?|accent(?:-color)?|color-primary)\s*:\s*(#[a-f\d]{6}|#[a-f\d]{3})(?![a-f\d])/i);
@@ -18,30 +35,38 @@ export function extractContent(html, source, styles='') {
   const doc=new DOMParser().parseFromString(html,'text/html');
   const meta=name=>doc.querySelector(`meta[property="${name}"],meta[name="${name}"]`)?.getAttribute('content')||'';
   const absolute=value=>{try{const u=new URL(value,source);return ['http:','https:','mailto:','tel:'].includes(u.protocol)&&!u.username&&!u.password?u.href:'';}catch{return '';}};
-  const css=[...doc.querySelectorAll('style')].map(n=>n.textContent).join('\n')+'\n'+styles;
-  const stylesheets=[...doc.querySelectorAll('link[rel="stylesheet"][href]')].map(n=>absolute(n.getAttribute('href'))).filter(u=>/^https?:/.test(u)).sort((a,b)=>{const score=u=>/site\.css|custom|theme/i.test(u)?2:new URL(u).origin===new URL(source).origin?1:0;return score(b)-score(a);}).slice(0,2);
+  const unconditional=n=>!n.getAttribute('media')||/^(all|screen)$/i.test(n.getAttribute('media').trim());
+  const css=[...doc.querySelectorAll('style')].map(n=>unconditional(n)?n.textContent:`@media ${n.getAttribute('media')}{${n.textContent}}`).join('\n')+'\n'+styles;
+  const stylesheets=[...doc.querySelectorAll('link[rel="stylesheet"][href]')].filter(unconditional).map(n=>absolute(n.getAttribute('href'))).filter(u=>/^https?:/.test(u)).sort((a,b)=>{const score=u=>/site\.css|custom|theme/i.test(u)?2:new URL(u).origin===new URL(source).origin?1:0;return score(b)-score(a);}).slice(0,2);
   const hasForms=!!doc.querySelector('form');
+  removeCSSHidden(doc,css);
   doc.querySelectorAll('form,dialog:not([open]),[inert],[data-state="closed"],script,style,noscript,svg,template,iframe,object,embed,[hidden],[class~="hide-lg"],[class~="hidden-lg"],[class~="d-lg-none"],[style*="display:none"],[style*="display: none"],#cookie-banner,#cookie-consent,#onetrust-banner-sdk,[class*="cookie-banner"],[class*="cookie-consent"],[id*="CookieConsent"]').forEach(el=>el.remove());
   doc.querySelectorAll('br').forEach(el=>el.replaceWith(' '));
   const primaryNav=[...doc.querySelectorAll('header nav,header [role="navigation"],.ed-menu,nav,[role="navigation"],header [class*="menu"]')].find(el=>!el.closest('footer,aside'));
   const originalNav=[...(primaryNav?.querySelectorAll('a[href]')||[])];
   const navigation=[],seenNav=new Set();
-  for(const link of originalNav){const label=clean(link.textContent),href=absolute(link.getAttribute('href'));if(!label||label.length>70||!href||seenNav.has(label.toLowerCase())||navigation.length>=12)continue;seenNav.add(label.toLowerCase());navigation.push({label,href});}
+  for(const link of originalNav){const label=clean(link.textContent),href=absolute(link.getAttribute('href')),toggle=link.matches('[role="button"],[aria-controls]')&&(link.getAttribute('href')||'').startsWith('#');if(toggle||link.closest('.skip-link,.screen-reader-text,.menu-toggle,.search-toggle,.mobile-menu-anchor')||!label||label.length>70||!href||seenNav.has(label.toLowerCase())||navigation.length>=12)continue;seenNav.add(label.toLowerCase());navigation.push({label,href});}
   const main=doc.querySelector('main,[role="main"]')||doc.body;
   const excluded=el=>!!el.closest('nav,footer,.ed-menu,[role="navigation"],[role="dialog"],aside')||!!el.closest('header')?.querySelector('nav,[role="navigation"]');
   const contentHeadings=[...main.querySelectorAll(headings)].filter(el=>!excluded(el)&&clean(el.textContent)&&!/^cookie|^kakor|^privacy preferences/i.test(clean(el.textContent)));
   const heroHeading=contentHeadings[0];
-  const scopeFor=heading=>{
+  const wrapperFor=heading=>{
     let best=null;
     for(let parent=heading.parentElement;parent&&parent!==main&&parent!==doc.body;parent=parent.parentElement){
       if(parent.querySelectorAll(headings).length>1)break;
       best=parent;
       if(parent.matches('section,article'))break;
     }
-    if(best?.querySelector('p,li,a[href],'+imageSelector))return best;
+    return best;
+  };
+  const scopeFor=heading=>{
+    const best=wrapperFor(heading);
+    if(best?.matches('section,article')||best?.querySelector('p,li,a[href],'+imageSelector))return best;
     // Flat markup has no exclusive wrapper. Keep only nodes before the next heading.
     const range=doc.createRange(),next=contentHeadings[contentHeadings.indexOf(heading)+1];
-    range.selectNodeContents(main);range.setStartAfter(heading);if(next)range.setEndBefore(next);
+    const boundary=heading.closest('section,article')||main,nextWrapper=next&&wrapperFor(next);
+    range.selectNodeContents(boundary);range.setStartAfter(heading);
+    if(next&&boundary.contains(next))range.setEndBefore(nextWrapper&&!nextWrapper.contains(heading)?nextWrapper:next);
     return {contains:el=>range.intersectsNode(el),querySelectorAll:selector=>[...main.querySelectorAll(selector)].filter(el=>range.intersectsNode(el))};
   };
   const imageData=el=>{
@@ -49,7 +74,7 @@ export function extractContent(html, source, styles='') {
     const raw=configured||el.getAttribute('poster')||(el.tagName==='IMG'?(el.getAttribute('data-src')||el.getAttribute('data-lazy-src')||el.getAttribute('src')||el.getAttribute('srcset')?.split(',').at(-1)?.trim().split(/\s+/)[0]):(el.getAttribute('data-background')||el.getAttribute('style')||'').match(/url\(\s*(['"]?)(.*?)\1\s*\)/i)?.[2]);
     const url=raw&&!raw.startsWith('data:')?absolute(raw):'';
     if(!/^https?:/.test(url))return null;
-    const label=clean(el.getAttribute('alt')),dimensions=(el.getAttribute('data-image-dimensions')||'').match(/^(\d+)x(\d+)$/);
+    const label=clean(el.getAttribute('alt')),dimensions=(el.getAttribute('data-image-dimensions')||'').match(/^(\d+)x(\d+)$/)||new URL(url).pathname.match(/-(\d+)x(\d+)\.[a-z]+$/i);
     return {url,label,el,width:Number(dimensions?.[1]||el.getAttribute('width'))||0,height:Number(dimensions?.[2]||el.getAttribute('height'))||0};
   };
   const imageNodes=[...doc.querySelectorAll(imageSelector)].map(imageData).filter(Boolean);
@@ -59,7 +84,7 @@ export function extractContent(html, source, styles='') {
     try{
       const link=new URL(anchor.getAttribute('href'),source),base=new URL(source);
       const home=link.origin===base.origin&&['',base.pathname.replace(/\/$/,'')].includes(link.pathname.replace(/\/$/,''));
-      return home&&!!(i.el.closest('header,.logo,.ed-logo,[class*="header-logo"]')||i.label.toLowerCase()===base.hostname.replace(/^www\./,''));
+      return home&&!!(i.el.closest('header,.logo,.ed-logo,[class*="header-logo"],[data-elementor-type="header"],[class*="theme-site-logo"]')||i.label.toLowerCase()===base.hostname.replace(/^www\./,''));
     }catch{return false;}
   });
   const logo=headerImage?.url||'';

@@ -27,5 +27,20 @@ const hidden=extractContent('<section><h2>Desktop</h2><p>Text</p></section><sect
 check('dold responsiv kopia tas bort',()=>assert(hidden.headline==='Desktop'&&!hidden.cards.length,'mobilkopia kom med'));
 const customHeader=extractContent('<div class="ed-logo logo"><a href="/sv"><img src="/brand.png" alt="example.com"></a></div><main><h1>Hej</h1><section><h2>Våra kunder</h2><img src="/customer-logo.png" alt="Kundkommun"></section></main>','https://example.com/sv/');
 check('kundens logo ersätts aldrig av en partnerlogo',()=>assert(customHeader.logo==='https://example.com/brand.png',customHeader.logo));
+const wp=extractContent('<style>.entry-title{display:none}</style><nav><a class="skip-link" href="#main">Hoppa till innehåll</a><a role="button" href="#menu">Meny</a><ul><li><a href="/">Hem</a></li><li><a href="/contact">Kontakt</a></li></ul></nav><main id="main"><h1 class="entry-title">Hem</h1><section><h2>Synlig introduktion</h2><p>Rätt intro.</p><img src="/portrait.jpg"></section></main>','https://example.com/');
+check('CSS-dold sidtitel ersätter inte synlig rubrik',()=>assert(wp.headline==='Synlig introduktion'&&wp.hero==='https://example.com/portrait.jpg',wp.headline));
+check('menykontroller och hopplänkar blir inte menyalternativ',()=>assert(wp.navigation.map(n=>n.label).join(',')==='Hem,Kontakt',JSON.stringify(wp.navigation)));
+const responsive=extractContent('<style>.responsive{display:none}@media(min-width:800px){.responsive{display:block}}</style><section class="responsive"><h1>Behåll vid osäker synlighet</h1><p>Intro</p></section>','https://example.com/');
+check('villkorlig CSS döljer inte desktopinnehåll',()=>assert(responsive.headline==='Behåll vid osäker synlighet',responsive.headline));
+const elementor=extractContent('<div data-elementor-type="header"><a href="/"><img src="/brand.png" alt=""></a></div><main><section><h2>Riktig hero</h2><p>Intro.</p><img data-src="/customer-150x150.png" src="data:image/png;base64,AA"></section><section><h2>Tjänst</h2><img src="/service.jpg"></section></main>','https://example.com/');
+check('sidbyggarens headerlogo hittas',()=>assert(elementor.logo==='https://example.com/brand.png',elementor.logo));
+check('små kundporträtt blir inte huvudbild',()=>assert(!elementor.hero,elementor.hero));
+const nested=extractContent('<main><h1>Böcker</h1><p>Introduktion.</p><article><img src="/book.jpg"><h2>Första boken</h2><p>Bokens text.</p></article><section><h2>Bara rubrik</h2></section><section><p>Separat text utan rubrik.</p><img src="/unrelated.jpg"></section><section><h2>Sista</h2><p>Sista text.</p></section></main>','https://example.com/');
+check('nästa blocks bild lånas inte till föregående rubrik',()=>assert(!nested.hero&&nested.cards[0].image==='https://example.com/book.jpg',JSON.stringify(nested.cards)));
+check('tom sektion lånar inte text och bild från nästa',()=>assert(!nested.cards[1].description&&!nested.cards[1].image,JSON.stringify(nested.cards[1])));
+const print=extractContent('<style media="print">.hero{display:none}</style><main><section class="hero"><h1>Synlig på skärm</h1><p>Intro</p></section><h2>Senare</h2></main>','https://example.com/');
+check('utskrifts-CSS döljer inte skärminnehåll',()=>assert(print.headline==='Synlig på skärm',print.headline));
+const dropdown=extractContent('<nav><a href="/services" aria-controls="submenu" aria-expanded="false">Tjänster</a><a href="#submenu" aria-controls="submenu">Öppna meny</a></nav><h1>Hej</h1>','https://example.com/');
+check('menylänk med undermeny behåller sin destination',()=>assert(dropdown.navigation.length===1&&dropdown.navigation[0].label==='Tjänster',JSON.stringify(dropdown.navigation)));
 document.getElementById('results').textContent=outcomes.join('\n');
 </script></body></html>

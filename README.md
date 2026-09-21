@@ -67,3 +67,19 @@ Begränsningar: importen kör inte företagets JavaScript eller fullständig CSS
 5. Skapa kundlänk via Granska & dela och öppna den. Jämför innehåll och navigation med förhandsvisningen; kontrollera också projektkopia och HTML-export innan användning med kund.
 
 Automatiska kontroller: 59 Node-tester samt 16 regressioner med riktig DOM i `tests/import-browser.html`. Browserfilen serveras endast lokalt vid QA och ingår inte i den publicerade appen.
+
+## Utökad importkontroll — 21 september
+
+Importen hoppar nu över innehåll som entydigt döljs av tillgänglig CSS. Villkorliga regler, utskriftsstilar och möjliga visningsundantag hanteras konservativt. CSS parsas utan att installeras i sidan eller ladda dess resurser. Menykontroller och hopplänkar filtreras bort, medan riktiga länkar till undersidor med dropdown-menyer bevaras. Elementor-headerlogotyper känns igen. Bilders storlekssuffix används för att hindra små porträtt från att bli huvudbild. En tom sektion lånar inte längre efterföljande innehåll, och bilder i nästa avgränsade block tillhör det blocket.
+
+Verifiering: 59 Node-tester, 25 DOM-regressioner, syntaxkontroll och bygge. Full import i editorn på localhost gav Pascalidous synliga introduktionsrubrik och 15 innehållsblock. Jämförelse med hämtad original-HTML från sex sidor visar rättad rubrik/porträtt för Pascalidou och rättad logo för Optinet; Hallinc, Vegavista och Verkli behåller tidigare huvudrubriker, logotyper och antal block. Dessa jämförelser är inte ett löfte om felfri import från alla webbplatser.
+
+Kvar: exempelvis Café Orions namn kommer fortfarande från SEO-titeln. CSS-bakgrunder, JavaScript-innehåll och varumärkesfärger utan tydlig källa behöver ibland manuella val. Mer branschmallar och undersidor ingår inte i denna rättning. Inga nya beroenden eller ändringar av sparformatet.
+
+### QA i fem steg för rättningen
+
+1. Öppna http://localhost:4174 eller webbverktyget. Spara eventuellt pågående arbete och ladda om.
+2. Importera `pascalidou.com`: huvudrubriken ska börja med ”Flerfaldigt prisbelönt”, inte ”Hem”. Kontrollera porträttet och att hopplänken och menyknappen inte blivit menyalternativ.
+3. Spara testutkastet. Importera `optinet.se`: kontrollera logotypen. Små kundporträtt ska inte bli huvudbild; välj en relevant bild manuellt om huvudbild saknas.
+4. Spara mellan importer och prova Hallinc, Vegavista och Verkli. Jämför rubriker, meny, bilder och texter med respektive original.
+5. Granska mobilvyn, spara och öppna en kundlänk. Kontrollera innehållet före delning och ta en projektkopia som backup.
