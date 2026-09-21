@@ -62,7 +62,7 @@ export function renderDemo(raw, options = {}) {
   const imported=p.navigation.length>0||!!p.ctaHref||p.cards.some(c=>c.anchor);
   const navLinks=p.navigation.map(n=>`<a href="${e(n.href)}" ${/^https?:/.test(n.href)?'target="_blank" rel="noopener noreferrer" title="Öppnar företagets original"':''}>${e(n.label)}</a>`).join('');
   const body = `<div class="demo-note">Designförslag · Framtagen för ${e(p.name)}</div>
-  <div class="shell"><header class="nav"><a class="brand" href="#" aria-label="${e(p.name)} startsida">${p.logo ? pic(p.logo,p.name,'',false):e(p.name)}</a><nav class="nav-links" aria-label="Huvudmeny">${imported?navLinks:`${p.cards.length?'<a href="#erbjudande">Utforska</a>':''}${p.about?'<a href="#om">Om oss</a>':''}<a class="nav-contact" href="#kontakt">${e(p.cta)}</a>`}</nav></header>
+  <div class="shell"><header class="nav"><a class="brand" href="#" aria-label="${e(p.name)} startsida">${p.logo ? `<span class="brand-mark">${pic(p.logo,'','',false)}</span><span class="brand-caption">${e(p.name)}</span>`:e(p.name)}</a><nav class="nav-links" aria-label="Huvudmeny">${imported?navLinks:`${p.cards.length?'<a href="#erbjudande">Utforska</a>':''}${p.about?'<a href="#om">Om oss</a>':''}<a class="nav-contact" href="#kontakt">${e(p.cta)}</a>`}</nav></header>
   <main id="start"><div class="hero-layout"><section class="hero-copy">${p.eyebrow?`<div class="eyebrow">${e(p.eyebrow)}</div>`:''}<h1>${e(p.headline)}</h1>${p.description?`<p>${e(p.description)}</p>`:''}${!imported||p.ctaHref?`<a class="button" href="${e(p.ctaHref||(p.cards.length?'#erbjudande':'#kontakt'))}" ${/^https?:/.test(p.ctaHref)?'target="_blank" rel="noopener noreferrer"':''}>${imported?e(p.cta):p.cards.length?'Utforska vårt utbud':e(p.cta)}<span aria-hidden="true">↗</span></a>`:''}</section>
   ${visual}</div>${p.templateId!=='story'?benefits:''}
   ${p.cards.length?`<section class="section" id="erbjudande"><div class="section-top" ${imported?'hidden':''}><div><p class="section-kicker">${e(p.name)} / Utvalt</p><h2>${e(p.sectionTitle)}</h2></div>${p.sectionIntro?`<p>${e(p.sectionIntro)}</p>`:''}</div><div class="cards">${p.cards.map((c,i)=>`<article class="card" ${c.anchor?`id="${e(c.anchor)}"`:""}>${c.image?pic(c.image,c.title):`<div class="card-placeholder" aria-hidden="true">${String(i+1).padStart(2,'0')}</div>`}<div class="card-meta"><div><h3>${c.href?`<a href="${e(c.href)}" ${/^https?:/.test(c.href)?'target="_blank" rel="noopener noreferrer"':''}>${e(c.title)} ↗</a>`:e(c.title)}</h3>${c.description?`<p>${e(c.description)}</p>`:''}</div><span class="card-number">${String(i+1).padStart(2,'0')}</span></div></article>`).join('')}</div></section>`:''}
@@ -73,5 +73,61 @@ export function renderDemo(raw, options = {}) {
 }
 
 const homepageCSS=`
-[hidden]{display:none!important}body[data-imported="true"] .hero-copy .button{background:var(--accent);color:var(--accent-ink)}body[data-imported="true"] .cards{display:flex;flex-direction:column;gap:56px}body[data-imported="true"] .card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:center;padding-top:0}body[data-imported="true"] .card:not(:has(img)){display:block;max-width:850px}body[data-imported="true"] .card img{height:auto;max-height:520px;object-fit:contain}body[data-imported="true"] .card h3{font-size:30px}body[data-imported="true"] .card p{font-size:16px;line-height:1.8}body[data-imported="true"] .card-placeholder,body[data-imported="true"] .card-number{display:none}.nav-links{flex-wrap:wrap;gap:14px 24px}.nav:has(.nav-links a:nth-child(5)){height:auto;min-height:94px;padding-top:18px;padding-bottom:18px}.nav-links a{overflow-wrap:anywhere}.card[id]{scroll-margin-top:30px}@media(max-width:760px){.nav{height:auto!important;min-height:80px;flex-wrap:wrap;padding-top:18px!important;padding-bottom:18px!important;gap:14px}.nav-links{width:100%;gap:12px 20px;padding-bottom:4px}.nav-links>a:not(.nav-contact){display:block}.brand{max-width:100%}body[data-imported="true"] .card{grid-template-columns:1fr;gap:22px}body[data-imported="true"] .card:nth-child(even)>:first-child{order:0}body[data-imported="true"] .card h3{font-size:26px}}
+[hidden]{display:none!important}
+.brand{display:flex;align-items:center;gap:14px;flex-shrink:0;max-width:36%;letter-spacing:-.04em}
+.brand-mark{display:flex;align-items:center;justify-content:center;background:#747474;border:1px solid #858585;border-radius:10px;padding:10px 14px}
+.brand .brand-mark img{width:116px;height:42px;background:none;padding:0;border-radius:0;object-fit:contain}
+.brand-caption{font-size:17px;font-weight:650;line-height:1.25;max-width:16ch;overflow-wrap:anywhere}
+.nav{height:auto;min-height:104px;padding-top:18px;padding-bottom:18px;gap:28px;border-bottom:1px solid #dce0d7}
+.nav-links{min-width:0;flex-wrap:wrap;justify-content:flex-end;gap:4px 20px}
+.nav-links a{display:inline-flex;align-items:center;min-height:44px;max-width:100%;padding:8px 0;line-height:1.4;overflow-wrap:anywhere;text-underline-offset:5px}
+.nav-links a:hover,.contact-links a:hover,.footer a:hover{text-decoration:underline}
+.nav-links .nav-contact{padding:10px 20px}
+a:focus-visible{outline:2px solid currentColor;outline-offset:5px}
+body[data-imported="true"] .hero-copy{padding-block:8px}
+body[data-imported="true"] .hero-copy h1{max-width:19ch;margin-inline:auto;text-wrap:balance}
+body[data-imported="true"] .hero-copy>p{max-width:64ch;font-size:17px;line-height:1.8;overflow-wrap:anywhere}
+body[data-imported="true"] .hero-copy .button{background:var(--accent);color:var(--accent-ink)}
+body[data-imported="true"] .cards{display:flex;flex-direction:column;gap:0}
+body[data-imported="true"] .card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(28px,5vw,72px);align-items:center;padding:56px 0;border-top:1px solid #dce0d7}
+body[data-imported="true"] .card:first-child{border-top:0;padding-top:0}
+body[data-imported="true"] .card:not(:has(img)){display:block;max-width:none}
+body[data-imported="true"] .card:not(:has(img)) .card-meta{max-width:780px}
+body[data-imported="true"] .card img{height:auto;max-height:520px;object-fit:contain}
+body[data-imported="true"] .card-meta{margin:0;min-width:0}
+body[data-imported="true"] .card h3{font-size:clamp(26px,3vw,38px);line-height:1.16;letter-spacing:-.035em;margin-bottom:18px;text-wrap:balance}
+body[data-imported="true"] .card p{max-width:65ch;font-size:16px;line-height:1.85;overflow-wrap:anywhere}
+body[data-imported="true"] .card-placeholder,body[data-imported="true"] .card-number{display:none}
+.card[id]{scroll-margin-top:30px}
+.contact-links a{display:inline-flex;align-items:center;min-height:44px}
+.footer .source{font-size:12px;line-height:1.7}
+[data-template="studio"] .brand-mark{border-radius:0}
+[data-template="studio"] .nav{height:auto;min-height:108px}
+body[data-template="studio"][data-imported="true"] .hero-copy h1{margin-inline:0;max-width:20ch;font-weight:400}
+body[data-template="studio"][data-imported="true"] .card{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);border-color:#394039;padding-block:64px}
+body[data-template="studio"][data-imported="true"] .card:first-child{padding-top:0}
+body[data-template="studio"][data-imported="true"] .card-meta{border-top:0;padding-top:0}
+[data-template="services"] .brand-mark{border-radius:4px}
+[data-template="services"] .nav{height:auto;min-height:104px;border-color:#38483e}
+body[data-template="services"][data-imported="true"] .hero-copy h1{margin-inline:0;text-transform:none}
+body[data-template="services"][data-imported="true"] .card{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);border-color:#cbd3c7}
+@media(max-width:760px){
+  .nav{height:auto!important;min-height:80px;flex-wrap:wrap;padding-top:18px!important;padding-bottom:14px!important;gap:16px}
+  .brand{max-width:100%;gap:12px}
+  .brand-caption{font-size:16px;max-width:20ch}
+  .brand-mark{padding:8px 12px}
+  .brand .brand-mark img{width:90px;height:34px}
+  .nav-links{width:100%;justify-content:flex-start;gap:0 20px}
+  .nav-links>a:not(.nav-contact){display:inline-flex}
+  .nav-links a{font-size:14px;min-height:44px}
+  body[data-imported="true"] .hero-copy h1{font-size:clamp(34px,9vw,49px);line-height:1.1}
+  body[data-imported="true"] .hero-copy>p{font-size:16px;line-height:1.8}
+  body[data-imported="true"] .card,body[data-template="studio"][data-imported="true"] .card,body[data-template="services"][data-imported="true"] .card{grid-template-columns:1fr;gap:24px;padding-block:36px}
+  body[data-imported="true"] .card:first-child{padding-top:0}
+  body[data-imported="true"] .card:nth-child(even)>:first-child{order:0}
+  body[data-imported="true"] .card h3{font-size:28px;margin-bottom:14px}
+  body[data-imported="true"] .card img{max-height:420px;aspect-ratio:auto}
+}
+@media(prefers-reduced-motion:reduce){.button:hover{transform:none}}
+@media print{.nav-links{display:none}body[data-imported="true"] .card{break-inside:avoid}}
 `;

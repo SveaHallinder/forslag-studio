@@ -117,3 +117,19 @@ Kvarvarande begränsningar: JavaScript-renderade sidor och CSS-bilder utan läsb
 3. Spara och ladda om. Skapa kundlänk via Granska & dela; kontrollera samma kontaktuppgifter, telefonlänk och bilder där.
 4. Spara före nästa import. Importera `vegavista.se`: menyn ska innehålla DooH, Media, För fastighetsägare och Om oss.
 5. Importera `www.optinet.se`. Kontrollera huvudmenyn, länkarna Om Optinet och Kontakta oss samt bilder i mobilvyn. Granska logotypens kontrast och välj en lämplig variant före kunddelning.
+
+## Designpolish med UI UX Pro Max
+
+De tre befintliga mallarna har fått tydligare läsbredd, responsiva rubriker, avstånd och avdelare mellan originalets innehållsblock. Studio behåller sitt mörka uttryck med något kraftigare rubriktext. Tjänster behåller sin delade layout; importerade rubriker tvingas inte längre till versaler. Copy, bilder, färgval, länkar och sparformat är oförändrade.
+
+Logotyper visas på en neutral grå platta tillsammans med företagsnamnet, så att exempelvis Optinets vita logo blir synlig även i den ljusa mallen. Detta är en generell bakgrund, inte automatisk analys av logotypens färger; ovanliga logotyper behöver fortfarande granskas. Menylänkar har minst 44 px höjd, synlig tangentbordsfokus och plats att radbrytas. Studio-menyn växer med innehållet på desktop. Reducerad rörelse stänger även av knappens förflyttning vid hover.
+
+Underlag: UI UX Pro Max-sökningar om textkontrast, klickytor och reducerad rörelse. Befintlig HTML/CSS/JavaScript används utan nya beroenden. Verifierat med lint, bygge och 60 befintliga tester. Alla tre mallar kontrollerades med 12 menylänkar vid 320, 375, 820 och 1440 px: inget horisontellt sidöverflöde, minst 44 px länkhöjd och menylänkar inom huvudets höjd. Optinets ljusa logo kontrollerades visuellt i samtliga tre mallars mobilvy.
+
+### QA i fem steg
+
+1. Spara eventuellt utkast och ladda om http://localhost:4174 eller den publicerade appen.
+2. Öppna ett importerat förslag, exempelvis Optinet. Kontrollera logotyp, företagsnamn och ursprungliga menytexter.
+3. Växla mellan Bild & berättelse, Studio och Tjänster. Kontrollera att rubriker, texter, bilder och destinationer finns kvar.
+4. Prova mobilvy och desktop. Kontrollera läsbredd, sektionsavstånd och att en lång meny ryms utan att täcka rubriken.
+5. Spara och skapa en kundlänk. Öppna den och kontrollera samma design samt synligt fokus när du tabbar mellan länkarna.
