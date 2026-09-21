@@ -74,7 +74,7 @@ Importen hoppar nu över innehåll som entydigt döljs av tillgänglig CSS. Vill
 
 Verifiering: 59 Node-tester, 25 DOM-regressioner, syntaxkontroll och bygge. Full import i editorn på localhost gav Pascalidous synliga introduktionsrubrik och 15 innehållsblock. Jämförelse med hämtad original-HTML från sex sidor visar rättad rubrik/porträtt för Pascalidou och rättad logo för Optinet; Hallinc, Vegavista och Verkli behåller tidigare huvudrubriker, logotyper och antal block. Dessa jämförelser är inte ett löfte om felfri import från alla webbplatser.
 
-Kvar: exempelvis Café Orions namn kommer fortfarande från SEO-titeln. CSS-bakgrunder, JavaScript-innehåll och varumärkesfärger utan tydlig källa behöver ibland manuella val. Mer branschmallar och undersidor ingår inte i denna rättning. Inga nya beroenden eller ändringar av sparformatet.
+Kvar: CSS-bakgrunder, JavaScript-innehåll och varumärkesfärger utan tydlig källa behöver ibland manuella val. Mer branschmallar och undersidor ingår inte i denna rättning. Inga nya beroenden eller ändringar av sparformatet.
 
 ### QA i fem steg för rättningen
 
@@ -83,3 +83,19 @@ Kvar: exempelvis Café Orions namn kommer fortfarande från SEO-titeln. CSS-bakg
 3. Spara testutkastet. Importera `optinet.se`: kontrollera logotypen. Små kundporträtt ska inte bli huvudbild; välj en relevant bild manuellt om huvudbild saknas.
 4. Spara mellan importer och prova Hallinc, Vegavista och Verkli. Jämför rubriker, meny, bilder och texter med respektive original.
 5. Granska mobilvyn, spara och öppna en kundlänk. Kontrollera innehållet före delning och ta en projektkopia som backup.
+
+## Namn, färger och fler bildkällor
+
+Företagsnamn som kan styrkas av domänen väljs framför SEO-rubriker; undermappar och subdomänetiketter används inte som bevis för företagsnamnet. En identifierad headerlogos namn prioriteras framför sidtiteln. Elementor-sidans egna kit- och sidstilar prioriteras inom den befintliga gränsen på två stilmallar. Relativa CSS-adresser bedöms mot originalets adress och felaktiga länkar ignoreras.
+
+Importen läser också `data-bg-image` och vanliga bildadresser i `data-background`. CSS-färger och gradienter blir inte bildadresser. Ett aktivt bildspel före den första innehållsrubriken kan ge huvudbild när rubrikens eget block saknar bild. Bildspel längre ned på sidan flyttas inte till huvudbilden.
+
+Verifierat: 59 Node-tester och 37 DOM-regressioner. Full UI-import av Café Orion ger rätt namn och första bildspelsfoto; logotyp och huvudbild laddar i förhandsvisningen. Full UI-import av Optinet ger namnet Optinet, originalets blå färg `#324f7c`, 24 bildkandidater och 16 block, inklusive tidigare missade tjänstebilder. Sparande och öppning av skapad kunddemo har kontrollerats lokalt. Ingen ny dependency eller ändring av sparformatet.
+
+### QA i fem steg
+
+1. Öppna http://localhost:4174 eller den publicerade appen och spara pågående arbete innan import.
+2. Importera `www.optinet.se`. Kontrollera namnet, blå accent och bilderna på tjänstekorten. Huvudbilden lämnas tom när ingen säker bild finns vid originalrubriken.
+3. Spara, ladda om och kontrollera att innehåll och färg finns kvar. Välj Granska & dela och öppna demolänken; menyn ska leda till originalets undersidor.
+4. Importera `www.cafeorion.se`. Kontrollera namnet Café Orion och att huvudbilden är första bilden från originalets bildspel. Granska kvarvarande påminnelser om färg och kontaktuppgifter.
+5. Spara och kontrollera desktop och mobil innan kunddelning. Prova också Hallinc, Vegavista eller Verkli för att jämföra med tidigare fungerande importer.

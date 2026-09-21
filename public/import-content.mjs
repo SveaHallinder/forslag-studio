@@ -1,6 +1,6 @@
 const clean=value=>String(value||'').replace(/\s+/g,' ').replace(/([.!?])(?=[A-ZÅÄÖ])/g,'$1 ').trim();
 const headings='h1,h2,h3,h4';
-const imageSelector='img,[data-background],[style*="background-image"],[data-current-styles],video[poster]';
+const imageSelector='img,[data-background],[data-bg-image],[style*="background-image"],[data-current-styles],video[poster]';
 function removeCSSHidden(doc,css) {
   // Parse without attaching source CSS or fetching its URLs. Ambiguous responsive
   // overrides are kept: this is deliberately not a full browser layout engine.
@@ -37,7 +37,9 @@ export function extractContent(html, source, styles='') {
   const absolute=value=>{try{const u=new URL(value,source);return ['http:','https:','mailto:','tel:'].includes(u.protocol)&&!u.username&&!u.password?u.href:'';}catch{return '';}};
   const unconditional=n=>!n.getAttribute('media')||/^(all|screen)$/i.test(n.getAttribute('media').trim());
   const css=[...doc.querySelectorAll('style')].map(n=>unconditional(n)?n.textContent:`@media ${n.getAttribute('media')}{${n.textContent}}`).join('\n')+'\n'+styles;
-  const stylesheets=[...doc.querySelectorAll('link[rel="stylesheet"][href]')].filter(unconditional).map(n=>absolute(n.getAttribute('href'))).filter(u=>/^https?:/.test(u)).sort((a,b)=>{const score=u=>/site\.css|custom|theme/i.test(u)?2:new URL(u).origin===new URL(source).origin?1:0;return score(b)-score(a);}).slice(0,2);
+  const kitId=doc.body.className.match(/\belementor-kit-(\d+)\b/)?.[1],pageId=doc.querySelector('[data-elementor-type="wp-page"]')?.getAttribute('data-elementor-id');
+  const stylesheetScore=n=>kitId&&n.id===`elementor-post-${kitId}-css`?4:pageId&&n.id===`elementor-post-${pageId}-css`?3:/site\.css|custom|theme/i.test(n.url)?2:new URL(n.url).origin===new URL(source).origin?1:0;
+  const stylesheets=[...new Set([...doc.querySelectorAll('link[rel="stylesheet"][href]')].filter(unconditional).map(n=>({id:n.id,url:absolute(n.getAttribute('href'))})).filter(n=>/^https?:/.test(n.url)).sort((a,b)=>stylesheetScore(b)-stylesheetScore(a)).map(n=>n.url))].slice(0,2);
   const hasForms=!!doc.querySelector('form');
   removeCSSHidden(doc,css);
   doc.querySelectorAll('form,dialog:not([open]),[inert],[data-state="closed"],script,style,noscript,svg,template,iframe,object,embed,[hidden],[class~="hide-lg"],[class~="hidden-lg"],[class~="d-lg-none"],[style*="display:none"],[style*="display: none"],#cookie-banner,#cookie-consent,#onetrust-banner-sdk,[class*="cookie-banner"],[class*="cookie-consent"],[id*="CookieConsent"]').forEach(el=>el.remove());
@@ -71,10 +73,12 @@ export function extractContent(html, source, styles='') {
   };
   const imageData=el=>{
     let configured='';try{configured=JSON.parse(el.getAttribute('data-current-styles')||'{}').backgroundImage?.assetUrl||'';}catch{}
-    const raw=configured||el.getAttribute('poster')||(el.tagName==='IMG'?(el.getAttribute('data-src')||el.getAttribute('data-lazy-src')||el.getAttribute('src')||el.getAttribute('srcset')?.split(',').at(-1)?.trim().split(/\s+/)[0]):(el.getAttribute('data-background')||el.getAttribute('style')||'').match(/url\(\s*(['"]?)(.*?)\1\s*\)/i)?.[2]);
+    const background=el.getAttribute('data-bg-image')||el.getAttribute('data-background')||'',backgroundURL=(background||el.getAttribute('style')||'').match(/url\(\s*(['"]?)(.*?)\1\s*\)/i)?.[2];
+    const plainBackground=/^(?:https?:\/\/|\/|\.{1,2}\/|[^\s:()#?]+\.(?:avif|gif|jpe?g|png|svg|webp)(?:[?#]|$))/i.test(background)?background:'';
+    const raw=configured||el.getAttribute('poster')||(el.tagName==='IMG'?(el.getAttribute('data-src')||el.getAttribute('data-lazy-src')||el.getAttribute('src')||el.getAttribute('srcset')?.split(',').at(-1)?.trim().split(/\s+/)[0]):backgroundURL||plainBackground);
     const url=raw&&!raw.startsWith('data:')?absolute(raw):'';
     if(!/^https?:/.test(url))return null;
-    const label=clean(el.getAttribute('alt')),dimensions=(el.getAttribute('data-image-dimensions')||'').match(/^(\d+)x(\d+)$/)||new URL(url).pathname.match(/-(\d+)x(\d+)\.[a-z]+$/i);
+    const label=clean(el.getAttribute('alt')||el.getAttribute('aria-label')),dimensions=(el.getAttribute('data-image-dimensions')||'').match(/^(\d+)x(\d+)$/)||new URL(url).pathname.match(/-(\d+)x(\d+)\.[a-z]+$/i);
     return {url,label,el,width:Number(dimensions?.[1]||el.getAttribute('width'))||0,height:Number(dimensions?.[2]||el.getAttribute('height'))||0};
   };
   const imageNodes=[...doc.querySelectorAll(imageSelector)].map(imageData).filter(Boolean);
@@ -96,9 +100,15 @@ export function extractContent(html, source, styles='') {
   };
   const headline=clean(heroHeading?.textContent);
   const description=textIn(scope)||(!headline?(meta('og:description')||meta('description')):'');
-  const hero=photos.find(i=>scope.contains(i.el))?.url||'';
+  const leadingSlide=heroHeading&&photos.find(i=>main.contains(i.el)&&i.el.closest('.carousel .active')&&(i.el.compareDocumentPosition(heroHeading)&4));
+  const hero=photos.find(i=>scope.contains(i.el))?.url||leadingSlide?.url||'';
   const titleName=doc.title.split(/\s+[|–—-]\s+/)[0];
-  const name=(meta('og:site_name')||clean(doc.querySelector('header a[href="/"]')?.textContent)||titleName||headerImage?.label||new URL(source).hostname.replace(/^www\./,'')).slice(0,100);
+  const hostname=new URL(source).hostname.replace(/^www\./,''),fold=value=>clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  // Shorten an SEO label only with corroboration from the company's own hostname.
+  const nameSignals=meta('og:site_name')?[meta('og:site_name')]:[headerImage?.label,headline,doc.title];
+  const matchedName=hostname.split('.').length===2&&nameSignals.flatMap(value=>clean(value).split(/\s+[–—-]\s+|\s*\|\s*/)).find(value=>value&&fold(value)===fold(hostname.split('.')[0]));
+  const logoName=headerImage?.label&&!/^(?:logo(?:typ)?|home|hem|startsida)$/i.test(headerImage.label)?headerImage.label:'';
+  const name=(matchedName||meta('og:site_name')||logoName||clean(doc.querySelector('header a[href="/"]')?.textContent)||titleName||hostname).slice(0,100);
   const cards=[],seenCards=new Set(),anchors=new Map();
   if(heroHeading){for(let el=heroHeading;el&&el!==doc.body;el=el.parentElement)if(el.id)anchors.set(el.id,'start');}
   for(const heading of contentHeadings){
