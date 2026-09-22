@@ -20,7 +20,7 @@ check('sektionens header och visuell ordning bevaras',()=>assert(semantic.headli
 check('footer blir inte huvudmeny',()=>assert(semantic.navigation.length===1&&semantic.navigation[0].label==='Team',JSON.stringify(semantic.navigation)));
 const contact=extractContent('<h1>Kontakt</h1><a href="tel:+46%2070%20123%204567">Ring</a><a href="mailto:info%40example.com">Mail</a>','https://example.com/');
 check('kodade kontaktlänkar behålls',()=>assert(contact.phone==='+46 70 123 4567'&&contact.email==='info@example.com','kontakt tappades'));
-check('tom JavaScript-sida ger fel',()=>{let failed=false;try{extractContent('<script>loadApp()</scr'+'ipt>','https://example.com/');}catch{failed=true;}assert(failed,'tom import godkändes');});
+check('tom JavaScript-sida ger fel',()=>{let failed=false;try{extractContent('<script>loadApp()</scr'+'ipt>','https://example.com/');}catch(error){failed=error.code==='EMPTY_CONTENT';}assert(failed,'tom import måste markeras för reservhämtning');});
 const photo=extractContent('<section><h1>Hej</h1><img src="/photo.jpg" width="1200" height="800"></section>','https://example.com/');
 check('foto utan alt blir inte logo',()=>assert(photo.hero==='https://example.com/photo.jpg'&&!photo.logo,'foto blev logo'));
 const hidden=extractContent('<section><h2>Desktop</h2><p>Text</p></section><section class="hide-lg"><h1>Mobilkopia</h1></section>','https://example.com/');

@@ -61,18 +61,54 @@ export async function readPublic(value, image = false, requestFetch = fetch) {
   }
   throw new Error('Hemsidan omdirigerar för många gånger.');
 }
+const renderError=(message,status=502)=>Object.assign(new Error(message),{status});
+let rendering=0;
+export async function renderPublic(value,env={},requestFetch=fetch) {
+  const url=publicURL(value),account=env.CLOUDFLARE_ACCOUNT_ID,token=env.CLOUDFLARE_BROWSER_TOKEN;
+  // Set only after verifying Workers Free in the provider account. Never upgrade billing here.
+  if(env.CLOUDFLARE_BROWSER_PLAN!=='free'||!/^[a-f\d]{32}$/i.test(account||'')||!token)throw renderError('Sidan behöver en webbläsare för att kunna läsas. Reservhämtningen är ännu inte ansluten. Ditt öppna förslag är kvar.',503);
+  if(rendering>=3)throw renderError('Webbläsarhämtningen är upptagen. Vänta en stund och försök igen.',429);
+  rendering++;
+  try {
+    const response=await requestFetch('https://api.cloudflare.com/client/v4/accounts/'+account+'/browser-rendering/content?cacheTTL=300',{
+      method:'POST',redirect:'error',signal:AbortSignal.timeout(25000),
+      headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({url:url.href,gotoOptions:{waitUntil:'networkidle2',timeout:18000},actionTimeout:5000,viewport:{width:1440,height:1000},rejectResourceTypes:['media','font']})
+    });
+    console.info('[mockup browser render] Response',url.hostname,response.status);
+    if(!response.ok){
+      await response.body?.cancel();
+      if(response.status===429)throw renderError('Webbläsarhämtningens gräns har nåtts. Vänta och försök igen; om dagens gratiskvot är slut behöver du vänta till nästa dag. Ditt förslag är kvar.',429);
+      if([401,403].includes(response.status))throw renderError('Webbläsarhämtningens anslutning behöver kontrolleras av verktygets ägare. Ditt förslag är kvar.',503);
+      throw renderError('Webbläsarhämtningen är tillfälligt otillgänglig. Försök igen senare.');
+    }
+    const reader=response.body?.getReader();if(!reader)throw renderError('Webbläsaren gav inget läsbart svar.');
+    let size=0,text='';const decoder=new TextDecoder();
+    try{while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>MAX_HTML*2)throw renderError('Den renderade sidan är för stor att importera.');text+=decoder.decode(part.value,{stream:true});}}finally{await reader.cancel();}
+    let data;try{data=JSON.parse(text+decoder.decode());}catch{throw renderError('Webbläsaren gav ett oläsbart svar. Försök igen senare.');}
+    if(!data.success||typeof data.result!=='string'||!data.result.trim())throw renderError('Webbläsaren hittade inget läsbart innehåll. Sidan kan blockera hämtning.');
+    if(new TextEncoder().encode(data.result).length>MAX_HTML)throw renderError('Den renderade sidan är för stor att importera.');
+    if(data.meta?.status>=400)throw renderError('Företagets sida svarade med HTTP '+Number(data.meta.status)+' även i webbläsaren. Kontrollera adressen.');
+    const finalURL=publicURL(data.meta?.finalUrl||url.href);
+    return {html:data.result,url:finalURL.href};
+  }catch(error){
+    console.warn('[mockup browser render] Failed',url.hostname,error.name,error.status||502);
+    if(error.status)throw error;
+    throw renderError(error.name==='TimeoutError'?'Sidan laddade för långsamt även i webbläsaren. Försök igen senare. Ditt förslag är kvar.':'Webbläsarhämtningen misslyckades. Kontrollera att adressen är offentlig och försök igen.');
+  }finally{rendering--;}
+}
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{...headers,'Content-Type':'application/json; charset=utf-8'}});
 let inFlight=0;
 export function createWorker(assets) {
-  return {async fetch(request) {
+  return {async fetch(request,env={}) {
     const url=new URL(request.url), path=url.pathname;
     if(request.method==='GET'||request.method==='HEAD') {
       const asset=assets[path==='/'?'/index.html':path];
       if(!asset)return json({error:'Sidan hittades inte.'},404);
       return new Response(request.method==='HEAD'?null:asset.body,{headers:{...headers,'Content-Type':asset.type,'X-Frame-Options':'SAMEORIGIN'}});
     }
-    if(request.method!=='POST'||!['/api/read','/api/image','/api/style'].includes(path))return json({error:'Funktionen hittades inte.'},404);
+    if(request.method!=='POST'||!['/api/read','/api/image','/api/style','/api/render'].includes(path))return json({error:'Funktionen hittades inte.'},404);
     if(request.headers.get('Origin')!==url.origin||request.headers.get('Content-Type')?.split(';')[0]!=='application/json')return json({error:'Öppna verktyget och försök igen.'},403);
     if(Number(request.headers.get('Content-Length'))>4096)return json({error:'Adressen är för lång.'},413);
     if(inFlight>=6)return json({error:'Flera hämtningar pågår. Vänta en stund och försök igen.'},429);
@@ -82,12 +118,13 @@ export function createWorker(assets) {
       try{while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>4096)return json({error:'Adressen är för lång.'},413);text+=decoder.decode(part.value,{stream:true});}}finally{await reader.cancel();}
       const payload=JSON.parse(text+decoder.decode());
       if(typeof payload?.url!=='string'||payload.url.length>2000)throw new Error('Ange en giltig företagsadress.');
+      if(path==='/api/render')return json(await renderPublic(payload.url,env));
       const data=await readPublic(payload.url,path==='/api/style'?'style':path==='/api/image');
       console.info('[mockup online fetch] Completed',path);
       return path==='/api/style'?json({css:new TextDecoder().decode(data.body),url:data.url}):path==='/api/image'?new Response(data.body,{headers:{...headers,'Content-Type':data.mime}}):json({html:new TextDecoder().decode(data.body),url:data.url});
     } catch(error) {
       console.warn('[mockup online fetch]',error.name);
-      return json({error:error.name==='TimeoutError'?'Hemsidan svarade för långsamt. Försök igen eller fyll i manuellt.':error.message||'Hemsidan kunde inte hämtas. Fyll i innehållet manuellt.'},400);
+      return json({error:error.name==='TimeoutError'?'Hemsidan svarade för långsamt. Försök igen eller fyll i manuellt.':error.message||'Hemsidan kunde inte hämtas. Fyll i innehållet manuellt.'},error.status||400);
     } finally {inFlight--;}
   }};
 }

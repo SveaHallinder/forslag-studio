@@ -32,14 +32,20 @@ async function remote(path,body) {
   if(!response.ok){const data=await response.json().catch(()=>({}));throw problem(data.error||'Hämtningen misslyckades. Försök igen.',response.status);}return response;
 }
 async function readCompany(url,extraContact=true) {
-  const page=await(await remote('/api/read',{url})).json();
-  let project=extractContent(page.html,page.url);
+  let page=await(await remote('/api/read',{url})).json(),project,rendered=false;
+  try{project=extractContent(page.html,page.url);}
+  catch(error){
+    if(error.code!=='EMPTY_CONTENT')throw error;
+    page=await(await remote('/api/render',{url:page.url})).json();
+    project=extractContent(page.html,page.url);rendered=true;
+  }
   const styles=await Promise.all(project.stylesheets.slice(0,2).map(async url=>{try{const result=await(await remote('/api/style',{url})).json();return {css:result.css,url:result.url||url};}catch{console.warn('[mockup online import] Brand stylesheet unavailable');return null;}}));
   if(styles.some(Boolean))project=extractContent(page.html,page.url,styles.filter(Boolean));
   if(extraContact&&!project.email&&!project.phone){
     const contact=project.links.find(link=>{try{return new URL(link).hostname===new URL(page.url).hostname&&/kontakt|contact|om-oss|about/i.test(new URL(link).pathname);}catch{return false;}});
     if(contact)try{const extra=await(await remote('/api/read',{url:contact})).json(),details=extractContent(extra.html,extra.url);project.email=details.email;project.phone=details.phone;if(details.email||details.phone)project.warnings=project.warnings.filter(w=>!w.startsWith('Kontaktuppgifter saknas'));}catch{console.warn('[mockup online import] Contact page unavailable');}
   }
+  if(rendered)project.warnings.unshift('Sidan har lästs med en webbläsare efter att JavaScript laddats. Jämför innehåll, bilder och meny med originalet.');
   delete project.links;delete project.stylesheets;return project;
 }
 async function importCompany(url,includePages=true) {

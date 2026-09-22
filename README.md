@@ -6,7 +6,24 @@ Projekt sparas i IndexedDB i den egna webbläsaren. Andra besökare får en egen
 
 Servern hämtar offentlig HTML och bildfiler för import respektive export. Text, mallar och bildval granskas av säljaren innan delning. JavaScript-beroende eller blockerande företagssidor kan kräva manuell redigering. Kundlänkar använder den befintliga publika demovisaren och fungerar oberoende av säljarens webbläsare.
 
-Inga paketberoenden eller betalda API:er. Worker-koden använder Cloudflares publika nätverksåtkomst utan privata nätverkskopplingar. Adresser och omdirigeringar valideras, svarsstorlek och tid begränsas. Publik hämtning följer plattformens användningsgränser.
+Inga paketberoenden. Worker-koden använder Cloudflares publika nätverksåtkomst utan privata nätverkskopplingar. Adresser och omdirigeringar valideras, svarsstorlek och tid begränsas. Publik hämtning följer plattformens användningsgränser.
+
+## Reservhämtning med webbläsare — anslutning återstår
+
+Koden för valfri Cloudflare Browser Run finns nu lokalt. När vanlig HTML saknar läsbart innehåll gör importen ett reservförsök med en serverbaserad webbläsare. Vanligt HTML-innehåll använder inte denna tjänst. Renderad text och meny behandlas av samma importör. Kvotfel och saknad anslutning avbryter importen; utkastet ska inte ersättas av ett tomt förslag.
+
+**Inte aktiverat eller verifierat mot ett riktigt Cloudflare-konto ännu.** Användaren har godkänt gratisnivån. Kontoanslutning och ett skarpt test återstår. Inga betalplaner har aktiverats. Förberedande verifiering: 105 Node-tester, lint och bygge passerar; lyckat reservflöde har provats i UI med simulerat providersvar.
+
+Serverinställningar: `CLOUDFLARE_ACCOUNT_ID`, hemlig `CLOUDFLARE_BROWSER_TOKEN` med endast Browser Rendering Edit för valt konto, och `CLOUDFLARE_BROWSER_PLAN=free`. Sätt den sista först efter att **Workers Free** kontrollerats hos Cloudflare. Flaggan är en aktiveringsspärr, inte en egen faktureringsgräns. Cloudflare hanterar gratiskvoten; ett konto som uppgraderas till Paid måste kopplas från innan det används här. Alla användare av verktyget delar kontots kvot. Inställningarna ska lagras som servermiljövariabler i Sites, aldrig i Git eller i frontend. Lokal förhandsvisning läser samma tre variabler från processen.
+
+[Cloudflares prisvillkor](https://developers.cloudflare.com/browser-run/pricing/) anger 10 webbläsarminuter per dag för Workers Free. [Content-endpointen](https://developers.cloudflare.com/browser-run/quick-actions/content-endpoint/) hämtar HTML efter JavaScript. Kontrollerat 2026-09-22. Botblockering, cookiekrav och ofullständigt laddat innehåll kan fortfarande hindra import.
+
+### QA för reservhämtning
+
+1. Starta med `npm run build` och `npm start`; öppna http://localhost:4174.
+2. Importera vanlig HTML, till exempel Verkli. Kontrollera text och meny; ingen reservhämtning ska behövas.
+3. Importera en JavaScript-sida utan anslutna serverinställningar. Kontrollera att anslutningsfelet syns och att befintligt utkast är kvar.
+4. Efter kontoanslutning: importera en verklig JavaScript-sida, jämför originalets text och meny, spara och öppna kunddemon. Detta steg återstår.
 
 ## Senaste importrättningar
 
