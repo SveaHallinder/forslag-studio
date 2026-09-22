@@ -8,11 +8,17 @@ Servern hämtar offentlig HTML och bildfiler för import respektive export. Text
 
 Inga paketberoenden. Worker-koden använder Cloudflares publika nätverksåtkomst utan privata nätverkskopplingar. Adresser och omdirigeringar valideras, svarsstorlek och tid begränsas. Publik hämtning följer plattformens användningsgränser.
 
+## Git-backup
+
+Privat repo: https://github.com/sveahall/forslag-studio, standardgren `dev`. Hela den lokala Git-historiken är uppladdad. Senast publicerad app före Cloudflare-arbetet är commit `8d2471a`; senare backup innehåller reservhämtningen som fortfarande väntar på kontoanslutning. Att spara i Git publicerar inte automatiskt appen.
+
+Återställ med `git clone https://github.com/sveahall/forslag-studio.git`, gå in i mappen och kör `npm run build` följt av `npm start`. Inga npm-paket behöver installeras. Hemliga miljöfiler ignoreras. Kundutkast sparas separat i webbläsaren och ingår inte i kodbackupen; exportera dem med **Projektkopia**. Framtida ändringar behöver committas och pushas för att finnas på GitHub.
+
 ## Reservhämtning med webbläsare — anslutning återstår
 
 Koden för valfri Cloudflare Browser Run finns nu lokalt. När vanlig HTML saknar läsbart innehåll gör importen ett reservförsök med en serverbaserad webbläsare. Vanligt HTML-innehåll använder inte denna tjänst. Renderad text och meny behandlas av samma importör. Kvotfel och saknad anslutning avbryter importen; utkastet ska inte ersättas av ett tomt förslag.
 
-**Inte aktiverat eller verifierat mot ett riktigt Cloudflare-konto ännu.** Användaren har godkänt gratisnivån. Kontoanslutning och ett skarpt test återstår. Inga betalplaner har aktiverats. Förberedande verifiering: 105 Node-tester, lint och bygge passerar; lyckat reservflöde har provats i UI med simulerat providersvar.
+**Inte aktiverat eller verifierat mot ett riktigt Cloudflare-konto ännu.** Användaren har godkänt gratisnivån. Kontoanslutning och ett skarpt test återstår. Inga betalplaner har aktiverats. Förberedande verifiering: 105 Node-tester, 68 DOM-importtester, lint och bygge passerar. Lyckat reservflöde, kvotfel och saknad anslutning har provats i UI med simulerade providersvar; utkastet bevarades vid båda felen.
 
 Serverinställningar: `CLOUDFLARE_ACCOUNT_ID`, hemlig `CLOUDFLARE_BROWSER_TOKEN` med endast Browser Rendering Edit för valt konto, och `CLOUDFLARE_BROWSER_PLAN=free`. Sätt den sista först efter att **Workers Free** kontrollerats hos Cloudflare. Flaggan är en aktiveringsspärr, inte en egen faktureringsgräns. Cloudflare hanterar gratiskvoten; ett konto som uppgraderas till Paid måste kopplas från innan det används här. Alla användare av verktyget delar kontots kvot. Inställningarna ska lagras som servermiljövariabler i Sites, aldrig i Git eller i frontend. Lokal förhandsvisning läser samma tre variabler från processen.
 

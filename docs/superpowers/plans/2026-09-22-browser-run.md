@@ -8,10 +8,10 @@
 
 **Tech Stack:** Existing native JavaScript, Worker fetch, Node tests; no new packages.
 
-- [ ] Add failing server tests for disabled configuration, URL validation, bounded HTML, final URL, origin status, quota and credential errors.
-- [ ] Add failing client tests for exactly one fallback, no fallback for ordinary content, preservation of error status and no false success.
-- [ ] Implement `/api/render` with a free-plan activation flag, fixed provider endpoint, bounded time/size, concurrency cap, sanitized errors and logs. Pass allowlisted runtime settings in local preview.
-- [ ] Connect the tagged empty-content error to fallback; retain normal stylesheet/contact extraction. Verify lint, tests, build and UI on localhost.
+- [x] Add failing server tests for disabled configuration, URL validation, bounded HTML, final URL, origin status, quota and credential errors.
+- [x] Add failing client tests for exactly one fallback, no fallback for ordinary content, preservation of error status and no false success.
+- [x] Implement `/api/render` with a free-plan activation flag, fixed provider endpoint, bounded time/size, concurrency cap, sanitized errors and logs. Pass allowlisted runtime settings in local preview.
+- [x] Connect the tagged empty-content error to fallback; retain normal stylesheet/contact extraction. Verify lint, tests, build and UI on localhost.
 - [ ] After Cloudflare login, verify Workers Free, configure a narrowly scoped Browser Rendering token as a server secret and test a real JavaScript page. Publish verified source; document any activation blocker honestly.
 
 ## Approved scope and limits
@@ -27,3 +27,5 @@ The user approved Cloudflare Browser Run on its free plan on 2026-09-22. Do not 
 5. Once connected to Workers Free, import a real JS page, compare text and links, save and open a customer demo.
 
 References: https://developers.cloudflare.com/browser-run/quick-actions/content-endpoint/ and https://developers.cloudflare.com/browser-run/pricing/ (checked 2026-09-22).
+
+Status 2026-09-22: local implementation and simulated UI verification complete; 105 Node tests and 68 browser DOM tests pass. Cloudflare account login and live provider test remain pending. Current source is backed up to private GitHub; production is still v13.
