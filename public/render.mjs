@@ -1,3 +1,4 @@
+import {normalizeTypography,typographyCSS} from './typography.mjs';
 import { getTemplate, templateCSS } from './templates.mjs';
 
 const text = (value, limit = 2000) => String(value ?? '').trim().slice(0, limit);
@@ -14,9 +15,16 @@ export function linkURL(value) {
   if(/^#[a-zA-Z0-9_-]+$/.test(raw))return raw;
   try{const u=new URL(raw);return ['https:','http:','mailto:','tel:'].includes(u.protocol)&&!u.username&&!u.password?u.href:'';}catch{return '';}
 }
+export function normalizeGallery(items,primary='') {
+  if(!Array.isArray(items))return;
+  const seen=new Set(),valid=items.flatMap(item=>{const url=imageURL(item?.url);if(!url||seen.has(url))return [];seen.add(url);return [{url,label:text(item.label,160),caption:text(item.caption,600)}];});
+  if(primary){const index=valid.findIndex(item=>item.url===primary);const first=index<0?{url:primary,label:'',caption:''}:valid.splice(index,1)[0];valid.unshift(first);}
+  return valid.slice(0,12);
+}
 function normalizeFlatProject(raw = {}) {
   return {
     templateId: getTemplate(raw.templateId).id,
+    ...(normalizeTypography(raw.typography)?{typography:normalizeTypography(raw.typography)}:{}),
     id: /^[a-z0-9-]{1,70}$/.test(raw.id ?? '') ? raw.id : '',
     name: text(raw.name, 100) || 'Ditt företag',
     source: /^https?:\/\//.test(raw.source ?? '') ? text(raw.source, 2000) : '',
@@ -24,7 +32,8 @@ function normalizeFlatProject(raw = {}) {
     headline: text(raw.headline, 180) || 'En ny plats för ert företag.',
     description: text(raw.description, 6000),
     accent: /^#[a-f0-9]{6}$/i.test(raw.accent ?? '') ? raw.accent : '#cdeb60',
-    logo: imageURL(raw.logo), hero: imageURL(raw.hero),
+    logo: imageURL(raw.logo), hero: imageURL(raw.hero)||normalizeGallery(raw.heroGallery)?.[0]?.url||'',
+    ...(Array.isArray(raw.heroGallery)?{heroGallery:normalizeGallery(raw.heroGallery,imageURL(raw.hero))}:{}),
     heroPosition: Math.max(0, Math.min(100, Number.isFinite(Number(raw.heroPosition ?? 50)) ? Number(raw.heroPosition ?? 50) : 50)),
     email: /^[^\s@"<>]+@[^\s@"<>]+\.[^\s@"<>]+$/.test(raw.email ?? '') ? text(raw.email, 160) : '',
     phone: /^[+\d\s()-]{5,35}$/.test(raw.phone ?? '') ? raw.phone : '',
@@ -36,7 +45,7 @@ function normalizeFlatProject(raw = {}) {
     ctaHref: linkURL(raw.ctaHref),
     navigation: (Array.isArray(raw.navigation)?raw.navigation:[]).slice(0,12).map(n=>({label:text(n?.label,70),href:linkURL(n?.href)})).filter(n=>n.label&&n.href),
     benefits: (Array.isArray(raw.benefits) ? raw.benefits : []).slice(0, 4).map(b => ({title:text(b.title,100),description:text(b.description,350)})),
-    cards: (Array.isArray(raw.cards) ? raw.cards : []).slice(0, 40).map(c => ({title:text(c.title,300),description:text(c.description,6000),image:imageURL(c.image),...(c.href?{href:linkURL(c.href)}:{}),...(c.anchor?{anchor:/^[a-zA-Z0-9_-]{1,100}$/.test(c.anchor)?c.anchor:''}:{})})).filter(c => c.title || c.description || c.image),
+    cards: (Array.isArray(raw.cards) ? raw.cards : []).slice(0, 40).map(c => ({title:text(c.title,300),description:text(c.description,6000),image:imageURL(c.image)||normalizeGallery(c.gallery)?.[0]?.url||'',...(Array.isArray(c.gallery)?{gallery:normalizeGallery(c.gallery,imageURL(c.image))}:{}),...(c.href?{href:linkURL(c.href)}:{}),...(c.anchor?{anchor:/^[a-zA-Z0-9_-]{1,100}$/.test(c.anchor)?c.anchor:''}:{})})).filter(c => c.title || c.description || c.image),
     images: (Array.isArray(raw.images) ? raw.images : []).slice(0, 80).map(i => ({url:imageURL(i.url),label:text(i.label,160)})).filter(i => i.url),
     warnings: (Array.isArray(raw.warnings) ? raw.warnings : []).slice(0,10).map(w=>text(w,250)),
     importedAt: text(raw.importedAt,80),
@@ -70,7 +79,7 @@ function accentInk(hex) {
   return .2126*r+.7152*g+.0722*b>.179?'#152015':'#ffffff';
 }
 function faqEntries(card) {
-  if(card.image||card.href)return [];
+  if(card.image||card.gallery?.length||card.href)return [];
   const parts=card.description.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);
   const question=text=>text.length<=240&&/\?$/.test(text);
   if(question(card.title)&&parts.length)return [{question:card.title,answer:card.description}];
@@ -82,13 +91,16 @@ function faqEntries(card) {
   }
   return entries.length>=2&&entries.every(entry=>entry.answer)?entries:[];
 }
+function renderGallery(items,pic,title) {
+  return `<div class="section-gallery">${items.map(item=>`<figure>${pic(item.url,item.label||title)}${item.caption?`<figcaption>${escapeHTML(item.caption)}</figcaption>`:''}</figure>`).join('')}</div>`;
+}
 function renderContentCard(card,index,pic,imported) {
   const e=escapeHTML,faq=imported?faqEntries(card):[],single=faq.length===1&&faq[0].question===card.title;
-  const kind=faq.length?'faq':card.image?(card.description.length<=280?'gallery':'editorial'):!card.description?'heading':'text';
+  const kind=card.gallery?.length>1?'multi':faq.length?'faq':card.image?(card.description.length<=280?'gallery':'editorial'):!card.description?'heading':'text';
   const heading=imported?'h2':'h3';
   const title=`<${heading}>${card.href?`<a href="${e(card.href)}" ${/^https?:/.test(card.href)?'target="_blank" rel="noopener noreferrer"':''}>${e(card.title)} ↗</a>`:e(card.title)}</${heading}>`;
   const content=faq.length?`${single?'':title}<div class="faq-list">${faq.map(item=>`<details class="faq-item" open><summary>${e(item.question)}</summary><p>${e(item.answer)}</p></details>`).join('')}</div>`:`${title}${card.description?`<p>${e(card.description)}</p>`:''}`;
-  return `<article class="card${imported?' content-'+kind:''}" ${card.anchor?`id="${e(card.anchor)}"`:''}>${card.image?pic(card.image,card.title):!imported?`<div class="card-placeholder" aria-hidden="true">${String(index+1).padStart(2,'0')}</div>`:''}<div class="card-meta"><div>${content}</div>${!imported?`<span class="card-number">${String(index+1).padStart(2,'0')}</span>`:''}</div></article>`;
+  return `<article class="card${imported?' content-'+kind:''}" ${card.anchor?`id="${e(card.anchor)}"`:''}>${card.gallery?.length?renderGallery(card.gallery,pic,card.title):card.image?pic(card.image,card.title):!imported?`<div class="card-placeholder" aria-hidden="true">${String(index+1).padStart(2,'0')}</div>`:''}<div class="card-meta"><div>${content}</div>${!imported?`<span class="card-number">${String(index+1).padStart(2,'0')}</span>`:''}</div></article>`;
 }
 function renderSingleDemo(raw, options = {}) {
   const p = normalizeProject(raw), e = escapeHTML;
@@ -97,7 +109,7 @@ function renderSingleDemo(raw, options = {}) {
   const pic = (url, alt, cls = '', lazy = true) => `<img src="${src(url)}" alt="${e(alt)}" class="${cls}" ${lazy?'loading="lazy"':''} decoding="async" referrerpolicy="no-referrer">`;
   const contact = p.email ? `mailto:${p.email}` : p.phone ? `tel:${p.phone.replace(/[^+\d]/g,'')}` : '';
   const benefits = `${p.benefits.length?`<div class="benefits" style="--benefit-count:${p.benefits.length}">${p.benefits.map(b=>`<div class="benefit"><h3>${e(b.title)}</h3><i></i><p>${e(b.description)}</p></div>`).join('')}</div>`:''}`;
-  const visual = `<div class="visual ${p.hero?'':'no-image'}">${p.templateId==='story'?benefits:''}${p.hero?`${pic(p.hero,p.name+' – verksamhetsbild','hero-image',false)}<div class="image-label">${e(p.name)}</div>`:''}</div>`;
+  const visual = `<div class="visual ${p.hero?'':'no-image'}">${p.templateId==='story'?benefits:''}${p.heroGallery?.length>1||p.heroGallery?.some(i=>i.caption)?renderGallery(p.heroGallery,pic,p.name):p.hero?`${pic(p.hero,p.name+' – verksamhetsbild','hero-image',false)}<div class="image-label">${e(p.name)}</div>`:''}</div>`;
   // Legacy proposals include authored overview/about/benefit sections. Keep their
   // layout when editing navigation; a plain imported homepage stays imported even
   // after its last menu link is removed. Older customer links omit importedAt,
@@ -112,7 +124,7 @@ function renderSingleDemo(raw, options = {}) {
   ${p.about?`<section class="section about" id="om"><div><p class="section-kicker">Om ${e(p.name)}</p><h2>${e(p.aboutTitle || p.name)}</h2></div><p>${e(p.about)}</p></section>`:''}
   <section class="contact" id="kontakt"><div><p class="section-kicker" style="color:#bcc9b8">Ta nästa steg</p><h2>${p.ctaHref?'Kontakt':e(p.cta)+'.'}</h2><div class="contact-links">${p.email?`<a href="mailto:${e(p.email)}">${e(p.email)}</a>`:''}${p.phone?`<a href="tel:${e(p.phone.replace(/[^+\d]/g,''))}">${e(p.phone)}</a>`:''}${p.address?`<span>${e(p.address)}</span>`:''}${!contact?'<span class="contact-empty">Kontaktuppgifter saknas i det här designförslaget.</span>':''}</div></div>${contact?`<a class="button accent" href="${e(contact)}">${p.email?'Skicka ett mejl':'Ring oss'}<span aria-hidden="true">↗</span></a>`:''}</section></main>
   <footer class="footer"><span class="brand-name">${e(p.name)}</span><span class="source">Designförslag · Innehåll och bilder från ${p.source?`<a href="${e(p.source)}" rel="noopener noreferrer" target="_blank">företagets webbplats</a>`:'företaget'}.</span></footer></div>`;
-  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${templateCSS}${homepageCSS}</style></head><body data-imported="${imported}" data-template="${p.templateId}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}</body></html>`;
+  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${templateCSS}${homepageCSS}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}</body></html>`;
 }
 
 export function resolveDemoRoute(href,source,pages) {
@@ -165,7 +177,7 @@ export function installDemoNavigation(doc=document,win=window,resolveRoute=resol
 export function renderDemo(raw,options = {}) {
   const root=normalizeProject(raw);
   if(!root.pages?.length)return renderSingleDemo(root,options);
-  const pages=[root,...root.pages],initial=Math.max(0,pages.findIndex(page=>page.source===options.pageSource)),documents=pages.map(page=>renderSingleDemo({...page,name:root.name,logo:root.logo,accent:root.accent,templateId:root.templateId,navigation:root.navigation},options));
+  const pages=[root,...root.pages],initial=Math.max(0,pages.findIndex(page=>page.source===options.pageSource)),documents=pages.map(page=>renderSingleDemo({...page,name:root.name,logo:root.logo,accent:root.accent,typography:root.typography,templateId:root.templateId,navigation:root.navigation},options));
   const bodies=documents.map(html=>html.match(/<body[^>]*>([\s\S]*)<\/body>/)[1]);
   const rootHref=escapeHTML(root.source||'#start');
   const contents=bodies.map(body=>body.replace('<a class="brand" href="#"','<a class="brand" href="'+rootHref+'"'));
@@ -176,6 +188,16 @@ export function renderDemo(raw,options = {}) {
 }
 
 const homepageCSS=`
+.section-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;min-width:0}
+.section-gallery:has(>figure:only-child){grid-template-columns:minmax(0,1fr)}
+.section-gallery figure{margin:0;min-width:0}
+.section-gallery figcaption{font-size:14px;line-height:1.6;margin-top:12px;white-space:pre-line;overflow-wrap:anywhere}
+html body[data-imported="true"] .card.content-multi{display:flex;flex-direction:column;align-items:stretch;gap:28px}
+html body[data-imported="true"] .card.content-multi .card-meta{order:-1;max-width:780px}
+html body[data-imported="true"] .card.content-multi .section-gallery{order:0;width:100%}
+html body[data-imported="true"] .card.content-multi img,.visual .section-gallery img{width:100%;height:360px;object-fit:contain;background:transparent;border-radius:18px}
+@media(max-width:760px){.section-gallery{grid-template-columns:minmax(0,1fr)}html body[data-imported="true"] .card.content-multi img,.visual .section-gallery img{height:auto;max-height:420px}}
+
 [hidden]{display:none!important}
 .brand{display:flex;align-items:center;gap:14px;flex-shrink:0;max-width:36%;letter-spacing:-.04em}
 .brand-mark{display:flex;align-items:center;justify-content:center;background:#747474;border:1px solid #858585;border-radius:10px;padding:10px 14px}
@@ -260,6 +282,7 @@ html body[data-template="dining"][data-imported="true"] .card h2{font-family:Geo
  html body[data-imported="true"] .card,html body[data-template="retail"][data-imported="true"] .content-gallery{grid-column:1;grid-template-columns:minmax(0,1fr);gap:24px}
  html body[data-imported="true"] .card:nth-child(even)>:first-child{order:0}
  html body[data-imported="true"] .card h2{font-size:28px}
+ html body[data-imported="true"] .card.content-multi .card-meta{order:-1}
  html body[data-imported="true"] .content-gallery img{height:auto;max-height:360px}
 }
 `;

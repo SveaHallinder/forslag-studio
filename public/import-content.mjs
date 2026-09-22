@@ -1,3 +1,4 @@
+import {extractBrand} from './brand-content.mjs';
 const clean=value=>String(value||'').replace(/\s+/g,' ').replace(/([.!?])(?=[A-ZÅÄÖ])/g,'$1 ').trim();
 const headings='h1,h2,h3,h4';
 const imageSelector='img,[data-background],[data-bg-image],[style*="background"],[data-current-styles],video[poster],[data-import-background]';
@@ -80,13 +81,17 @@ export function extractContent(html, source, styles='') {
   const meta=name=>doc.querySelector(`meta[property="${name}"],meta[name="${name}"]`)?.getAttribute('content')||'';
   const absolute=value=>{try{const u=new URL(value,source);return ['http:','https:','mailto:','tel:'].includes(u.protocol)&&!u.username&&!u.password?u.href:'';}catch{return '';}};
   const unconditional=n=>!n.getAttribute('media')||/^(all|screen)$/i.test(n.getAttribute('media').trim());
-  const styleSources=[...doc.querySelectorAll('style')].map(n=>({css:unconditional(n)?n.textContent:`@media ${n.getAttribute('media')}{${n.textContent}}`,url:source}));
-  styleSources.push(...(Array.isArray(styles)?styles:[{css:styles,url:source}]));
+  const provided=Array.isArray(styles)?styles:[{css:styles,url:source}],used=new Set();
+  const styleSources=[...doc.querySelectorAll('style,link[rel="stylesheet"][href]')].flatMap(node=>{
+    const entry=node.tagName==='STYLE'?{css:node.textContent,url:source}:provided.find(item=>(item.href||item.url)===absolute(node.getAttribute('href')));
+    if(!entry)return [];used.add(entry);const imported=provided.filter(item=>item.importedBy===(entry.href||entry.url));imported.forEach(item=>used.add(item));return [...imported,{...entry,css:unconditional(node)?entry.css:`@media ${node.getAttribute('media')}{${entry.css}}`}];
+  });
+  styleSources.push(...provided.filter(item=>!used.has(item)));
   const css=styleSources.map(s=>s.css).join('\n');
   collectBackgrounds(doc,styleSources);
   const kitId=doc.body.className.match(/\belementor-kit-(\d+)\b/)?.[1],pageId=doc.querySelector('[data-elementor-type="wp-page"]')?.getAttribute('data-elementor-id');
-  const stylesheetScore=n=>kitId&&n.id===`elementor-post-${kitId}-css`?4:pageId&&n.id===`elementor-post-${pageId}-css`?3:/site\.css|custom|theme/i.test(n.url)?2:new URL(n.url).origin===new URL(source).origin?1:0;
-  const stylesheets=[...new Set([...doc.querySelectorAll('link[rel="stylesheet"][href]')].filter(unconditional).map(n=>({id:n.id,url:absolute(n.getAttribute('href'))})).filter(n=>/^https?:/.test(n.url)).sort((a,b)=>stylesheetScore(b)-stylesheetScore(a)).map(n=>n.url))].slice(0,2);
+  const stylesheetScore=n=>kitId&&n.id===`elementor-post-${kitId}-css`?4:pageId&&n.id===`elementor-post-${pageId}-css`?3:/fonts\.googleapis\.com|fonts\.bunny\.net|(?:^|[\/_-])fonts?[._-]/i.test(n.url)?2.5:/site\.css|custom|theme/i.test(n.url)?2:new URL(n.url).origin===new URL(source).origin?1:0;
+  const stylesheets=[...new Set([...doc.querySelectorAll('link[rel="stylesheet"][href]')].filter(unconditional).map(n=>({id:n.id,url:absolute(n.getAttribute('href'))})).filter(n=>/^https?:/.test(n.url)).sort((a,b)=>stylesheetScore(b)-stylesheetScore(a)).map(n=>n.url))].slice(0,8);
   const hasForms=!!doc.querySelector('form');
   removeCSSHidden(doc,css);
   doc.querySelectorAll('form,dialog:not([open]),[inert],[data-state="closed"],script,style,noscript,svg,template,iframe,object,embed,[hidden],[class~="hide-lg"],[class~="hidden-lg"],[class~="d-lg-none"],[style*="display:none"],[style*="display: none"],#cookie-banner,#cookie-consent,#onetrust-banner-sdk,[class*="cookie-banner"],[class*="cookie-consent"],[id*="CookieConsent"]').forEach(el=>el.remove());
@@ -116,11 +121,11 @@ export function extractContent(html, source, styles='') {
   };
   const scopeFor=heading=>{
     const best=wrapperFor(heading);
-    if(best?.matches('section,article')||best?.querySelector('p,li,a[href],'+imageSelector))return best;
+    if(best?.matches('section,article'))return best;
     // Flat markup has no exclusive wrapper. Keep only nodes before the next heading.
     const range=doc.createRange(),next=contentHeadings[contentHeadings.indexOf(heading)+1];
     const boundary=heading.closest('section,article')||main,nextWrapper=next&&wrapperFor(next);
-    range.selectNodeContents(boundary);range.setStartAfter(heading);
+    range.selectNodeContents(boundary);if(best&&boundary.contains(best))range.setStartBefore(best);else range.setStartAfter(heading);
     if(next&&boundary.contains(next))range.setEndBefore(nextWrapper&&!nextWrapper.contains(heading)?nextWrapper:next);
     return {contains:el=>range.intersectsNode(el),querySelectorAll:selector=>[...main.querySelectorAll(selector)].filter(el=>range.intersectsNode(el))};
   };
@@ -155,13 +160,27 @@ export function extractContent(html, source, styles='') {
   const photos=pictures.filter(i=>(!i.width||i.width>=300)&&(!i.height||i.height>=180));
   const scope=heroHeading?scopeFor(heroHeading):main;
   const textIn=node=>{
-    const nodes=[...node.querySelectorAll('p,li,div,summary,blockquote')].filter(el=>!excluded(el)&&!el.closest('button,[role="button"]')&&(el.tagName!=='BLOCKQUOTE'||!el.querySelector(headings))&&(el.tagName!=='DIV'||(!el.closest('a')&&!el.querySelector('h1,h2,h3,h4,h5,h6,p,li,div,summary,blockquote,section,article,a,button,img'))));
+    const nodes=[...node.querySelectorAll('p,li,div,summary,blockquote')].filter(el=>!excluded(el)&&!(el.closest('figcaption')&&pictures.some(item=>item.el.closest('figure')===el.closest('figcaption').parentElement))&&!el.closest('button,[role="button"]')&&(el.tagName!=='BLOCKQUOTE'||!el.querySelector(headings))&&(el.tagName!=='DIV'||(!el.closest('a')&&!el.querySelector('h1,h2,h3,h4,h5,h6,p,li,div,summary,blockquote,section,article,a,button,img'))));
     return nodes.filter(el=>!nodes.some(parent=>parent!==el&&parent.contains(el))).map(el=>el.tagName==='DIV'&&el.children.length>1&&[...el.children].every(child=>child.matches('span,small'))&&(/tags|badges|chips|toolbar/i.test(el.className)||[...el.children].every(child=>/\s/.test(clean(child.textContent))))?[...el.children].map(child=>clean(child.textContent)).filter(Boolean).join('\n\n'):clean(el.textContent)).filter(v=>v&&!/^(loading|laddar|please wait)(?:\b|…)/i.test(v)).filter((v,i,a)=>a.indexOf(v)===i).join('\n\n');
+  };
+  const imageCaption=element=>{
+    const container=element.closest('figure')?.querySelector('figcaption')||element.closest('button,[role="button"]');
+    const words=node=>node.nodeType===3?[node.textContent]:node.nodeType===1&&node.getAttribute('aria-hidden')==='true'?[]:[...node.childNodes].flatMap(words);
+    return container?clean(words(container).join(' ')):'';
+  };
+  let galleryTruncated=false;
+  const galleryFor=(block,primary='')=>{
+    const allowed=new Set(pictures),seen=new Set();
+    const items=imageNodes.filter(item=>allowed.has(item)&&block.contains(item.el)).flatMap(item=>{if(seen.has(item.url))return [];seen.add(item.url);return [{url:item.url,label:item.label,caption:imageCaption(item.el)}];});
+    if(primary){const index=items.findIndex(item=>item.url===primary);if(index>0)items.unshift(...items.splice(index,1));}
+    if(items.length>12)galleryTruncated=true;
+    return items.slice(0,12);
   };
   const headline=clean(heroHeading?.textContent);
   const description=textIn(scope)||(!headline?(meta('og:description')||meta('description')):'');
   const leadingSlide=heroHeading&&photos.find(i=>main.contains(i.el)&&i.el.closest('.carousel .active')&&(i.el.compareDocumentPosition(heroHeading)&4));
   const hero=photos.find(i=>scope.contains(i.el))?.url||leadingSlide?.url||'';
+  const heroGallery=galleryFor(scope,hero);
   const titleName=doc.title.split(/\s+[|–—-]\s+/)[0];
   const hostname=new URL(source).hostname.replace(/^www\./,''),fold=value=>clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
   // Shorten an SEO label only with corroboration from the company's own hostname.
@@ -180,7 +199,8 @@ export function extractContent(html, source, styles='') {
     const anchor='section-'+(cards.length+1);
     for(let el=heading;el&&el!==main&&el!==doc.body;el=el.parentElement){if(el.id&&!anchors.has(el.id))anchors.set(el.id,anchor);}
     const action=heading.closest('a[href]')||block.querySelectorAll('a[href]')[0];
-    cards.push({title,description,image,anchor,...(action?{href:absolute(action.getAttribute('href'))}:{})});
+    const gallery=galleryFor(block,image).filter(item=>item.url!==hero);
+    cards.push({title,description,image,...(gallery.length?{gallery}:{}),anchor,...(action?{href:absolute(action.getAttribute('href'))}:{})});
   }
   const mapLink=href=>{
     try{const u=new URL(href,source),base=new URL(source);if(u.origin===base.origin&&u.pathname.replace(/\/$/,'')===base.pathname.replace(/\/$/,'')){if(!u.hash)return '#start';const target=anchors.get(decodeURIComponent(u.hash.slice(1)));if(target)return '#'+target;}}catch{}
@@ -200,22 +220,17 @@ export function extractContent(html, source, styles='') {
   const phone=decodeContact(links.find(u=>u.startsWith('tel:'))?.slice(4))||textPhone;
   const postal=contactBlocks.filter(el=>el.closest(contactRegion)).map(el=>el.textContent.match(/([^\n]{3,80}\d[^\n]{0,10})\n\s*(\d{3}\s?\d{2}\s+[^\n]{2,60})/)).find(Boolean);
   const address=postal?[clean(postal[1]),clean(postal[2])].join(', '):'';
-  const inlineStyles=[...doc.querySelectorAll('[style]')].map(el=>el.getAttribute('style')).join('\n');
-  const brand=brandColor(css+'\n'+inlineStyles),theme=meta('theme-color');
-  const buttonStyle=heroLink?.getAttribute('style')||'';
-  const buttonRGB=buttonStyle.match(/background(?:-color)?\s*:\s*rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
-  const buttonHex=buttonStyle.match(/background(?:-color)?\s*:\s*(#[a-f\d]{6})(?![a-f\d])/i)?.[1];
-  const buttonColor=buttonHex||(buttonRGB&&buttonRGB.slice(1).every(x=>Number(x)<=255)?'#'+buttonRGB.slice(1).map(x=>Number(x).toString(16).padStart(2,'0')).join(''):'')||stylesheetButtonColor(heroLink,css);
-  const accent=brand||buttonColor||(/^#[a-f\d]{6}$/i.test(theme)?theme:'#cdeb60');
+  const branding=extractBrand(doc,styleSources,{heading:heroHeading,button:heroLink}),accent=branding.accent||'#cdeb60';
   const warnings=['Texten är hämtad från originalets innehållsblock. Kontrollera innehåll och bildkopplingar före delning.'];
   if(scope.querySelectorAll('video,[data-current-styles]').length&&hero)warnings.push('Rörligt eller konfigurerat bakgrundsmaterial visas som originalets stillbild i förslaget.');
   if(hasForms)warnings.push('Originalets formulär har inte återskapats. Använd en knapp till originalet för anmälan, bokning eller köp.');
   if(navigation.some(n=>/^https?:/.test(n.href)))warnings.push('Menylänkar till undersidor öppnar företagets original. Bara startsidan har fått ny design.');
-  if(!brand)warnings.push(buttonColor?'Färgen kommer från originalets huvudknapp. Kontrollera den före delning.':/^#[a-f\d]{6}$/i.test(theme)?'Färgen kommer från sidans tema. Kontrollera att den stämmer med varumärket.':'Ingen säker varumärkesfärg hittades. Välj rätt accentfärg under Innehåll.');
+  warnings.push(...branding.warnings);
+  if(galleryTruncated)warnings.unshift('Ett bildavsnitt innehåller fler än 12 bilder. De första 12 har tagits med; jämför med originalet.');
   if(!logo)warnings.push('Logotyp kunde inte identifieras säkert. Lägg till den under Bilder.');
   if(!hero)warnings.push('Ingen säker huvudbild hittades vid huvudrubriken. Välj huvudbild under Bilder.');
   if(!email&&!phone)warnings.push('Kontaktuppgifter saknas. Lägg till dem under Detaljer.');
   if(!headline&&!description&&!cards.length&&!email&&!phone)throw Object.assign(new Error('Hemsidan gav inget läsbart innehåll. Den kan kräva JavaScript eller blockera hämtning. Prova adressen till själva innehållssidan. Ditt öppna förslag är kvar.'),{code:'EMPTY_CONTENT'});
   if(contentHeadings.length>41||description.length>6000||cards.some(c=>c.description.length>6000))warnings.push('Startsidan är mycket lång. Delar har kortats; jämför med originalet före delning.');
-  return {sourceAnchors:Object.fromEntries(anchors),name,source,headline:headline||name,description,logo,hero,email,phone,address,accent,cards,navigation,cta:cta||'Kontakta oss',ctaHref,images:[...new Map(imageNodes.map(i=>[i.url,{url:i.url,label:i.label}])).values()].slice(0,80),warnings,links,stylesheets,sectionTitle:'',importedAt:new Date().toISOString()};
+  return {sourceAnchors:Object.fromEntries(anchors),name,source,headline:headline||name,description,logo,hero,...(heroGallery.length?{heroGallery}:{}),email,phone,address,accent,...(branding.typography?{typography:branding.typography}:{}),cards,navigation,cta:cta||'Kontakta oss',ctaHref,images:[...new Map(imageNodes.map(i=>[i.url,{url:i.url,label:i.label}])).values()].slice(0,80),warnings,links,stylesheets,sectionTitle:'',importedAt:new Date().toISOString()};
 }

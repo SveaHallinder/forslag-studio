@@ -83,3 +83,21 @@ test('multipage export returns an error instead of incomplete HTML when a child 
   assert.ok(!calls.includes(image('hidden-child-logo')));
   assert.equal(JSON.stringify(input), before);
 });
+
+test('standalone export embeds selected fonts and fails clearly on a missing font',async()=>{
+ const input={name:'Fonts',headline:'Heading',typography:{heading:'Original',body:'Original',faces:[{family:'Original',url:'https://example.com/original.woff2',weight:'400',style:'normal'}]}};
+ for(const fails of [false,true]){
+  const {context}=harness();
+  context.fetch=async(path)=>{assert.equal(path,'/api/font');return fails?new Response(JSON.stringify({error:'Font unavailable'}),{status:503}):new Response('fontbytes',{headers:{'Content-Type':'font/woff2'}});};
+  const response=await context.browserAPI('/api/export',input),output=await response.text();
+  if(fails){assert.equal(response.ok,false);assert.match(JSON.parse(output).error,/Typsnitt.*Font unavailable/);}
+  else{assert.equal(response.status,200);assert.ok(output.includes('data:font/woff2;base64,'));assert.ok(!output.includes('/api/font?'));}
+ }
+});
+
+test('standalone export embeds galleries on both homepage and subpages',async()=>{
+ const input=project();input.heroGallery=[{url:image('root-hero')},{url:image('hero-extra'),caption:'Extra hero'}];input.pages[0].cards[0].gallery=[{url:image('child-card')},{url:image('team-extra'),caption:'Team member'}];
+ const {context,calls}=harness();const response=await context.browserAPI('/api/export',input),html=await response.text();assert.equal(response.status,200);
+ for(const name of ['hero-extra','team-extra']){assert.ok(calls.includes(image(name)));assert.ok(html.includes(embedded(image(name))));assert.ok(!html.includes(image(name)));}
+ assert.ok(html.includes('Team member'));
+});

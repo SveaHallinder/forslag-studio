@@ -8,6 +8,28 @@ Servern hämtar offentlig HTML och bildfiler för import respektive export. Text
 
 Inga paketberoenden. Worker-koden använder Cloudflares publika nätverksåtkomst utan privata nätverkskopplingar. Adresser och omdirigeringar valideras, svarsstorlek och tid begränsas. Publik hämtning följer plattformens användningsgränser.
 
+## Originaltypsnitt, branding och bildgrupper
+
+Ny import bevarar separata rubrik- och brödtextfonter med upp till 32 fontvarianter, inklusive Unicode-intervall. Verktyget läser upp till åtta länkade CSS-filer och två importerade stilmallar. Det följer matchande CSS-regler, variabler och arv; osäkra responsiva konflikter markeras för manuell granskning. Fontfiler hämtas genom en begränsad proxy med URL-, storleks- och filtypskontroll. Fallback-text visas direkt under laddning och fontfel syns i redigeraren. Under Innehåll går det att välja originalfont, systemfont eller mallens font.
+
+Färgval utgår från huvudknappen och globala varumärkesvariabler. En genomskinlig huvudlänks textfärg kan användas när samma färg stöds av en global brandvariabel. Fristående widgetfärger, vita/svarta temafärger och osäkra konflikter används inte som säker branding.
+
+Varje innehållsblock och huvudsektionen kan ha upp till tolv bilder med egna bildtexter. Bilder mellan ett avsnitts introduktion och nästa underrubrik stannar i rätt grupp. Teamnamn och roller från bildknappar följer med utan dekorativa nummer. Redigeraren låter dig lägga till, ta bort, sortera och ändra bildtexter. Gallerier staplas på mobil och behåller originalbildens proportioner.
+
+Valfria fält: `typography`, `heroGallery` och `cards[].gallery`. Användaren har godkänt typsnittsdelen och därefter fortsatt arbete med föreslagna bildlistor. Gamla projekt fungerar utan dessa fält. Sparande, projektkopior och kundlänkar behåller dem. HTML-export bäddar in bilder och fontfiler och avbryts med tydligt fel om en nödvändig fil saknas.
+
+Verifierat: lint, bygge, 121 Node-tester, 81 DOM-importfall, 15 CSS-brandingfall samt typsnitt och tvåbildsgalleri i sex mallar vid 375 px. Verklis original jämfördes i webbläsaren: Montserrat Alternates för rubriker, Inter för brödtext och huvudlänkens lila `#7456bd`. Ny import hämtade samma värden och fem teambilder; bildsortering samt sparande/omladdning provades i UI.
+
+Begränsningar: detta är en statisk redesign, ingen garanti att varje webbplats kan återskapas automatiskt. JavaScript-genererade tillstånd, blockerade resurser, CSS utanför hämtningsgränsen och komplexa dynamiska layouter kan kräva handpåläggning. Färger och bildkopplingar behöver fortfarande kontrolleras mot originalet. Att välja mallfont är en avsiktlig reservmöjlighet, inte bevis på lyckad originalfontimport. Ladda om appen och importera på nytt för att förbättra gammalt felimporterat innehåll.
+
+### QA i fem steg
+
+1. Spara utkastet och ladda om appen. Skapa ett nytt förslag och importera `https://www.verkli.com/waitlist`.
+2. Kontrollera Montserrat Alternates/Inter under Typsnitt och lila accentfärg. Vänta på fontstatus; byt till mallfont och tillbaka för att se skillnaden.
+3. Kontrollera fem bilder under teamavsnittet. Flytta en bild, ändra dess bildtext och kontrollera förhandsvisningen.
+4. Prova Desktop/Mobil och de sex mallarna. Spara och ladda om; bildordning, bildtexter och fontval ska vara kvar.
+5. Skapa kundlänk och ladda ner HTML. Kontrollera galleri och typografi, och jämför text, navbar, branding och bilder med originalet innan kunddelning.
+
 ## Git-backup
 
 Privat repo: https://github.com/sveahall/forslag-studio, standardgren `dev`. Hela den lokala Git-historiken är uppladdad. Backupen innehåller designrättningarna och den valfria reservhämtningen som fortfarande väntar på kontoanslutning. Att spara i Git publicerar inte automatiskt appen.
@@ -35,7 +57,7 @@ Serverinställningar: `CLOUDFLARE_ACCOUNT_ID`, hemlig `CLOUDFLARE_BROWSER_TOKEN`
 
 Importerade avsnitt får layout efter sitt innehåll: korta bildblock blir bildkort, längre bildtexter får två kolumner på desktop och rena textavsnitt får läsbar bredd utan tomma bildrutor. På mobil staplas bild och text. Originalets ordning, länkar och sektionsankare bevaras. Tydliga FAQ-par visas med öppningsbara frågor, med svaren synliga från början. Osäker FAQ-struktur behålls som vanlig text. Ändringen gäller alla sex befintliga mallar; inga nya mallar eller sparfält tillkommer.
 
-Importen skiljer navigationsordet Start från företagsnamnet, undviker uttryckligt namngivna dekorationsbilder, behåller citat i rätt avsnitt och separerar intilliggande textetiketter. Synliga bilder med aria-hidden bevaras. Varje block stöder fortfarande en bild: komplexa bildcollage och interaktiva originalkomponenter återskapas inte automatiskt. Originalets typsnitt importeras inte i denna ändring; ett valfritt typography-fält väntar på användarens godkännande. Branding och bildkopplingar behöver fortsatt granskas.
+Importen skiljer navigationsordet Start från företagsnamnet, undviker uttryckligt namngivna dekorationsbilder, behåller citat i rätt avsnitt och separerar intilliggande textetiketter. Synliga bilder med aria-hidden bevaras. Varje block stöder fortfarande en bild: komplexa bildcollage och interaktiva originalkomponenter återskapas inte automatiskt. Den äldre versionens begränsning kring originaltypsnitt är ersatt av uppdateringen ovan. Branding och bildkopplingar behöver fortsatt granskas.
 
 Verifierat: 110 Node-tester, 74 DOM-importtester, lint och bygge. Ny Verkli-import i UI samt sparande/omladdning bevarade separerade etiketter och FAQ-text. Café Orions två bildkort verifierades i rätt ordning på desktop och 375 px, utan horisontell overflow. Underlaget för Café Orion var tidigare hämtad original-HTML.
 
@@ -45,7 +67,7 @@ Verifierat: 110 Node-tester, 74 DOM-importtester, lint och bygge. Ny Verkli-impo
 2. Kontrollera att originalets meny, rubriker och bildtexter hör ihop. Ny import behövs för att rätta tidigare felaktigt importerad text.
 3. Växla mellan de sex mallarna och Desktop/Mobil. Bildfria avsnitt ska sakna tomma bildrutor; längre text ska vara läsbar.
 4. På Verkli: kontrollera fyra FAQ-frågor med rätt svar, öppna/stäng dem och prova FAQ-länken i menyn.
-5. Spara, ladda om och öppna förhandsvisningen. Granska branding och bildval innan kunddelning. Originalfonterna är ännu inte importerade.
+5. Spara, ladda om och öppna förhandsvisningen. Granska branding och bildval innan kunddelning. Kontrollera även de importerade originalfonterna.
 
 ## Senaste importrättningar
 

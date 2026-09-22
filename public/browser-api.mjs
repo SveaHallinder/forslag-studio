@@ -39,7 +39,16 @@ async function readCompany(url,extraContact=true) {
     page=await(await remote('/api/render',{url:page.url})).json();
     project=extractContent(page.html,page.url);rendered=true;
   }
-  const styles=await Promise.all(project.stylesheets.slice(0,2).map(async url=>{try{const result=await(await remote('/api/style',{url})).json();return {css:result.css,url:result.url||url};}catch{console.warn('[mockup online import] Brand stylesheet unavailable');return null;}}));
+  const styles=[];
+  for(let start=0;start<project.stylesheets.length;start+=3){
+    styles.push(...await Promise.all(project.stylesheets.slice(start,start+3).map(async url=>{try{const result=await(await remote('/api/style',{url})).json();return {css:result.css,url:result.url||url,href:url};}catch{console.warn('[mockup online import] Brand stylesheet unavailable');return null;}})));
+  }
+  const imports=[];
+  for(const style of styles.filter(Boolean))for(const match of style.css.matchAll(/@import\s+(?:url\(\s*)?['"]([^'"]+)['"]\s*\)?\s*;/gi)){
+    try{const url=new URL(match[1],style.url).href;if(/^https?:/.test(url)&&!imports.some(item=>item.url===url)&&!styles.some(item=>item?.url===url))imports.push({url,importedBy:style.href||style.url});}catch{}
+  }
+  const fontSheets=await Promise.all(imports.slice(0,2).map(async ({url,importedBy})=>{try{const result=await(await remote('/api/style',{url})).json();return {css:result.css,url:result.url||url,href:url,importedBy};}catch{console.warn('[mockup online import] Imported font stylesheet unavailable');return null;}}));
+  styles.unshift(...fontSheets.filter(Boolean));
   if(styles.some(Boolean))project=extractContent(page.html,page.url,styles.filter(Boolean));
   if(extraContact&&!project.email&&!project.phone){
     const contact=project.links.find(link=>{try{return new URL(link).hostname===new URL(page.url).hostname&&/kontakt|contact|om-oss|about/i.test(new URL(link).pathname);}catch{return false;}});
@@ -102,14 +111,22 @@ export async function imageDataURL(blob) {
   }finally{clearTimeout(timer);image.src='';URL.revokeObjectURL(url);}
 }
 async function exportDemo(input){
-  const p=normalizeProject(input),content=[p,...(p.pages||[])],urls=[...new Set([p.logo,...content.flatMap(page=>[page.hero,...page.cards.map(c=>c.image)])].filter(Boolean))],mapping=new Map();let size=0;
+  const p=normalizeProject(input),content=[p,...(p.pages||[])],urls=[...new Set([p.logo,...content.flatMap(page=>[page.hero,...(page.heroGallery||[]).map(i=>i.url),...page.cards.flatMap(c=>[c.image,...(c.gallery||[]).map(i=>i.url)])])].filter(Boolean))],mapping=new Map();let size=0;
   for(let start=0;start<urls.length;start+=3)await Promise.all(urls.slice(start,start+3).map(async url=>{
     let data;
     try {data=url.startsWith('data:')?url:await imageDataURL(await(await remote('/api/image',{url})).blob());}
     catch(error){throw problem('En bild kunde inte bäddas in: '+error.message+' Byt eller ta bort bilden/logotypen under Bilder och försök igen. Ingen ofullständig export skapades.');}
     size+=data.length;if(size>30_000_000)throw problem('Bilderna är för stora för en fristående demosida. Välj färre eller mindre bilder.');mapping.set(url,data);
   }));
-  for(const page of content){page.hero=mapping.get(page.hero)||'';page.logo=mapping.get(page.logo)||'';page.cards=page.cards.map(c=>({...c,image:mapping.get(c.image)||''}));page.images=[];}
+  const fontData=new Map();
+  for(const face of p.typography?.faces||[]){
+    if(!fontData.has(face.url)){
+      try{const data=face.url.startsWith('data:')?face.url:await dataURL(await(await remote('/api/font',{url:face.url})).blob());size+=data.length;if(size>30_000_000)throw problem('Exporten är för stor.');fontData.set(face.url,data);}
+      catch(error){throw problem('Typsnitt kunde inte bäddas in: '+error.message+' Välj mallens typsnitt under Innehåll och försök igen. Ingen ofullständig export skapades.');}
+    }
+    face.url=fontData.get(face.url);
+  }
+  for(const page of content){page.hero=mapping.get(page.hero)||'';page.logo=mapping.get(page.logo)||'';page.cards=page.cards.map(c=>({...c,image:mapping.get(c.image)||''}));page.heroGallery=page.heroGallery?.map(i=>({...i,url:mapping.get(i.url)||''}));page.cards.forEach(c=>{if(c.gallery)c.gallery=c.gallery.map(i=>({...i,url:mapping.get(i.url)||''}));});page.images=[];}
   return new Response(renderDemo(p),{headers:{'Content-Type':'text/html; charset=utf-8'}});
 }
 export async function browserAPI(path,body) {

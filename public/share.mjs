@@ -8,7 +8,8 @@ export async function encodeProject(raw, publicBase) {
   for(const page of [project,...(project.pages||[])]){
     page.images=[];page.warnings=[];page.id='';page.benefits=page.benefits.filter(b=>b.title);
     page.hero=absolute(page.hero);page.logo=absolute(page.logo);
-    page.cards.forEach(card=>card.image=absolute(card.image));
+    page.heroGallery?.forEach(item=>item.url=absolute(item.url));
+    page.cards.forEach(card=>{card.image=absolute(card.image);card.gallery?.forEach(item=>item.url=absolute(item.url));});
   }
   const content = new Blob([JSON.stringify(project)]);
   if(content.size > 1500000) throw new Error('Förslaget innehåller för mycket bilddata för en kundlänk. Välj färre uppladdade bilder eller ladda ner demosidan som HTML.');

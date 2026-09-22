@@ -1,5 +1,5 @@
 import { browserAPI } from './browser-api.mjs';
-import { normalizeProject, renderDemo, installDemoNavigation, escapeHTML as e } from './render.mjs';
+import { normalizeProject, normalizeGallery, renderDemo, installDemoNavigation, escapeHTML as e } from './render.mjs';
 import { encodeProject } from './share.mjs';
 import { templates, getTemplate } from './templates.mjs';
 import { assessProject, searchProjects, restoreProject, prepareNavigation } from './project-tools.mjs';
@@ -70,6 +70,12 @@ function updatePreview() {
       try {
         frame.contentWindow.scrollTo(0, top);
         installDemoNavigation(frame.contentDocument,frame.contentWindow);
+        const previewDocument=frame.contentDocument;
+        previewDocument.fonts.ready.then(()=>{
+          if(frame.contentDocument!==previewDocument)return;
+          if([...previewDocument.fonts].some(face=>face.status==='error'))$('typographyStatus').textContent='Minst en originalfont kunde inte laddas. Förhandsvisningen använder en reservfont. Välj ett annat typsnitt eller försök igen före delning.';
+          else if([...previewDocument.fonts].some(face=>face.status==='loaded'))$('typographyStatus').textContent='Fontfiler för förhandsvisningen är laddade. Rubriker: '+(project.typography?.heading||'mallens font')+'. Brödtext: '+(project.typography?.body||'mallens font')+'.';
+        });
         frame.contentDocument.addEventListener('demo-page-change',event=>{
           const index=(project.pages||[]).findIndex(page=>page.source===event.detail.source);
           if(index===activePage)return;
@@ -127,11 +133,44 @@ $('navigationForm').addEventListener('submit',event=>{
     if(error.index!==undefined){const field=$(`nav-${error.field}-${error.index}`),message=$(`nav-error-${error.index}`);message.textContent=error.message;message.hidden=false;field.setAttribute('aria-invalid','true');field.setAttribute('aria-describedby',message.id);field.focus();}
   }
 });
+function galleryTarget(scope) {return scope==='hero'?{owner:currentContent(),key:'heroGallery',primary:'hero'}:{owner:currentContent().cards[Number(scope)],key:'gallery',primary:'image'};}
+function galleryItems(scope) {const {owner,key,primary}=galleryTarget(scope);return normalizeGallery(owner[key]||[],owner[primary]);}
+function setPrimaryImage(owner,key,primary,url) {
+  const old=owner[primary];owner[primary]=url;
+  if(Array.isArray(owner[key]))owner[key]=url?normalizeGallery(owner[key].filter(item=>item.url!==old||item.url===url),url):[];
+}
+function galleryEditor(scope) {
+  const items=galleryItems(scope),label=scope==='hero'?'Huvudsektion':'Block '+(Number(scope)+1);
+  return `<div class="gallery-editor"><p class="field-help">${items.length} av 12 bilder. Ordning och bildtexter följer med till kunddemon.</p>${items.map((item,i)=>`<div class="gallery-row"><img src="${e(item.url)}" alt="${e(item.label||'Bild '+(i+1))}" loading="lazy" referrerpolicy="no-referrer"><div><label for="gallery-${scope}-${i}">Bildtext ${i+1}</label><input id="gallery-${scope}-${i}" data-gallery-caption="${i}" data-gallery-scope="${scope}" value="${e(item.caption)}" maxlength="600"><div class="gallery-actions"><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="up" aria-label="${label}: flytta bild ${i+1} upp" ${i===0?'disabled':''}>↑</button><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="down" aria-label="${label}: flytta bild ${i+1} ned" ${i===items.length-1?'disabled':''}>↓</button><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="remove" aria-label="${label}: ta bort bild ${i+1}">Ta bort</button></div></div></div>`).join('')}<label for="gallery-add-${scope}">Lägg till bild i ${label.toLowerCase()}</label><select id="gallery-add-${scope}" data-gallery-add="${scope}" ${items.length>=12?'disabled':''}><option value="">Välj bild…</option>${currentContent().images.filter(item=>!items.some(used=>used.url===item.url)).map(item=>`<option value="${e(item.url)}">${e(item.label||item.url.split('/').at(-1))}</option>`).join('')}</select></div>`;
+}
+function handleGallery(event) {
+  const button=event.target.closest('[data-gallery-action]'),add=event.target.dataset.galleryAdd,caption=event.target.dataset.galleryCaption;
+  if(button&&event.type!=='click'||add!==undefined&&event.type!=='change'||caption!==undefined&&event.type!=='input')return;
+  if(!button&&add===undefined&&caption===undefined)return;
+  const scope=button?.dataset.galleryScope??add??event.target.dataset.galleryScope,{owner,key,primary}=galleryTarget(scope),items=galleryItems(scope);
+  if(button){const i=Number(button.dataset.galleryIndex),action=button.dataset.galleryAction;if(action==='remove')items.splice(i,1);else{const next=i+(action==='up'?-1:1);if(next<0||next>=items.length)return;[items[i],items[next]]=[items[next],items[i]];}}
+  else if(add!==undefined){const image=currentContent().images.find(item=>item.url===event.target.value);if(!image||items.length>=12||items.some(item=>item.url===image.url))return;items.push({...image,caption:''});}
+  else items[Number(caption)].caption=event.target.value;
+  owner[key]=items;owner[primary]=items[0]?.url||'';markDirty();updatePreview();
+  if(caption===undefined){if(scope==='hero')renderImages();else renderCards();}
+}
+for(const container of ['cardsEditor','heroGalleryEditor'])for(const type of ['click','change','input'])$(container).addEventListener(type,handleGallery);
 function renderCards() {
-  $('cardsEditor').innerHTML = currentContent().cards.map((card, i) => `<div class="card-editor"><div class="card-editor-header"><span>BLOCK ${String(i+1).padStart(2,'0')}</span><div class="card-actions"><button data-move-card="${i}" data-direction="-1" aria-label="Flytta block ${i+1} upp" ${i===0?'disabled':''}>↑</button><button data-move-card="${i}" data-direction="1" aria-label="Flytta block ${i+1} ned" ${i===currentContent().cards.length-1?'disabled':''}>↓</button><button data-remove-card="${i}" aria-label="Ta bort block ${i+1}">×</button></div></div><label for="card-title-${i}">Rubrik</label><input id="card-title-${i}" data-card="${i}" data-property="title" maxlength="300" value="${e(card.title)}"><label for="card-description-${i}">Beskrivning</label><textarea id="card-description-${i}" data-card="${i}" data-property="description" rows="2" maxlength="6000">${e(card.description)}</textarea><label for="card-image-${i}">Bild</label><select id="card-image-${i}" data-card="${i}" data-property="image">${imageOptions(card.image)}</select><label for="card-href-${i}">Länk <span>Valfri, på rubriken</span></label><input id="card-href-${i}" data-card="${i}" data-property="href" value="${e(card.href||'')}" maxlength="2000" placeholder="https://företaget.se/tjänst"></div>`).join('') || '<p class="empty-state">Inga bildkort ännu. Lägg till ett kort för en tjänst, produkt eller plats.</p>';
+  $('cardsEditor').innerHTML = currentContent().cards.map((card, i) => `<div class="card-editor"><div class="card-editor-header"><span>BLOCK ${String(i+1).padStart(2,'0')}</span><div class="card-actions"><button data-move-card="${i}" data-direction="-1" aria-label="Flytta block ${i+1} upp" ${i===0?'disabled':''}>↑</button><button data-move-card="${i}" data-direction="1" aria-label="Flytta block ${i+1} ned" ${i===currentContent().cards.length-1?'disabled':''}>↓</button><button data-remove-card="${i}" aria-label="Ta bort block ${i+1}">×</button></div></div><label for="card-title-${i}">Rubrik</label><input id="card-title-${i}" data-card="${i}" data-property="title" maxlength="300" value="${e(card.title)}"><label for="card-description-${i}">Beskrivning</label><textarea id="card-description-${i}" data-card="${i}" data-property="description" rows="2" maxlength="6000">${e(card.description)}</textarea><label for="card-image-${i}">Bild</label><select id="card-image-${i}" data-card="${i}" data-property="image">${imageOptions(card.image)}</select>${galleryEditor(String(i))}<label for="card-href-${i}">Länk <span>Valfri, på rubriken</span></label><input id="card-href-${i}" data-card="${i}" data-property="href" value="${e(card.href||'')}" maxlength="2000" placeholder="https://företaget.se/tjänst"></div>`).join('') || '<p class="empty-state">Inga bildkort ännu. Lägg till ett kort för en tjänst, produkt eller plats.</p>';
   $('addCard').disabled = currentContent().cards.length >= 40;
 }
+function renderTypography() {
+  const t=project.typography||{},names=[...new Set([t.heading,t.body,...(t.faces||[]).map(f=>f.family),'Arial','Georgia','Verdana'].filter(Boolean))];
+  for(const [id,key] of [['headingFont','heading'],['bodyFont','body']]){
+    $(id).innerHTML='<option value="">Mallens typsnitt</option>'+names.map(name=>`<option value="${e(name)}">${e(name)}</option>`).join('');$(id).value=t[key]||'';
+  }
+  $('typographyStatus').textContent=t.heading||t.body?'Valda typsnitt: '+(t.heading||'mallens rubriker')+' / '+(t.body||'mallens brödtext')+'. '+(t.faces?.length?'Fontfiler hämtas från originalet.':'Ingen extern fontfil hittades; kontrollera utseendet eller välj en systemfont.'):'Mallens typsnitt används. Originalets font kan identifieras vid ny import.';
+}
+for(const [id,key] of [['headingFont','heading'],['bodyFont','body']])$(id).addEventListener('change',()=>{
+  project.typography={heading:'',body:'',faces:[],...project.typography,[key]:$(id).value};renderTypography();markDirty();updatePreview();
+});
 function renderImages() {
+  $('heroGalleryEditor').innerHTML=galleryEditor('hero');
   $('heroThumbnail').hidden = !currentContent().hero;
   if (currentContent().hero) $('heroThumbnail').src = currentContent().hero;
   $('imageGrid').innerHTML = currentContent().images.map((image, i) => `<button class="image-choice ${currentContent().hero===image.url?'selected':''}" data-image="${i}" aria-label="Välj ${e(image.label || 'bild '+(i+1))}" title="${e(image.label || 'Bild '+(i+1))}"><img src="${e(image.url)}" alt="${e(image.label)}" loading="lazy" referrerpolicy="no-referrer"></button>`).join('');
@@ -188,7 +227,7 @@ function fillEditor(keepPreview = false) {
   $('savedState').textContent = dirty ? 'OSPARAT' : 'SPARAT';
   $('importStatus').className = 'import-status';
   $('importStatus').textContent = project.id === 'vegavista' ? 'Vegavista-pilot. Granska eventuella ändringar innan du delar.' : project.importedAt ? 'Importerat innehåll. Granska text och bildval innan du delar.' : 'Klistra in en företagslänk eller fyll i innehållet själv.';
-  renderNavigationSummary(); renderCards(); renderImages(); renderBenefits(); if(!keepPreview)updatePreview();else updateTitle();
+  renderNavigationSummary(); renderCards(); renderImages(); renderBenefits(); renderTypography(); if(!keepPreview)updatePreview();else updateTitle();
 }
 $('pageSelect').addEventListener('change',()=>{activePage=Number($('pageSelect').value);fillEditor();});
 async function refreshProjects() {
@@ -387,8 +426,9 @@ document.querySelectorAll('[data-tab]').forEach(button => button.addEventListene
 }));
 $('cardsEditor').addEventListener('input', event => {
   const {card, property} = event.target.dataset;
-  if (card !== undefined) { currentContent().cards[Number(card)][property] = event.target.value; markDirty(); updatePreview(); }
+  if (card !== undefined) { if(property==='image')setPrimaryImage(currentContent().cards[Number(card)],'gallery','image',event.target.value);else currentContent().cards[Number(card)][property] = event.target.value; markDirty(); updatePreview(); }
 });
+$('cardsEditor').addEventListener('change',event=>{if(event.target.dataset.property==='image')renderCards();});
 $('cardsEditor').addEventListener('click', event => {
   const move = event.target.closest('[data-move-card]');
   if(move){const index=Number(move.dataset.moveCard),next=index+Number(move.dataset.direction);if(next<0||next>=currentContent().cards.length)return;[currentContent().cards[index],currentContent().cards[next]]=[currentContent().cards[next],currentContent().cards[index]];renderCards();markDirty();updatePreview();$('card-title-'+next).focus();return;}
@@ -403,8 +443,8 @@ $('benefitsEditor').addEventListener('input', event => {
   }
 });
 $('addCard').addEventListener('click', () => { if(currentContent().cards.length<40) { currentContent().cards.push({title:'',description:'',image:''}); renderCards(); markDirty(); } });
-$('imageGrid').addEventListener('click', event => { const b=event.target.closest('[data-image]'); if(b){ currentContent().hero=currentContent().images[Number(b.dataset.image)].url; renderImages(); markDirty(); updatePreview(); } });
-$('clearHero').addEventListener('click', ()=>{currentContent().hero='';renderImages();markDirty();updatePreview();});
+$('imageGrid').addEventListener('click', event => { const b=event.target.closest('[data-image]'); if(b){ setPrimaryImage(currentContent(),'heroGallery','hero',currentContent().images[Number(b.dataset.image)].url); renderImages(); markDirty(); updatePreview(); } });
+$('clearHero').addEventListener('click', ()=>{currentContent().hero='';currentContent().heroGallery=[];renderImages();markDirty();updatePreview();});
 $('clearLogo').addEventListener('click', ()=>{project.logo='';markDirty();updatePreview();});
 async function readImage(file, isLogo) {
   if (!file || !['image/jpeg','image/png','image/webp'].includes(file.type)) throw new Error('Välj en JPG-, PNG- eller WebP-bild.');
@@ -421,7 +461,7 @@ for(const id of ['imageUpload','logoUpload']) $(id).addEventListener('change',as
   try { const url=await readImage(file,id==='logoUpload');
     if(project!==site)return toast('Bilden lades åt sidan eftersom du bytte projekt.');
     if(id==='logoUpload')project.logo=url;
-    else { target.hero=url;target.images.unshift({url,label:file.name});target.images=target.images.slice(0,40); }
+    else { setPrimaryImage(target,'heroGallery','hero',url);target.images.unshift({url,label:file.name});target.images=target.images.slice(0,40); }
     renderImages();renderCards();markDirty();updatePreview();toast('Bilden är inlagd.');
   }catch(error){toast(error.message);}finally{event.target.value='';}
 });
