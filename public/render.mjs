@@ -69,6 +69,27 @@ function accentInk(hex) {
   const [r,g,b]=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);
   return .2126*r+.7152*g+.0722*b>.179?'#152015':'#ffffff';
 }
+function faqEntries(card) {
+  if(card.image||card.href)return [];
+  const parts=card.description.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);
+  const question=text=>text.length<=240&&/\?$/.test(text);
+  if(question(card.title)&&parts.length)return [{question:card.title,answer:card.description}];
+  if(!question(parts[0]||''))return [];
+  const entries=[];
+  for(const part of parts){
+    if(question(part))entries.push({question:part,answer:''});
+    else if(entries.length)entries[entries.length-1].answer+=[entries[entries.length-1].answer?'\n\n':'',part].join('');
+  }
+  return entries.length>=2&&entries.every(entry=>entry.answer)?entries:[];
+}
+function renderContentCard(card,index,pic,imported) {
+  const e=escapeHTML,faq=imported?faqEntries(card):[],single=faq.length===1&&faq[0].question===card.title;
+  const kind=faq.length?'faq':card.image?(card.description.length<=280?'gallery':'editorial'):!card.description?'heading':'text';
+  const heading=imported?'h2':'h3';
+  const title=`<${heading}>${card.href?`<a href="${e(card.href)}" ${/^https?:/.test(card.href)?'target="_blank" rel="noopener noreferrer"':''}>${e(card.title)} ↗</a>`:e(card.title)}</${heading}>`;
+  const content=faq.length?`${single?'':title}<div class="faq-list">${faq.map(item=>`<details class="faq-item" open><summary>${e(item.question)}</summary><p>${e(item.answer)}</p></details>`).join('')}</div>`:`${title}${card.description?`<p>${e(card.description)}</p>`:''}`;
+  return `<article class="card${imported?' content-'+kind:''}" ${card.anchor?`id="${e(card.anchor)}"`:''}>${card.image?pic(card.image,card.title):!imported?`<div class="card-placeholder" aria-hidden="true">${String(index+1).padStart(2,'0')}</div>`:''}<div class="card-meta"><div>${content}</div>${!imported?`<span class="card-number">${String(index+1).padStart(2,'0')}</span>`:''}</div></article>`;
+}
 function renderSingleDemo(raw, options = {}) {
   const p = normalizeProject(raw), e = escapeHTML;
   p.benefits = p.benefits.filter(b => b.title);
@@ -87,7 +108,7 @@ function renderSingleDemo(raw, options = {}) {
   <div class="shell"><header class="nav"><a class="brand" href="#" aria-label="${e(p.name)} startsida">${p.logo ? `<span class="brand-mark">${pic(p.logo,'','',false)}</span><span class="brand-caption">${e(p.name)}</span>`:e(p.name)}</a><nav class="nav-links" aria-label="Huvudmeny">${p.navigation.length?navLinks:imported?'':`${p.cards.length?'<a href="#erbjudande">Utforska</a>':''}${p.about?'<a href="#om">Om oss</a>':''}<a class="nav-contact" href="#kontakt">${e(p.cta)}</a>`}</nav></header>
   <main id="start"><div class="hero-layout"><section class="hero-copy">${p.eyebrow?`<div class="eyebrow">${e(p.eyebrow)}</div>`:''}<h1>${e(p.headline)}</h1>${p.description?`<p>${e(p.description)}</p>`:''}${!imported||p.ctaHref?`<a class="button" href="${e(p.ctaHref||(p.cards.length?'#erbjudande':'#kontakt'))}" ${/^https?:/.test(p.ctaHref)?'target="_blank" rel="noopener noreferrer"':''}>${imported?e(p.cta):p.cards.length?'Utforska vårt utbud':e(p.cta)}<span aria-hidden="true">↗</span></a>`:''}</section>
   ${visual}</div>${p.templateId!=='story'?benefits:''}
-  ${p.cards.length?`<section class="section" id="erbjudande"><div class="section-top" ${imported?'hidden':''}><div><p class="section-kicker">${e(p.name)} / Utvalt</p><h2>${e(p.sectionTitle)}</h2></div>${p.sectionIntro?`<p>${e(p.sectionIntro)}</p>`:''}</div><div class="cards">${p.cards.map((c,i)=>`<article class="card" ${c.anchor?`id="${e(c.anchor)}"`:""}>${c.image?pic(c.image,c.title):`<div class="card-placeholder" aria-hidden="true">${String(i+1).padStart(2,'0')}</div>`}<div class="card-meta"><div><h3>${c.href?`<a href="${e(c.href)}" ${/^https?:/.test(c.href)?'target="_blank" rel="noopener noreferrer"':''}>${e(c.title)} ↗</a>`:e(c.title)}</h3>${c.description?`<p>${e(c.description)}</p>`:''}</div><span class="card-number">${String(i+1).padStart(2,'0')}</span></div></article>`).join('')}</div></section>`:''}
+  ${p.cards.length?`<section class="section" id="erbjudande"><div class="section-top" ${imported?'hidden':''}><div><p class="section-kicker">${e(p.name)} / Utvalt</p><h2>${e(p.sectionTitle)}</h2></div>${p.sectionIntro?`<p>${e(p.sectionIntro)}</p>`:''}</div><div class="cards">${p.cards.map((c,i)=>renderContentCard(c,i,pic,imported)).join('')}</div></section>`:''}
   ${p.about?`<section class="section about" id="om"><div><p class="section-kicker">Om ${e(p.name)}</p><h2>${e(p.aboutTitle || p.name)}</h2></div><p>${e(p.about)}</p></section>`:''}
   <section class="contact" id="kontakt"><div><p class="section-kicker" style="color:#bcc9b8">Ta nästa steg</p><h2>${p.ctaHref?'Kontakt':e(p.cta)+'.'}</h2><div class="contact-links">${p.email?`<a href="mailto:${e(p.email)}">${e(p.email)}</a>`:''}${p.phone?`<a href="tel:${e(p.phone.replace(/[^+\d]/g,''))}">${e(p.phone)}</a>`:''}${p.address?`<span>${e(p.address)}</span>`:''}${!contact?'<span class="contact-empty">Kontaktuppgifter saknas i det här designförslaget.</span>':''}</div></div>${contact?`<a class="button accent" href="${e(contact)}">${p.email?'Skicka ett mejl':'Ring oss'}<span aria-hidden="true">↗</span></a>`:''}</section></main>
   <footer class="footer"><span class="brand-name">${e(p.name)}</span><span class="source">Designförslag · Innehåll och bilder från ${p.source?`<a href="${e(p.source)}" rel="noopener noreferrer" target="_blank">företagets webbplats</a>`:'företaget'}.</span></footer></div>`;
@@ -212,4 +233,33 @@ body[data-template="services"][data-imported="true"] .card{grid-template-columns
 }
 @media(prefers-reduced-motion:reduce){.button:hover{transform:none}}
 @media print{.nav-links{display:none}body[data-imported="true"] .card{break-inside:avoid}}
+
+html body[data-imported="true"] .cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:40px 32px}
+html body[data-imported="true"] .card{grid-column:1/-1;min-width:0;margin:0;padding:36px 0!important;border:0;border-top:1px solid currentColor;border-color:color-mix(in srgb,currentColor 18%,transparent);border-radius:0;background:transparent}
+html body[data-imported="true"] .card .card-meta{max-width:none;border:0;padding:0;margin:0}
+html body[data-imported="true"] .card h2{font-size:clamp(28px,3vw,42px);line-height:1.2;letter-spacing:-.035em;margin:0 0 20px;font-weight:500;overflow-wrap:anywhere}
+html body[data-imported="true"] .content-gallery{grid-column:span 3;display:flex;flex-direction:column;align-items:stretch;gap:24px}
+html body[data-imported="true"] .content-gallery img{width:100%;height:320px;max-height:none;object-fit:contain;aspect-ratio:auto;margin:0;order:0;background:transparent}
+html body[data-imported="true"] .card.content-gallery>img{order:0}
+html body[data-imported="true"] .content-gallery h2{font-size:28px}
+html body[data-template="retail"][data-imported="true"] .content-gallery{grid-column:span 2}
+html body[data-imported="true"] .content-editorial{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);align-items:center;gap:48px}
+html body[data-imported="true"] .content-editorial img{width:100%;height:auto;max-height:540px;aspect-ratio:auto;object-fit:contain;margin:0}
+html body[data-imported="true"] :is(.content-text,.content-heading,.content-faq){display:block}
+html body[data-imported="true"] .content-text .card-meta{max-width:780px;margin-inline:auto}
+html body[data-imported="true"] .content-heading{padding-bottom:0!important;border:0}
+html body[data-imported="true"] .content-faq .card-meta{max-width:900px;margin-inline:auto}
+.faq-item{border-bottom:1px solid currentColor;border-color:color-mix(in srgb,currentColor 18%,transparent);padding:4px 0 16px}
+.faq-item summary{cursor:pointer;padding:20px 32px 12px 0;min-height:44px;font-size:19px;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
+.faq-item summary:focus-visible{outline:2px solid currentColor;outline-offset:4px}
+html body[data-imported="true"] .faq-item p{margin:0 0 8px;max-width:72ch}
+html body[data-template="dining"][data-imported="true"] .card h2{font-family:Georgia,'Times New Roman',serif}
+@media(max-width:1000px){html body[data-template="retail"][data-imported="true"] .content-gallery{grid-column:span 3}}
+@media(max-width:760px){
+ html body[data-imported="true"] .cards{grid-template-columns:minmax(0,1fr);gap:20px}
+ html body[data-imported="true"] .card,html body[data-template="retail"][data-imported="true"] .content-gallery{grid-column:1;grid-template-columns:minmax(0,1fr);gap:24px}
+ html body[data-imported="true"] .card:nth-child(even)>:first-child{order:0}
+ html body[data-imported="true"] .card h2{font-size:28px}
+ html body[data-imported="true"] .content-gallery img{height:auto;max-height:360px}
+}
 `;

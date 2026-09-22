@@ -10,13 +10,13 @@ Inga paketberoenden. Worker-koden använder Cloudflares publika nätverksåtkoms
 
 ## Git-backup
 
-Privat repo: https://github.com/sveahall/forslag-studio, standardgren `dev`. Hela den lokala Git-historiken är uppladdad. Senast publicerad app före Cloudflare-arbetet är commit `8d2471a`; senare backup innehåller reservhämtningen som fortfarande väntar på kontoanslutning. Att spara i Git publicerar inte automatiskt appen.
+Privat repo: https://github.com/sveahall/forslag-studio, standardgren `dev`. Hela den lokala Git-historiken är uppladdad. Backupen innehåller designrättningarna och den valfria reservhämtningen som fortfarande väntar på kontoanslutning. Att spara i Git publicerar inte automatiskt appen.
 
 Återställ med `git clone https://github.com/sveahall/forslag-studio.git`, gå in i mappen och kör `npm run build` följt av `npm start`. Inga npm-paket behöver installeras. Hemliga miljöfiler ignoreras. Kundutkast sparas separat i webbläsaren och ingår inte i kodbackupen; exportera dem med **Projektkopia**. Framtida ändringar behöver committas och pushas för att finnas på GitHub.
 
 ## Reservhämtning med webbläsare — anslutning återstår
 
-Koden för valfri Cloudflare Browser Run finns nu lokalt. När vanlig HTML saknar läsbart innehåll gör importen ett reservförsök med en serverbaserad webbläsare. Vanligt HTML-innehåll använder inte denna tjänst. Renderad text och meny behandlas av samma importör. Kvotfel och saknad anslutning avbryter importen; utkastet ska inte ersättas av ett tomt förslag.
+Koden stöder valfri Cloudflare Browser Run. När vanlig HTML saknar läsbart innehåll gör importen ett reservförsök med en serverbaserad webbläsare. Vanligt HTML-innehåll använder inte denna tjänst. Renderad text och meny behandlas av samma importör. Kvotfel och saknad anslutning avbryter importen; utkastet ska inte ersättas av ett tomt förslag.
 
 **Inte aktiverat eller verifierat mot ett riktigt Cloudflare-konto ännu.** Användaren har godkänt gratisnivån. Kontoanslutning och ett skarpt test återstår. Inga betalplaner har aktiverats. Förberedande verifiering: 105 Node-tester, 68 DOM-importtester, lint och bygge passerar. Lyckat reservflöde, kvotfel och saknad anslutning har provats i UI med simulerade providersvar; utkastet bevarades vid båda felen.
 
@@ -30,6 +30,22 @@ Serverinställningar: `CLOUDFLARE_ACCOUNT_ID`, hemlig `CLOUDFLARE_BROWSER_TOKEN`
 2. Importera vanlig HTML, till exempel Verkli. Kontrollera text och meny; ingen reservhämtning ska behövas.
 3. Importera en JavaScript-sida utan anslutna serverinställningar. Kontrollera att anslutningsfelet syns och att befintligt utkast är kvar.
 4. Efter kontoanslutning: importera en verklig JavaScript-sida, jämför originalets text och meny, spara och öppna kunddemon. Detta steg återstår.
+
+## Innehållsanpassad design
+
+Importerade avsnitt får layout efter sitt innehåll: korta bildblock blir bildkort, längre bildtexter får två kolumner på desktop och rena textavsnitt får läsbar bredd utan tomma bildrutor. På mobil staplas bild och text. Originalets ordning, länkar och sektionsankare bevaras. Tydliga FAQ-par visas med öppningsbara frågor, med svaren synliga från början. Osäker FAQ-struktur behålls som vanlig text. Ändringen gäller alla sex befintliga mallar; inga nya mallar eller sparfält tillkommer.
+
+Importen skiljer navigationsordet Start från företagsnamnet, undviker uttryckligt namngivna dekorationsbilder, behåller citat i rätt avsnitt och separerar intilliggande textetiketter. Synliga bilder med aria-hidden bevaras. Varje block stöder fortfarande en bild: komplexa bildcollage och interaktiva originalkomponenter återskapas inte automatiskt. Originalets typsnitt importeras inte i denna ändring; ett valfritt typography-fält väntar på användarens godkännande. Branding och bildkopplingar behöver fortsatt granskas.
+
+Verifierat: 110 Node-tester, 74 DOM-importtester, lint och bygge. Ny Verkli-import i UI samt sparande/omladdning bevarade separerade etiketter och FAQ-text. Café Orions två bildkort verifierades i rätt ordning på desktop och 375 px, utan horisontell overflow. Underlaget för Café Orion var tidigare hämtad original-HTML.
+
+### QA för designen
+
+1. Spara pågående arbete och ladda om appen. Skapa ett nytt förslag och importera Verkli eller Café Orion.
+2. Kontrollera att originalets meny, rubriker och bildtexter hör ihop. Ny import behövs för att rätta tidigare felaktigt importerad text.
+3. Växla mellan de sex mallarna och Desktop/Mobil. Bildfria avsnitt ska sakna tomma bildrutor; längre text ska vara läsbar.
+4. På Verkli: kontrollera fyra FAQ-frågor med rätt svar, öppna/stäng dem och prova FAQ-länken i menyn.
+5. Spara, ladda om och öppna förhandsvisningen. Granska branding och bildval innan kunddelning. Originalfonterna är ännu inte importerade.
 
 ## Senaste importrättningar
 

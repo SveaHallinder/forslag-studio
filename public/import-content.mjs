@@ -151,12 +151,12 @@ export function extractContent(html, source, styles='') {
     }catch{return false;}
   });
   const logo=headerImage?.url||'';
-  const pictures=imageNodes.filter(i=>i.url!==logo&&!excluded(i.el)&&!(/logo|icon|favicon|sprite/i.test(i.label+' '+i.url))&&(!i.width||i.width>=64)&&(!i.height||i.height>=64)).sort((a,b)=>Number(a.el.hasAttribute('data-import-background'))-Number(b.el.hasAttribute('data-import-background')));
+  const pictures=imageNodes.filter(i=>i.url!==logo&&!excluded(i.el)&&!(/(?:^|[\/_-])(?:decoration|ornament|spacer|tracking)(?:[\/_.-]|$)/i.test(new URL(i.url).pathname))&&!(/logo|icon|favicon|sprite/i.test(i.label+' '+i.url))&&(!i.width||i.width>=64)&&(!i.height||i.height>=64)).sort((a,b)=>Number(a.el.hasAttribute('data-import-background'))-Number(b.el.hasAttribute('data-import-background')));
   const photos=pictures.filter(i=>(!i.width||i.width>=300)&&(!i.height||i.height>=180));
   const scope=heroHeading?scopeFor(heroHeading):main;
   const textIn=node=>{
-    const nodes=[...node.querySelectorAll('p,li,div,summary')].filter(el=>!excluded(el)&&!el.closest('button,[role="button"]')&&(el.tagName!=='DIV'||(!el.closest('a')&&!el.querySelector('h1,h2,h3,h4,h5,h6,p,li,div,summary,section,article,a,button,img'))));
-    return nodes.filter(el=>!nodes.some(parent=>parent!==el&&parent.contains(el))).map(el=>clean(el.textContent)).filter(v=>v&&!/^(loading|laddar|please wait)(?:\b|…)/i.test(v)).filter((v,i,a)=>a.indexOf(v)===i).join('\n\n');
+    const nodes=[...node.querySelectorAll('p,li,div,summary,blockquote')].filter(el=>!excluded(el)&&!el.closest('button,[role="button"]')&&(el.tagName!=='BLOCKQUOTE'||!el.querySelector(headings))&&(el.tagName!=='DIV'||(!el.closest('a')&&!el.querySelector('h1,h2,h3,h4,h5,h6,p,li,div,summary,blockquote,section,article,a,button,img'))));
+    return nodes.filter(el=>!nodes.some(parent=>parent!==el&&parent.contains(el))).map(el=>el.tagName==='DIV'&&el.children.length>1&&[...el.children].every(child=>child.matches('span,small'))&&(/tags|badges|chips|toolbar/i.test(el.className)||[...el.children].every(child=>/\s/.test(clean(child.textContent))))?[...el.children].map(child=>clean(child.textContent)).filter(Boolean).join('\n\n'):clean(el.textContent)).filter(v=>v&&!/^(loading|laddar|please wait)(?:\b|…)/i.test(v)).filter((v,i,a)=>a.indexOf(v)===i).join('\n\n');
   };
   const headline=clean(heroHeading?.textContent);
   const description=textIn(scope)||(!headline?(meta('og:description')||meta('description')):'');
@@ -168,7 +168,8 @@ export function extractContent(html, source, styles='') {
   const nameSignals=meta('og:site_name')?[meta('og:site_name')]:[headerImage?.label,headline,doc.title];
   const matchedName=hostname.split('.').length===2&&nameSignals.flatMap(value=>clean(value).split(/\s+[–—-]\s+|\s*\|\s*/)).find(value=>value&&fold(value)===fold(hostname.split('.')[0]));
   const logoName=headerImage?.label&&!/^(?:logo(?:typ)?|home|hem|startsida)$/i.test(headerImage.label)?headerImage.label:'';
-  const name=(matchedName||meta('og:site_name')||logoName||clean(doc.querySelector('header a[href="/"]')?.textContent)||titleName||hostname).slice(0,100);
+  const headerName=clean(doc.querySelector('header a[href="/"]:not(nav a)')?.textContent);
+  const name=(matchedName||meta('og:site_name')||logoName||(!/^(start|startsida|hem|home)$/i.test(headerName)&&headerName)||titleName||hostname).slice(0,100);
   const cards=[],seenCards=new Set(),anchors=new Map();
   if(heroHeading){for(let el=heroHeading;el&&el!==doc.body;el=el.parentElement)if(el.id)anchors.set(el.id,'start');}
   for(const heading of contentHeadings){
