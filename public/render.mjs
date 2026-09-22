@@ -6,7 +6,7 @@ export function imageURL(value) {
   const url = String(value ?? '').trim();
   if (url.length > 8000000) return '';
   if (/^\/assets\/[a-zA-Z0-9_.-]+$/.test(url)) return url;
-  if (/^data:image\/(png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=]+$/.test(url)) return url;
+  if (/^data:image\/(png|jpeg|webp|gif|avif);base64,[a-zA-Z0-9+/=]+$/.test(url)) return url;
   try { const p = new URL(url); return ['https:', 'http:'].includes(p.protocol) && !p.username && !p.password ? p.href : ''; } catch { return ''; }
 }
 export function linkURL(value) {

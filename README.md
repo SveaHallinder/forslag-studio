@@ -8,7 +8,24 @@ Servern hämtar offentlig HTML och bildfiler för import respektive export. Text
 
 Inga paketberoenden eller betalda API:er. Worker-koden använder Cloudflares publika nätverksåtkomst utan privata nätverkskopplingar. Adresser och omdirigeringar valideras, svarsstorlek och tid begränsas. Publik hämtning följer plattformens användningsgränser.
 
-## Aktuell version: sex designer och importerade undersidor
+## Senaste importrättningar
+
+FAQ-frågor i HTML-elementet `summary` följer nu med sina svar i originalets ordning. Nästlad text dupliceras inte och dolda FAQ-block tas inte med. Det rättar bland annat Verklis fyra frågor, som tidigare försvann medan svaren importerades.
+
+Responsiva bilder i `picture` kan hämtas från en generell `source`, inklusive lazy-srcset. Bilden stannar i sitt innehållsblock; enbart mobilvillkorliga källor ersätter inte desktopbilden. AVIF stöds genom hämtning och inbäddning i HTML-export, så formatet inte tappas bort vid normalisering.
+
+Huvudknappens bakgrundsfärg kan hämtas ur sidans lästa stilmallar när dess färg är entydig och ogenomskinlig. Villkorliga, transparenta eller motstridiga färgregler används inte som säker branding. Befintliga uttryckliga varumärkesvariabler behåller sitt företräde, och kontrastanpassningen av knapptexten finns kvar. Ingen ny dependency eller ändring av sparformatet.
+
+Verifierat: 96 Node-tester, 68 DOM-importtester, lint och bygge. Ny UI-import av Verkli visar alla fyra FAQ-frågor med rätt svar. Innehållet finns kvar efter sparande/omladdning och i den skapade kundlänken. Varje huvudfel återskapades i ett misslyckat regressionstest före rättningen.
+
+### QA i fyra steg
+
+1. Spara öppet utkast och ladda om appen. Importera `https://www.verkli.com/waitlist` på nytt.
+2. Leta upp blocket Before the next chapter. Kontrollera att frågorna What is Verkli?, Who is the waitlist for?, When can I get access? och Can I bring a book I’ve already written? står framför rätt svar.
+3. Spara, ladda om och skapa kundlänk. Kontrollera att frågorna och svaren finns kvar och ryms i mobilvyn.
+4. För en webbplats med responsiva bilder eller huvudknapp i CSS: jämför vald bild och accentfärg med originalet. Prova HTML-export; importerade AVIF-bilder ska inte försvinna. Osäkra färgval ska fortsatt markeras för manuell granskning.
+
+## Sex designer och importerade undersidor (version 12)
 
 Markera **Ta med upp till fem undersidor från menyn** vid import. Verktyget hämtar unika sidlänkar på samma webbplats, med högst två sidimporter samtidigt. Sidor som inte kan hämtas lämnar startsidan intakt och deras menylänkar går till originalet. Fler än fem sidlänkar, dokument, externa sidor och länkar med sökparametrar importeras inte. Omdirigeringar och läsbara sektionsankare kopplas till den importerade sidan.
 

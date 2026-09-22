@@ -49,7 +49,7 @@ export async function readPublic(value, image = false, requestFetch = fetch) {
     if (!response.ok) { await response.body?.cancel(); throw new Error(`Hemsidan svarade med HTTP ${response.status}. Prova en annan adress eller fyll i manuellt.`); }
     const mime=(response.headers.get('Content-Type')||'').split(';')[0].toLowerCase();
     const maximum=image&&!style?MAX_IMAGE:MAX_HTML;
-    if (!(style?['text/css']:image?['image/jpeg','image/png','image/webp','image/gif','image/svg+xml']:['text/html','application/xhtml+xml']).includes(mime)) { await response.body?.cancel(); throw new Error(style?'Adressen måste peka på en CSS-stilmall.':image?'Bilden måste vara JPG, PNG, WebP, GIF eller SVG.':'Adressen måste peka på en webbsida.'); }
+    if (!(style?['text/css']:image?['image/jpeg','image/png','image/webp','image/gif','image/avif','image/svg+xml']:['text/html','application/xhtml+xml']).includes(mime)) { await response.body?.cancel(); throw new Error(style?'Adressen måste peka på en CSS-stilmall.':image?'Bilden måste vara JPG, PNG, WebP, GIF, AVIF eller SVG.':'Adressen måste peka på en webbsida.'); }
     if (Number(response.headers.get('Content-Length'))>maximum) { await response.body?.cancel(); throw new Error('Innehållet är för stort. Välj en mindre bild eller en annan sida.'); }
     const reader=response.body.getReader(), chunks=[];let size=0;
     try { while(true) { const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>maximum)throw new Error('Innehållet är för stort för att importera.');chunks.push(value); } }

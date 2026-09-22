@@ -85,3 +85,9 @@ test('stylesheet response retains its redirected URL for relative background ima
   assert.equal(response.status,200);assert.equal((await response.json()).url,'https://cdn.example/css/site.css');
  }finally{globalThis.fetch=originalFetch;}
 });
+
+test('AVIF images from public pages can be fetched for standalone export',async()=>{
+ const bytes=new Uint8Array([0,0,0,32,102,116,121,112]);
+ const result=await readPublic('https://example.com/hero.avif',true,async()=>new Response(bytes,{headers:{'Content-Type':'image/avif'}}));
+ assert.equal(result.mime,'image/avif');assert.deepEqual(result.body,bytes);
+});

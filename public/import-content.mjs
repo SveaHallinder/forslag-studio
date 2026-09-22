@@ -43,6 +43,25 @@ function removeCSSHidden(doc,css) {
   visit(sheet.cssRules);
   for(const node of hidden)if(!visible.has(node)&&(!node.style.display||node.style.display==='none'))node.remove();
 }
+function stylesheetButtonColor(element,css) {
+  if(!element||typeof CSSStyleSheet==='undefined')return '';
+  const sheet=new CSSStyleSheet(),colors=new Set();let uncertain=false;
+  try{sheet.replaceSync(css);}catch{return '';}
+  const visit=(rules,conditional=false)=>{
+    for(const rule of rules){
+      if(!rule.selectorText&&rule.cssRules){visit(rule.cssRules,true);continue;}
+      if(!rule.selectorText||/::|:(?:hover|focus|active|visited|before|after)\b/i.test(rule.selectorText))continue;
+      let matches=false;try{matches=element.matches(rule.selectorText);}catch{}if(!matches)continue;
+      const color=rule.style?.backgroundColor;if(!color)continue;
+      // Only opaque, unambiguous default colours. Never infer from a mobile,
+      // hover, transparent, inherited or conflicting declaration.
+      const rgb=color.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
+      if(conditional||!rgb||rgb.slice(1).some(channel=>Number(channel)>255)){uncertain=true;continue;}
+      colors.add('#'+rgb.slice(1).map(channel=>Number(channel).toString(16).padStart(2,'0')).join(''));
+    }
+  };
+  visit(sheet.cssRules);return !uncertain&&colors.size===1?[...colors][0]:'';
+}
 export function brandColor(css) {
   // Only explicit brand variables, never the most frequent arbitrary CSS colour.
   const match=String(css).match(/--(?:[\w-]*-)?(?:brand(?:-primary|-color)?|primary(?:-color)?|accent(?:-color)?|color-primary)\s*:\s*(#[a-f\d]{6}|#[a-f\d]{3})(?![a-f\d])/i);
@@ -109,11 +128,13 @@ export function extractContent(html, source, styles='') {
     let configured='';try{configured=JSON.parse(el.getAttribute('data-current-styles')||'{}').backgroundImage?.assetUrl||'';}catch{}
     const background=el.getAttribute('data-bg-image')||el.getAttribute('data-background')||'',backgroundURL=(background||el.getAttribute('style')||'').match(/url\(\s*(['"]?)(.*?)\1\s*\)/i)?.[2];
     const plainBackground=/^(?:https?:\/\/|\/|\.{1,2}\/|[^\s:()#?]+\.(?:avif|gif|jpe?g|png|svg|webp)(?:[?#]|$))/i.test(background)?background:'';
-    const srcset=(el.getAttribute('data-srcset')||el.getAttribute('srcset')||'').trim();
+    const picture=el.tagName==='IMG'&&el.parentElement?.tagName==='PICTURE'?el.parentElement:null;
+    const pictureSet=[...(picture?.children||[])].find(node=>node.tagName==='SOURCE'&&unconditional(node)&&(!node.type||/^image\/(?:avif|webp|png|jpeg)$/i.test(node.type))&&(node.getAttribute('data-srcset')||node.getAttribute('srcset')));
+    const srcset=(pictureSet?.getAttribute('data-srcset')||pictureSet?.getAttribute('srcset')||el.getAttribute('data-srcset')||el.getAttribute('srcset')||'').trim();
     const responsive=!/data:/i.test(srcset)&&([...srcset.matchAll(/(?:^|\s|,)([^\s]+?)\s+(\d+(?:\.\d+)?)[wx](?=\s*(?:,|$))/g)].map(match=>({url:match[1],size:Number(match[2])})).filter(i=>i.size&&/^https?:/.test(absolute(i.url))).sort((a,b)=>b.size-a.size)[0]?.url||(/^\S+$/.test(srcset)?srcset.replace(/,+$/,''):''));
     const lazy=[el.getAttribute('data-src'),el.getAttribute('data-lazy-src')].find(value=>value&&/^https?:/.test(absolute(value)));
     const direct=el.getAttribute('src');
-    const raw=configured||el.getAttribute('poster')||(el.tagName==='IMG'?(el.getAttribute('data-srcset')&&responsive)||lazy||responsive||direct:backgroundURL||plainBackground||el.getAttribute('data-import-background'));
+    const raw=configured||el.getAttribute('poster')||(el.tagName==='IMG'?((pictureSet||el.getAttribute('data-srcset'))&&responsive)||lazy||responsive||direct:backgroundURL||plainBackground||el.getAttribute('data-import-background'));
     const url=raw&&!raw.startsWith('data:')?absolute(raw):'';
     if(!/^https?:/.test(url))return null;
     const label=clean(el.getAttribute('alt')||el.getAttribute('aria-label')),dimensions=(el.getAttribute('data-image-dimensions')||'').match(/^(\d+)x(\d+)$/)||new URL(url).pathname.match(/-(\d+)x(\d+)\.[a-z]+$/i);
@@ -134,7 +155,7 @@ export function extractContent(html, source, styles='') {
   const photos=pictures.filter(i=>(!i.width||i.width>=300)&&(!i.height||i.height>=180));
   const scope=heroHeading?scopeFor(heroHeading):main;
   const textIn=node=>{
-    const nodes=[...node.querySelectorAll('p,li,div')].filter(el=>!excluded(el)&&!el.closest('button,[role="button"]')&&(el.tagName!=='DIV'||(!el.closest('a')&&!el.querySelector('h1,h2,h3,h4,h5,h6,p,li,div,section,article,a,button,img'))));
+    const nodes=[...node.querySelectorAll('p,li,div,summary')].filter(el=>!excluded(el)&&!el.closest('button,[role="button"]')&&(el.tagName!=='DIV'||(!el.closest('a')&&!el.querySelector('h1,h2,h3,h4,h5,h6,p,li,div,summary,section,article,a,button,img'))));
     return nodes.filter(el=>!nodes.some(parent=>parent!==el&&parent.contains(el))).map(el=>clean(el.textContent)).filter(v=>v&&!/^(loading|laddar|please wait)(?:\b|…)/i.test(v)).filter((v,i,a)=>a.indexOf(v)===i).join('\n\n');
   };
   const headline=clean(heroHeading?.textContent);
@@ -183,7 +204,7 @@ export function extractContent(html, source, styles='') {
   const buttonStyle=heroLink?.getAttribute('style')||'';
   const buttonRGB=buttonStyle.match(/background(?:-color)?\s*:\s*rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
   const buttonHex=buttonStyle.match(/background(?:-color)?\s*:\s*(#[a-f\d]{6})(?![a-f\d])/i)?.[1];
-  const buttonColor=buttonHex||(buttonRGB&&buttonRGB.slice(1).every(x=>Number(x)<=255)?'#'+buttonRGB.slice(1).map(x=>Number(x).toString(16).padStart(2,'0')).join(''):'');
+  const buttonColor=buttonHex||(buttonRGB&&buttonRGB.slice(1).every(x=>Number(x)<=255)?'#'+buttonRGB.slice(1).map(x=>Number(x).toString(16).padStart(2,'0')).join(''):'')||stylesheetButtonColor(heroLink,css);
   const accent=brand||buttonColor||(/^#[a-f\d]{6}$/i.test(theme)?theme:'#cdeb60');
   const warnings=['Texten är hämtad från originalets innehållsblock. Kontrollera innehåll och bildkopplingar före delning.'];
   if(scope.querySelectorAll('video,[data-current-styles]').length&&hero)warnings.push('Rörligt eller konfigurerat bakgrundsmaterial visas som originalets stillbild i förslaget.');

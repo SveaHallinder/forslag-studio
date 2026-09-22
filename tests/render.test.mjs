@@ -59,3 +59,9 @@ test('hidden benefits keep their draft text and slot without appearing in the de
   assert.doesNotMatch(html,/Dolt utkast/);
   assert.match(html,/--benefit-count:1/);
 });
+
+test('AVIF images remain embedded in exported demos and project copies',()=>{
+ const hero='data:image/avif;base64,AAAAIGZ0eXBhdmlm';
+ assert.equal(normalizeProject({hero}).hero,hero);
+ assert.ok(renderDemo({hero}).includes('src="'+hero+'"'));
+});
