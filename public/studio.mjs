@@ -170,6 +170,10 @@ for(const [id,key] of [['headingFont','heading'],['bodyFont','body']])$(id).addE
   project.typography={heading:'',body:'',faces:[],...project.typography,[key]:$(id).value};renderTypography();markDirty();updatePreview();
 });
 function renderImages() {
+  $('logoThumbnail').hidden = !project.logo;
+  $('logoEmpty').hidden = !!project.logo;
+  if(project.logo)$('logoThumbnail').src = project.logo;
+  else $('logoThumbnail').removeAttribute('src');
   $('heroGalleryEditor').innerHTML=galleryEditor('hero');
   $('heroThumbnail').hidden = !currentContent().hero;
   if (currentContent().hero) $('heroThumbnail').src = currentContent().hero;
@@ -186,6 +190,7 @@ function updateTemplateLabel() {
   const template = getTemplate(project.templateId);
   $('selectedTemplate').textContent = template.name;
   $('sidebarTemplate').textContent = template.name;
+  $('templateCount').textContent = templates.length + ' valbara designer';
   $('previewTemplate').textContent = template.name;
   $('templateDescription').textContent = template.description;
 }
@@ -445,7 +450,7 @@ $('benefitsEditor').addEventListener('input', event => {
 $('addCard').addEventListener('click', () => { if(currentContent().cards.length<40) { currentContent().cards.push({title:'',description:'',image:''}); renderCards(); markDirty(); } });
 $('imageGrid').addEventListener('click', event => { const b=event.target.closest('[data-image]'); if(b){ setPrimaryImage(currentContent(),'heroGallery','hero',currentContent().images[Number(b.dataset.image)].url); renderImages(); markDirty(); updatePreview(); } });
 $('clearHero').addEventListener('click', ()=>{currentContent().hero='';currentContent().heroGallery=[];renderImages();markDirty();updatePreview();});
-$('clearLogo').addEventListener('click', ()=>{project.logo='';markDirty();updatePreview();});
+$('clearLogo').addEventListener('click', ()=>{project.logo='';renderImages();markDirty();updatePreview();});
 async function readImage(file, isLogo) {
   if (!file || !['image/jpeg','image/png','image/webp'].includes(file.type)) throw new Error('Välj en JPG-, PNG- eller WebP-bild.');
   if (file.size > 10000000) throw new Error('Bilden får vara högst 10 MB.');
@@ -453,7 +458,7 @@ async function readImage(file, isLogo) {
   const ratio = Math.min(1, (isLogo?500:1200)/Math.max(bitmap.width,bitmap.height));
   const canvas = document.createElement('canvas'); canvas.width=Math.round(bitmap.width*ratio);canvas.height=Math.round(bitmap.height*ratio);
   canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height); bitmap.close();
-  return canvas.toDataURL('image/webp',.72);
+  return isLogo?canvas.toDataURL('image/png'):canvas.toDataURL('image/webp',.72);
 }
 for(const id of ['imageUpload','logoUpload']) $(id).addEventListener('change',async event=>{
   const file=event.target.files[0]; if(!file)return;

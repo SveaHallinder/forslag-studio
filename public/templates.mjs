@@ -4,6 +4,10 @@ export const templates = Object.freeze([
   {id:'services',name:'Tjänster',description:'Delad huvudsektion och tydliga erbjudanden. För teknik, rådgivning och tjänsteföretag.',reference:'Optinet',source:'https://www.figma.com/design/fZEahfhBaRw9R48e53twLu/?node-id=4-4523'},
   {id:'dining',name:'Café & restaurang',description:'Varmt papper, generösa matbilder och klassisk typografi. För caféer, restauranger och hotell.',reference:'Mat & gästfrihet'},
   {id:'wellness',name:'Hälsa & skönhet',description:'Lugn, ljus design med mjuka bildformer. För salonger, träning, kliniker och behandlingar.',reference:'Hälsa & välmående'},
+  {id:'editorial',name:'Magasin & arkitektur',description:'Stor typografi, asymmetriska bildpar och en tydlig redaktionell rytm. För arkitekter, inredare och kultur.',reference:'Redaktionellt'},
+  {id:'construction',name:'Bygg & hantverk',description:'Bilden först, kraftiga linjer och tydliga projektsektioner. För byggföretag, verkstäder och hantverkare.',reference:'Bygg & industri'},
+  {id:'hospitality',name:'Hotell & upplevelser',description:'Panoramabild följd av en inramad introduktion och stora bildberättelser. För boenden, resor och upplevelser.',reference:'Resor & boende'},
+  {id:'consulting',name:'Rådgivning & juridik',description:'Texten i fokus, en kompakt huvudbild och numrerade innehållssektioner. För konsulter, jurister och redovisning.',reference:'Professionella tjänster'},
   {id:'retail',name:'Butik & sortiment',description:'Tydliga bildytor och ett luftigt sortimentsgalleri. För butiker, inredning och produkter.',reference:'Handel & produkter'},
 ]);
 
@@ -11,13 +15,116 @@ export function getTemplate(id) {
   return templates.find(template=>template.id===id) || templates[0];
 }
 
+// Applied after the shared content rules, before the customer's own fonts.
+// Layout changes never reorder the source sections or detach their images.
+export const templateContentCSS = `
+html body:is([data-template="studio"],[data-template="services"]) .nav{background:#fff;color:#202420;border-color:#dce0d7;padding-inline:28px}
+html body:is([data-template="studio"],[data-template="services"]) .nav-contact{border-color:#c5cec3}
+html body[data-template="studio"][data-imported="true"] .content-gallery:nth-child(even){margin-top:70px}
+html body[data-template="studio"][data-imported="true"] .content-gallery img{border-radius:0}
+html body[data-template="services"][data-imported="true"] .content-gallery{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:64px}
+html body[data-template="dining"][data-imported="true"] :is(.content-gallery,.content-editorial){grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:64px}
+html body[data-template="dining"][data-imported="true"] :is(.content-gallery,.content-editorial):nth-child(even)>:first-child{order:2}
+html body[data-template="wellness"][data-imported="true"] .card:not(.content-heading){padding:32px!important;border:1px solid #d8e2dc;border-radius:24px;background:#fff}
+html body[data-template="retail"][data-imported="true"] .content-gallery{padding:0!important;border:0}
+html body[data-template="retail"][data-imported="true"] .content-gallery img{background:#f5f5f2;border-radius:0}
+
+html body[data-template="editorial"]{background:#f2f0ea;color:#242721}
+html body[data-template="editorial"] .shell{max-width:1480px}
+html body[data-template="editorial"] .nav{border-bottom:2px solid #242721}
+html body[data-template="editorial"] .hero-copy{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);column-gap:64px;align-items:start;text-align:left;max-width:none;margin:64px 0 40px}
+html body[data-template="editorial"] .hero-copy h1{grid-column:1;grid-row:2/5;margin:0;max-width:15ch;font-family:Georgia,serif;font-size:clamp(48px,6.8vw,100px);font-weight:400;line-height:1.03;letter-spacing:-.055em}
+html body[data-template="editorial"] .eyebrow{grid-column:1/-1;justify-content:flex-start;margin-bottom:28px}
+html body[data-template="editorial"] .hero-copy>p{grid-column:2;grid-row:2;margin:0 0 28px;padding-top:10px}
+html body[data-template="editorial"] .hero-copy>.button{grid-column:2;grid-row:3;justify-self:start}
+html body[data-template="editorial"] .button{border-radius:0}
+html body[data-template="editorial"] .hero-image{border-radius:0;height:500px}
+html body[data-template="editorial"][data-imported="true"] .content-gallery:nth-child(odd){grid-column:span 4}
+html body[data-template="editorial"][data-imported="true"] .content-gallery:nth-child(even){grid-column:span 2}
+html body[data-template="editorial"][data-imported="true"] .content-gallery img{height:380px;border-radius:0}
+html body[data-template="editorial"] .contact{border-radius:0;background:#242721}
+
+html body[data-template="construction"]{background:#f7f7f2;color:#20241f}
+html body[data-template="construction"] .shell{max-width:1480px}
+html body[data-template="construction"] .hero-layout{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:56px;align-items:center;padding:56px 0;border-bottom:8px solid var(--accent)}
+html body[data-template="construction"] .visual{grid-column:1;grid-row:1;min-width:0}
+html body[data-template="construction"] .hero-copy{grid-column:2;grid-row:1;margin:0;text-align:left}
+html body[data-template="construction"] .hero-copy h1{margin:0;max-width:17ch;font-size:clamp(42px,4.8vw,72px);line-height:1.04;font-weight:750;letter-spacing:-.04em}
+html body[data-template="construction"] .hero-copy>p{margin:28px 0}
+html body[data-template="construction"] .eyebrow{justify-content:flex-start}
+html body[data-template="construction"] .hero-image{height:580px;border-radius:0}
+html body[data-template="construction"] .button{border-radius:0}
+html body[data-template="construction"][data-imported="true"] .card:not(.content-heading){border-top:3px solid #20241f}
+html body[data-template="construction"][data-imported="true"] .content-gallery{grid-column:span 2}
+html body[data-template="construction"][data-imported="true"] .content-gallery img{height:260px;border-radius:0}
+html body[data-template="construction"] .contact{background:#20241f;border-radius:0;border-top:8px solid var(--accent)}
+
+html body[data-template="hospitality"]{background:#f9f5ef;color:#39362d}
+html body[data-template="hospitality"] .shell{max-width:1480px}
+html body[data-template="hospitality"] .hero-layout{display:flex;flex-direction:column;padding-top:24px}
+html body[data-template="hospitality"] .visual{order:-1;width:100%}
+html body[data-template="hospitality"] .hero-image{height:560px;border-radius:140px 140px 0 0}
+html body[data-template="hospitality"] .image-label{display:none}
+html body[data-template="hospitality"] .hero-copy{position:relative;background:#f9f5ef;margin:-64px auto 0;padding:48px 64px!important;width:calc(100% - 120px);max-width:1040px;border:1px solid #d8d0c2}
+html body[data-template="hospitality"] .hero-copy h1{font-family:Georgia,serif;font-weight:400;font-size:clamp(40px,4.8vw,68px);line-height:1.1;max-width:22ch}
+html body[data-template="hospitality"] .hero-copy>p{color:#665f53}
+html body[data-template="hospitality"] .button{border-radius:0}
+html body[data-template="hospitality"][data-imported="true"] .content-gallery{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:64px;align-items:center}
+html body[data-template="hospitality"][data-imported="true"] .content-gallery img{height:440px;border-radius:100px 100px 0 0}
+html body[data-template="hospitality"] .contact{background:#39362d;border-radius:0;text-align:center;display:block}
+html body[data-template="hospitality"] .contact-links{justify-content:center}
+html body[data-template="hospitality"] .contact .button{margin-top:30px}
+
+html body[data-template="consulting"]{background:#fff;color:#202e3a}
+html body[data-template="consulting"] .shell{max-width:1240px}
+html body[data-template="consulting"] .nav{border-bottom:1px solid #bfc8cf}
+html body[data-template="consulting"] .hero-layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:80px;align-items:center;padding:88px 0}
+html body[data-template="consulting"] .hero-copy{margin:0;text-align:left}
+html body[data-template="consulting"] .hero-copy h1{font-family:Georgia,serif;font-size:clamp(42px,4.8vw,66px);font-weight:400;margin:0;max-width:19ch;letter-spacing:-.04em}
+html body[data-template="consulting"] .hero-copy>p{margin:28px 0;color:#4f606e}
+html body[data-template="consulting"] .eyebrow{justify-content:flex-start;color:#4f606e}
+html body[data-template="consulting"] .hero-image{height:400px;border-radius:0 90px 0 0}
+html body[data-template="consulting"] .button{border-radius:4px}
+html body[data-template="consulting"][data-imported="true"] .cards{counter-reset:section}
+html body[data-template="consulting"][data-imported="true"] .card{position:relative;grid-column:1/-1;padding-left:72px!important;counter-increment:section}
+html body[data-template="consulting"][data-imported="true"] .card::before{content:counter(section,decimal-leading-zero);position:absolute;left:0;top:38px;font-size:14px;font-variant-numeric:tabular-nums;color:#526675}
+html body[data-template="consulting"][data-imported="true"] .content-gallery{display:grid;grid-template-columns:minmax(0,.65fr) minmax(0,1.35fr);gap:48px;align-items:center}
+html body[data-template="consulting"][data-imported="true"] .content-gallery img{height:240px;border-radius:0}
+html body[data-template="consulting"] .contact{border-radius:0;background:#202e3a}
+
+html body:is([data-template="construction"],[data-template="consulting"]) .hero-layout:has(.no-image){display:block}
+html body:is([data-template="construction"],[data-template="consulting"]) .hero-layout:has(.no-image) .hero-copy{max-width:850px}
+html body[data-template="hospitality"] .hero-layout:has(.no-image) .hero-copy{margin-top:24px}
+html body:is([data-template="editorial"],[data-template="construction"],[data-template="hospitality"],[data-template="consulting"]) .hero-copy .button{background:var(--accent);color:var(--accent-ink)}
+@media(max-width:1000px){
+ html body[data-template="construction"][data-imported="true"] .content-gallery{grid-column:span 3}
+}
+@media(max-width:760px){
+ html body:is([data-template="studio"],[data-template="services"]) .nav{padding-inline:22px}
+ html body[data-template="studio"][data-imported="true"] .content-gallery:nth-child(even){margin-top:0}
+ html body:is([data-template="editorial"],[data-template="construction"],[data-template="consulting"]) .hero-layout{display:block;padding:36px 0}
+ html body[data-template="editorial"] .hero-copy{display:block;margin:0 0 32px}
+ html body:is([data-template="editorial"],[data-template="construction"],[data-template="hospitality"],[data-template="consulting"]) .hero-copy h1{font-size:clamp(34px,9vw,49px);line-height:1.12}
+ html body[data-template="editorial"] .hero-copy>p{margin:24px 0;padding:0}
+ html body:is([data-template="construction"],[data-template="consulting"]) .visual:not(.no-image){margin-top:32px}
+ html body:is([data-template="editorial"],[data-template="construction"],[data-template="hospitality"],[data-template="consulting"]) .hero-image{height:340px}
+ html body[data-template="hospitality"] .hero-image{border-radius:70px 70px 0 0}
+ html body[data-template="hospitality"] .hero-copy{width:calc(100% - 24px);margin-top:-28px;padding:28px 20px!important}
+ html body:is([data-template="services"],[data-template="dining"],[data-template="editorial"],[data-template="construction"],[data-template="hospitality"],[data-template="consulting"])[data-imported="true"] :is(.content-gallery,.content-editorial){grid-column:1/-1;grid-template-columns:minmax(0,1fr);gap:24px}
+ html body[data-template="dining"][data-imported="true"] :is(.content-gallery,.content-editorial):nth-child(even)>:first-child{order:0}
+ html body[data-template="wellness"][data-imported="true"] .card:not(.content-heading){padding:22px!important}
+ html body[data-template="consulting"][data-imported="true"] .card{padding-left:0!important;padding-top:56px!important}
+ html body[data-template="consulting"][data-imported="true"] .card::before{top:22px}
+ html body:is([data-template="editorial"],[data-template="construction"],[data-template="hospitality"],[data-template="consulting"])[data-imported="true"] .content-gallery img{height:auto;max-height:380px}
+}
+`;
+
 // Each layout uses the same customer content and retains the original anchor IDs.
 export const templateCSS = `
 body[data-template="studio"]{background:#101211;color:#f4f4ef}
 [data-template="studio"] .shell{max-width:1440px;padding:0 64px}
 [data-template="studio"] .demo-note{background:#1c201d;border-bottom:1px solid #333b34;color:#c9d1c7}
 [data-template="studio"] .nav{height:108px;border-bottom:1px solid #394039}
-[data-template="studio"] .brand img,[data-template="services"] .brand img{background:#fff;padding:7px 12px;border-radius:4px}
 [data-template="studio"] .nav-contact{border-radius:0;border-color:#687568}
 [data-template="studio"] .hero-copy{margin:100px 0 72px;text-align:left;max-width:1010px}
 [data-template="studio"] .eyebrow{justify-content:flex-start;color:#b7c6b3}

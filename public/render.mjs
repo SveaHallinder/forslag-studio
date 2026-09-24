@@ -1,5 +1,5 @@
 import {normalizeTypography,typographyCSS} from './typography.mjs';
-import { getTemplate, templateCSS } from './templates.mjs';
+import { getTemplate, templateCSS, templateContentCSS } from './templates.mjs';
 
 const text = (value, limit = 2000) => String(value ?? '').trim().slice(0, limit);
 export const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -117,14 +117,14 @@ function renderSingleDemo(raw, options = {}) {
   const imported=!!p.ctaHref||p.cards.some(c=>c.anchor)||((!!p.importedAt||p.navigation.length>0)&&!p.sectionIntro&&!p.about&&!p.benefits.length);
   const navLinks=p.navigation.map(n=>`<a href="${e(n.href)}" ${/^https?:/.test(n.href)?'target="_blank" rel="noopener noreferrer" title="Öppnar företagets original"':''}>${e(n.label)}</a>`).join('');
   const body = `<div class="demo-note">Designförslag · Framtagen för ${e(p.name)}</div>
-  <div class="shell"><header class="nav"><a class="brand" href="#" aria-label="${e(p.name)} startsida">${p.logo ? `<span class="brand-mark">${pic(p.logo,'','',false)}</span><span class="brand-caption">${e(p.name)}</span>`:e(p.name)}</a><nav class="nav-links" aria-label="Huvudmeny">${p.navigation.length?navLinks:imported?'':`${p.cards.length?'<a href="#erbjudande">Utforska</a>':''}${p.about?'<a href="#om">Om oss</a>':''}<a class="nav-contact" href="#kontakt">${e(p.cta)}</a>`}</nav></header>
+  <div class="shell"><header class="nav"><a class="brand" href="#" aria-label="${e(p.name)} startsida">${p.logo ? `<span class="brand-mark">${pic(p.logo,p.name,'',false)}</span>`:e(p.name)}</a><nav class="nav-links" aria-label="Huvudmeny">${p.navigation.length?navLinks:imported?'':`${p.cards.length?'<a href="#erbjudande">Utforska</a>':''}${p.about?'<a href="#om">Om oss</a>':''}<a class="nav-contact" href="#kontakt">${e(p.cta)}</a>`}</nav></header>
   <main id="start"><div class="hero-layout"><section class="hero-copy">${p.eyebrow?`<div class="eyebrow">${e(p.eyebrow)}</div>`:''}<h1>${e(p.headline)}</h1>${p.description?`<p>${e(p.description)}</p>`:''}${!imported||p.ctaHref?`<a class="button" href="${e(p.ctaHref||(p.cards.length?'#erbjudande':'#kontakt'))}" ${/^https?:/.test(p.ctaHref)?'target="_blank" rel="noopener noreferrer"':''}>${imported?e(p.cta):p.cards.length?'Utforska vårt utbud':e(p.cta)}<span aria-hidden="true">↗</span></a>`:''}</section>
   ${visual}</div>${p.templateId!=='story'?benefits:''}
   ${p.cards.length?`<section class="section" id="erbjudande"><div class="section-top" ${imported?'hidden':''}><div><p class="section-kicker">${e(p.name)} / Utvalt</p><h2>${e(p.sectionTitle)}</h2></div>${p.sectionIntro?`<p>${e(p.sectionIntro)}</p>`:''}</div><div class="cards">${p.cards.map((c,i)=>renderContentCard(c,i,pic,imported)).join('')}</div></section>`:''}
   ${p.about?`<section class="section about" id="om"><div><p class="section-kicker">Om ${e(p.name)}</p><h2>${e(p.aboutTitle || p.name)}</h2></div><p>${e(p.about)}</p></section>`:''}
   <section class="contact" id="kontakt"><div><p class="section-kicker" style="color:#bcc9b8">Ta nästa steg</p><h2>${p.ctaHref?'Kontakt':e(p.cta)+'.'}</h2><div class="contact-links">${p.email?`<a href="mailto:${e(p.email)}">${e(p.email)}</a>`:''}${p.phone?`<a href="tel:${e(p.phone.replace(/[^+\d]/g,''))}">${e(p.phone)}</a>`:''}${p.address?`<span>${e(p.address)}</span>`:''}${!contact?'<span class="contact-empty">Kontaktuppgifter saknas i det här designförslaget.</span>':''}</div></div>${contact?`<a class="button accent" href="${e(contact)}">${p.email?'Skicka ett mejl':'Ring oss'}<span aria-hidden="true">↗</span></a>`:''}</section></main>
   <footer class="footer"><span class="brand-name">${e(p.name)}</span><span class="source">Designförslag · Innehåll och bilder från ${p.source?`<a href="${e(p.source)}" rel="noopener noreferrer" target="_blank">företagets webbplats</a>`:'företaget'}.</span></footer></div>`;
-  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${templateCSS}${homepageCSS}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}</body></html>`;
+  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${templateCSS}${homepageCSS}${templateContentCSS}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}</body></html>`;
 }
 
 export function resolveDemoRoute(href,source,pages) {
@@ -200,9 +200,8 @@ html body[data-imported="true"] .card.content-multi img,.visual .section-gallery
 
 [hidden]{display:none!important}
 .brand{display:flex;align-items:center;gap:14px;flex-shrink:0;max-width:36%;letter-spacing:-.04em}
-.brand-mark{display:flex;align-items:center;justify-content:center;background:#747474;border:1px solid #858585;border-radius:10px;padding:10px 14px}
-.brand .brand-mark img{width:116px;height:42px;background:none;padding:0;border-radius:0;object-fit:contain}
-.brand-caption{font-size:17px;font-weight:650;line-height:1.25;max-width:16ch;overflow-wrap:anywhere}
+.brand-mark{display:flex;align-items:center;min-width:0;background:transparent;border:0;padding:0}
+.brand .brand-mark img{display:block;width:auto;height:auto;max-width:180px;max-height:52px;background:transparent;padding:0;border:0;border-radius:0;object-fit:contain}
 .nav{height:auto;min-height:104px;padding-top:18px;padding-bottom:18px;gap:28px;border-bottom:1px solid #dce0d7}
 .nav-links{min-width:0;flex-wrap:wrap;justify-content:flex-end;gap:4px 20px}
 .nav-links a{display:inline-flex;align-items:center;min-height:44px;max-width:100%;padding:8px 0;line-height:1.4;overflow-wrap:anywhere;text-underline-offset:5px}
@@ -239,9 +238,7 @@ body[data-template="services"][data-imported="true"] .card{grid-template-columns
 @media(max-width:760px){
   .nav{height:auto!important;min-height:80px;flex-wrap:wrap;padding-top:18px!important;padding-bottom:14px!important;gap:16px}
   .brand{max-width:100%;gap:12px}
-  .brand-caption{font-size:16px;max-width:20ch}
-  .brand-mark{padding:8px 12px}
-  .brand .brand-mark img{width:90px;height:34px}
+  .brand .brand-mark img{max-width:150px;max-height:44px}
   .nav-links{width:100%;justify-content:flex-start;gap:0 20px}
   .nav-links>a:not(.nav-contact){display:inline-flex}
   .nav-links a{font-size:14px;min-height:44px}

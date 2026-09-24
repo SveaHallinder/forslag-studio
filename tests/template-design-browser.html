@@ -1,0 +1,29 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mallar och logotyper – regressionstest</title>
+<style>body{font:15px system-ui;margin:20px;background:#eee}select,button{padding:12px;font:inherit}iframe{display:block;border:0;background:white;margin-top:20px}#test{position:absolute;left:-2000px}pre{white-space:pre-wrap}</style>
+<h1>Mallar och logotyper</h1><p>Testinnehåll, inte ett kundförslag.</p><label>Mall <select id="template"></select></label> <button id="mobile">Mobil / desktop</button><pre id="results">Kör…</pre><iframe id="preview" title="Vald design" width="1200" height="900"></iframe><iframe id="test" title="Regressionstest" width="1200" height="700"></iframe>
+<script type="module">
+import {renderDemo} from '/render.mjs';
+import {templates} from '/templates.mjs';
+function asset(width,height,label,color){const c=document.createElement('canvas');c.width=width;c.height=height;const x=c.getContext('2d');if(color){x.fillStyle=color;x.fillRect(0,0,width,height);x.fillStyle='#c9c6b7';x.fillRect(width*.2,height*.15,width*.55,height*.8);}x.fillStyle='#202e3a';x.font=Math.min(height*.45,80)+'px Georgia';x.fillText(label,width*.06,height*.65);return c.toDataURL();}
+const wide=asset(500,100,'Ateljé Nord'),square=asset(100,100,'N'),tall=asset(100,300,'N'),photo=asset(900,700,'Originalbild','#d9d6ca'),photo2=asset(700,900,'Projekt två','#b3c4bb');
+const content={name:'Ateljé Nord',logo:wide,headline:'Rum för livet som pågår.',description:'Vi formar miljöer där människor trivs. Från den första idén till den sista detaljen arbetar vi nära dig.',eyebrow:'Arkitektur · Göteborg',hero:photo,importedAt:'today',cta:'Se våra projekt',ctaHref:'#projekt',accent:'#617151',navigation:[{label:'Våra projekt och uppdrag',href:'#projekt'},{label:'Om ateljén',href:'#om'},{label:'Kontakt',href:'#kontakt'}],cards:[{title:'Omsorg i varje detalj',description:'Originalets första text.',anchor:'projekt',image:photo},{title:'Plats för det personliga',description:'Originalets andra text.',image:photo2},{title:'En sammanhållen berättelse',description:'Bilder och bildtexter hör till samma avsnitt.',anchor:'om',gallery:[{url:photo,caption:'Originalets första bildtext'},{url:photo2,caption:'Originalets andra bildtext'}]}],email:'hej@example.com'};
+const preview=document.querySelector('#preview'),test=document.querySelector('#test'),select=document.querySelector('#template'),results=document.querySelector('#results');
+select.innerHTML=templates.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');select.value='editorial';
+function show(){preview.srcdoc=renderDemo({...content,templateId:select.value});}select.onchange=show;document.querySelector('#mobile').onclick=()=>{preview.width=preview.width==='375'?'1200':'375';};show();
+const failures=[],signatures=new Set();let checks=0;
+for(const {id} of templates)for(const width of [375,1200])for(const [variant,logo,hero] of [['wide',wide,photo],['square',square,photo],['text', '', ''],['tall',tall,photo]]){
+ test.width=width;await new Promise(resolve=>{test.onload=resolve;test.srcdoc=renderDemo({...content,templateId:id,logo,hero});});
+ const d=test.contentDocument,w=test.contentWindow,style=e=>w.getComputedStyle(e),assert=(ok,message)=>{checks++;if(!ok)failures.push(`${id}/${width}/${variant}: ${message}`);};
+ assert(d.documentElement.scrollWidth===width,'horisontell overflow '+d.documentElement.scrollWidth);
+ assert(d.querySelectorAll('.nav-links a').length===3,'menylänkar saknas');
+ assert(d.querySelectorAll('.card').length===3&&d.querySelectorAll('.section-gallery figcaption').length===2,'innehåll saknas');
+ assert(!d.querySelector('.brand-caption'),'dubbelt namn');
+ const img=d.querySelector('.brand img');
+ if(logo){const rect=img.getBoundingClientRect(),mark=style(img.parentElement);assert(rect.width>0&&rect.height>0&&Math.abs(rect.width/rect.height-img.naturalWidth/img.naturalHeight)<.02,'logotypens proportioner');assert(mark.backgroundColor==='rgba(0, 0, 0, 0)'&&mark.borderTopWidth==='0px'&&mark.paddingTop==='0px','inramad logotyp');assert(rect.width<=180&&rect.height<=52,'för stor logotyp');}
+ else assert(d.querySelector('.brand').textContent==='Ateljé Nord','namn saknas utan logo');
+ if(width===1200&&variant==='wide'){const copy=d.querySelector('.hero-copy').getBoundingClientRect(),visual=d.querySelector('.visual').getBoundingClientRect();signatures.add([Math.round(copy.x),Math.round(copy.y),Math.round(copy.width),Math.round(visual.x),Math.round(visual.y),style(d.querySelector('.hero-image')).borderRadius].join(','));}
+ results.textContent=`${checks} kontroller körda…`;
+}
+checks++;if(signatures.size<8)failures.push('För lika hero-layouter: '+signatures.size);
+results.textContent=failures.length?'FAIL\n'+failures.join('\n'):`PASS ${checks} kontroller · 10 mallar · 375/1200 px · bred, kvadratisk, hög och ingen logotyp · ${signatures.size} olika hero-layouter`;
+</script></html>

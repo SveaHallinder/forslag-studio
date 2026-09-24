@@ -1,7 +1,8 @@
 <!doctype html><html lang="sv"><meta charset="utf-8"><title>Typsnitt i mallar</title><h1>Typsnitt i mallar</h1><pre id="results">Kör…</pre><iframe title="Testförhandsvisning" style="width:375px;height:700px"></iframe><script type="module">
 import {renderDemo} from '/render.mjs';
+import {templates} from '/templates.mjs';
 const frame=document.querySelector('iframe'),results=[];
-for(const templateId of ['story','studio','services','dining','wellness','retail']){
+for(const templateId of templates.map(t=>t.id)){
  await new Promise(resolve=>{frame.onload=resolve;frame.srcdoc=renderDemo({name:'Test',headline:'Original headline',importedAt:'today',templateId,typography:{heading:'Arial',body:'Verdana',faces:[]},cards:[{title:'Original section',description:'Original copy.',anchor:'section-1',gallery:[{url:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',caption:'Första bilden'},{url:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/w8AAwMCAO+jRZkAAAAASUVORK5CYII=',caption:'Andra bilden'}]}]});});
  const win=frame.contentWindow,doc=frame.contentDocument,h1=win.getComputedStyle(doc.querySelector('h1')).fontFamily,h2=win.getComputedStyle(doc.querySelector('.card h2')).fontFamily,body=win.getComputedStyle(doc.body).fontFamily;
  results.push((h1.startsWith('Arial')&&h2.startsWith('Arial')&&body.startsWith('Verdana')&&doc.documentElement.scrollWidth===375&&doc.querySelectorAll('.section-gallery figure').length===2?'PASS ':'FAIL ')+templateId+' '+JSON.stringify({h1,h2,body,width:doc.documentElement.scrollWidth}));

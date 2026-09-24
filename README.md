@@ -271,3 +271,21 @@ Omfattning: färdigt arbetsflöde för den godkända startsidesversionen med tre
 4. Spara, ladda om och skapa kundlänk. Kontrollera samma ordning och innehåll, klicka en intern menylänk och scrolla tills bilderna laddats.
 5. Ladda ner fristående HTML. Kontrollera att nedladdningen slutförs med inbäddade bilder. Ett förslag med SVG-logo ska kunna exporteras utan manuellt byte av logo.
 6. Prova mobilstorlek med många sparade projekt. Sidans innehåll ska rymmas utan sidleds-scroll; projektlistan får scrollas separat.
+
+## Mallvariation och logotyper, 24 september 2026
+
+Biblioteket har tio designer: de sex tidigare samt Magasin & arkitektur, Bygg & hantverk, Hotell & upplevelser och Rådgivning & juridik. Mallarnas innehållsstilar läses efter gemensamma sektionsregler, så att importen inte jämnar ut skillnaderna. Företagets identifierade typsnitt har fortsatt sista ordet.
+
+Logotypen visas utan den tidigare grå plattan och utan ett extra företagsnamn bredvid. Proportionerna bevaras för breda, kvadratiska och höga bilder. Uppladdade logotyper sparas som PNG utan förlustkomprimering. Bildfliken visar vald logotyp och ett tydligt tomt läge. Samtliga menyer har ljus bakgrund; en vit/ljus logovariant kan behöva ersättas manuellt med företagets mörka variant. Automatisk analys av logovariant och komplett färgpalett ingår inte i denna rättning.
+
+Verifierat: lint, build, 131 Node-tester, 521 layoutkontroller i webbläsare över tio mallar vid 375/1200 px samt originaltypsnitt och bildgrupper i samtliga tio mallar. Riktig Verkli-logotyp verifierad i editorn utan grå platta eller extra namn. Ingen ny dependency eller ändrad struktur för sparade projekt.
+
+### QA
+
+1. Öppna localhost:4174 och ladda om sidan. Öppna ett befintligt Verkli-förslag.
+2. Kontrollera logotypen i menyn och under Bilder: ingen grå platta eller extra namn.
+3. Öppna Byt mall och jämför Magasin & arkitektur, Bygg & hantverk och Hotell & upplevelser med samma innehåll.
+4. Växla till Mobil. Kontrollera meny, rubriker och bildtexter utan sidledes scroll.
+5. Spara utkast och ladda ner demosidan. Kontrollera att mallval, typsnitt, bilder och länkar följer med.
+
+Fortsatt produktarbete: hel färgpalett med färgernas roller, säkrare val av logovariant och layoutval efter innehållets faktiska struktur. Godkända tester innebär inte att varje företagswebbplats importeras korrekt.
