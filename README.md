@@ -289,3 +289,22 @@ Verifierat: lint, build, 131 Node-tester, 521 layoutkontroller i webbläsare öv
 5. Spara utkast och ladda ner demosidan. Kontrollera att mallval, typsnitt, bilder och länkar följer med.
 
 Fortsatt produktarbete: hel färgpalett med färgernas roller, säkrare val av logovariant och layoutval efter innehållets faktiska struktur. Godkända tester innebär inte att varje företagswebbplats importeras korrekt.
+
+## Färgprofil och logovarianter, 27 september 2026
+
+Den godkända, valfria `branding`-profilen sparar sju färgroller och ljus/mörk logovariant. Importen läser sidans bakgrund, text, ytor och meny från tillgänglig CSS. Rollerna kan ändras under Varumärke och används i samtliga tio mallar, undersidor, kundlänkar och HTML-export. Text med för låg kontrast får en läsbar reservfärg. Gamla projekt fungerar utan profil; hämta innehållet igen för att fylla den automatiskt.
+
+Logotyper analyseras som bilder för att välja lämplig menybakgrund och variant. Osäkra resultat behåller originalbilden och ger en granskningsnotis. Inbäddade SVG-logotyper i sidhuvudet kan rasteriseras utan att SVG-markup körs i förslaget. En manuellt uppladdad logotyp ersätter tidigare automatiska variantval.
+
+Verifierat: lint, build, 137 Node-tester, 18 CSS-brandingtester, 83 DOM-importtester och 41 layoutkontroller över tio mallar på mobil/desktop med ljusa/mörka profiler. Riktiga importer av Verkli, Vegavista och Hallinc lyckades. Verkli fick originalets varma bakgrund, mörka text, sekundärfärg, Montserrat Alternates/Inter och en identifierad mörk logotyp. Ett äldre sparat projekt öppnades i editorn. Hela kedjan import–spara–dela–export har inte körts manuellt på nytt denna omgång; delning, normalisering och export omfattas av regressionstester.
+
+Begränsningar: detta är konservativ CSS-analys, inte en fullständig tolkning av varje webbplats. Villkorliga färger, gradienter och JavaScript-styrd styling kan saknas. Vegavista/Hallinc fick ingen säker klassning av logovariant, och Hallincs Manrope saknade tillgänglig fontfil. Osäkra bild-/textkopplingar behöver fortsatt granskas. Ingen ny dependency har lagts till.
+
+### QA i sex steg
+
+1. Öppna localhost:4174 eller den publicerade sidan och ladda om. Öppna ett gammalt förslag och kontrollera att innehållet finns kvar.
+2. Hämta https://www.verkli.com/waitlist igen. Kontrollera logotyp utan grå platta/dubblerat namn, originalets typsnitt och färger.
+3. Ändra Sidbakgrund, Text och Menyns bakgrund under Varumärke. Kontrollera att förhandsvisningen uppdateras; återställ en roll med pilknappen.
+4. Under Bilder, välj en mörk/ljus logovariant. Kontrollera valet mot motsvarande menybakgrund. Ladda upp en egen logotyp och kontrollera att den ersätter automatiska val.
+5. Byt mall och växla mellan mobil/desktop. Kontrollera meny, läsbarhet, färger och bildproportioner.
+6. Spara och ladda om. Skapa kundlänk och ladda ner demosidan; jämför färger, logotyp och typsnitt med förhandsvisningen.

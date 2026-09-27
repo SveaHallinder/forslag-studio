@@ -18,17 +18,17 @@ function splitSelectors(value) {
   for(let i=0;i<value.length;i++){const c=value[i];if(quote){if(c===quote&&value[i-1]!=='\\')quote='';continue;}if(c==='"'||c==="'"){quote=c;continue;}if(c==='('||c==='[')depth++;if(c===')'||c===']')depth--;if(c===','&&!depth){parts.push(value.slice(start,i));start=i+1;}}
   parts.push(value.slice(start));return parts;
 }
-function colorHex(doc,value) {
+function colorHex(doc,value,neutral=false) {
   if(!value||/var\(|currentcolor|inherit|initial|unset|transparent|revert/i.test(value))return '';
   const canvas=doc.createElement('canvas'),context=canvas.getContext('2d');if(!context)return '';
   context.fillStyle='#010203';context.fillStyle=value;const first=context.fillStyle;
   context.fillStyle='#040506';context.fillStyle=value;if(context.fillStyle!==first)return '';
   const rgb=first.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
   const hex=/^#[a-f\d]{6}$/i.test(first)?first.toLowerCase():rgb?'#'+rgb.slice(1).map(c=>Number(c).toString(16).padStart(2,'0')).join(''):'';
-  if(!hex)return '';const channels=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
+  if(!hex)return '';if(neutral)return hex;const channels=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
   return Math.max(...channels)-Math.min(...channels)>=18&&Math.max(...channels)>35&&Math.min(...channels)<235?hex:'';
 }
-export function extractBrand(doc,styleSources,{heading,button}={}) {
+export function extractBrand(doc,styleSources,{heading,button,logo}={}) {
   const warnings=[],rules=[],fontRules=[],layers=new Map();let order=0;
   const layerIndex=name=>{if(!layers.has(name))layers.set(name,layers.size);return layers.get(name);};
   if(typeof CSSStyleSheet==='undefined')return {accent:'',warnings:['Typsnitt och varumärkesfärg kunde inte läsas i denna webbläsare.']};
@@ -95,7 +95,7 @@ export function extractBrand(doc,styleSources,{heading,button}={}) {
     if(!faces.some(existing=>JSON.stringify(existing)===JSON.stringify(face)))faces.push(face);
     if(faces.length===32){warnings.push('Sidan har många fontvarianter. Högst 32 fontfiler sparas; granska textens utseende.');break;}
   }
-  const buttonColor=button?resolved(button,'background-color'):{value:'',uncertain:false};let accent=buttonColor.uncertain?'':colorHex(doc,buttonColor.value);
+  const buttonColor=button?resolved(button,'background-color'):{value:'',uncertain:false};let accent=buttonColor.uncertain?'':colorHex(doc,buttonColor.value,true);
   if(buttonColor.uncertain)warnings.push('Knappfärgen varierar mellan sidans CSS-regler. Varumärkesfärgen behöver granskas.');
   if(!accent&&!buttonColor.uncertain){
     const colors=new Set();let uncertain=false;
@@ -109,5 +109,22 @@ export function extractBrand(doc,styleSources,{heading,button}={}) {
   }
   if(!accent&&!warnings.some(warning=>/färg/.test(warning)))warnings.push('Ingen säker varumärkesfärg hittades. Mallens färg används tills du väljer en egen.');
   for(const family of new Set([headingFamily,bodyFamily].filter(Boolean)))if(!/^(?:serif|sans-serif|monospace|cursive|fantasy|system-ui|Arial|Verdana|Georgia|Times New Roman|Helvetica|Tahoma|Trebuchet MS|Courier New)$/i.test(family)&&!faces.some(face=>face.family===family))warnings.push(`Typsnittet ${family} hittades men ingen tillgänglig fontfil. Webbläsarens reservfont kan användas.`);
-  return {...(headingFamily||bodyFamily?{typography:{heading:headingFamily,body:bodyFamily,faces}}:{}),accent,warnings:[...new Set(warnings)]};
+  const colorFor=(element,property)=>{if(!element)return '';const entry=resolved(element,property);return entry.uncertain?'':colorHex(doc,entry.value,true);};
+  const backgroundFor=element=>{
+    for(let node=element;node;node=node.parentElement){
+      const entry=resolved(node,'background-color');if(entry.uncertain)return '';
+      if(!entry.value||/^(?:transparent|rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\))$/i.test(entry.value))continue;
+      return colorHex(doc,entry.value,true);
+    }
+    return '';
+  };
+  const header=logo?.closest('header,[data-elementor-type="header"]')||doc.querySelector('header,[data-elementor-type="header"]');
+  const paragraph=doc.querySelector('main p,[role="main"] p,p'),background=backgroundFor(doc.body);
+  const surface=[...doc.querySelectorAll('main section,main article,[role="main"] section')].map(el=>colorFor(el,'background-color')).find(value=>value&&value!==background)||'';
+  const secondaryButton=doc.querySelector('main a[class*="secondary"],main button[class*="secondary"]');
+  let secondary=colorFor(secondaryButton,'background-color');
+  if(!secondary){const values=new Set();for(const el of [doc.documentElement,doc.body])for(const name of new Set(declarations(el).flatMap(rule=>[...rule.style]).filter(name=>/^--(?:brand-|color-)?secondary(?:-color)?$/i.test(name)))){const entry=resolved(el,name);if(!entry.uncertain){const color=colorHex(doc,entry.value,true);if(color)values.add(color);}}if(values.size===1)secondary=[...values][0];}
+  const branding=Object.fromEntries(Object.entries({background,surface,text:colorFor(doc.body,'color'),mutedText:colorFor(paragraph,'color'),secondary,headerBackground:backgroundFor(logo||header),headerText:colorFor(header?.querySelector('nav a,a')||header,'color')}).filter(([,value])=>value));
+  if(Object.keys(branding).length<7)warnings.push('Färgprofilen är delvis identifierad. Saknade eller villkorliga färger kan kompletteras under Varumärke.');
+  return {...(Object.keys(branding).length?{branding}:{}),...(headingFamily||bodyFamily?{typography:{heading:headingFamily,body:bodyFamily,faces}}:{}),accent,warnings:[...new Set(warnings)]};
 }

@@ -1,3 +1,4 @@
+import {logoTone,bestInk} from './branding.mjs';
 import { normalizeProject, renderDemo } from './render.mjs';
 import { extractContent } from './import-content.mjs';
 
@@ -55,6 +56,9 @@ async function readCompany(url,extraContact=true) {
     if(contact)try{const extra=await(await remote('/api/read',{url:contact})).json(),details=extractContent(extra.html,extra.url);project.email=details.email;project.phone=details.phone;if(details.email||details.phone)project.warnings=project.warnings.filter(w=>!w.startsWith('Kontaktuppgifter saknas'));}catch{console.warn('[mockup online import] Contact page unavailable');}
   }
   if(rendered)project.warnings.unshift('Sidan har lästs med en webbläsare efter att JavaScript laddats. Jämför innehåll, bilder och meny med originalet.');
+  if(project.inlineLogo&&!project.logo){try{project.logo=await imageDataURL(new Blob([project.inlineLogo],{type:'image/svg+xml'}));}catch{project.warnings.push('Den inbäddade logotypen kunde inte läsas. Välj en bild under Logotyp.');}}
+  delete project.inlineLogo;
+  if(extraContact&&project.logo)await identifyLogo(project);
   delete project.links;delete project.stylesheets;return project;
 }
 async function importCompany(url,includePages=true) {
@@ -110,8 +114,26 @@ export async function imageDataURL(blob) {
     canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);return canvas.toDataURL('image/png');
   }finally{clearTimeout(timer);image.src='';URL.revokeObjectURL(url);}
 }
+async function identifyLogo(project) {
+  let objectURL='',timer;
+  try{
+    const blob=project.logo.startsWith('data:')?await(await fetch(project.logo)).blob():await(await remote('/api/image',{url:project.logo})).blob();
+    if(blob.size>2_000_000)throw new Error('Logotypen är för stor för färganalys.');
+    const image=new Image();objectURL=URL.createObjectURL(blob);
+    await new Promise((resolve,reject)=>{timer=setTimeout(()=>reject(new Error('Logotypen tog för lång tid att avkoda.')),5000);image.onload=resolve;image.onerror=()=>reject(new Error('Logotypen kunde inte avkodas.'));image.src=objectURL;});
+    const canvas=document.createElement('canvas'),scale=Math.min(1,160/Math.max(image.naturalWidth,image.naturalHeight));canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));
+    const context=canvas.getContext('2d');context.drawImage(image,0,0,canvas.width,canvas.height);const pixels=context.getImageData(0,0,canvas.width,canvas.height).data;let tone=logoTone(pixels);
+    // A multicolor symbol may dominate a wide wordmark. The trailing region
+    // often contains its lettering; only accept a clear light/dark result.
+    if(!tone&&canvas.width>canvas.height*3){const left=Math.floor(canvas.width*.35);tone=logoTone(context.getImageData(left,0,canvas.width-left,canvas.height).data);}
+    if(tone){project.branding={...project.branding,[tone==='light'?'logoLight':'logoDark']:project.logo};const bg=project.branding.headerBackground;
+      if(!bg||(tone==='light'&&bestInk(bg)!=='#ffffff')||(tone==='dark'&&bestInk(bg)!=='#000000')){project.branding.headerBackground=tone==='light'?'#202420':'#ffffff';project.branding.headerText=tone==='light'?'#ffffff':'#202420';project.warnings.push('Menyns bakgrund anpassades för att originalets logotyp ska synas. Du kan ändra färg och logovariant under Varumärke/Bilder.');}}
+    else project.warnings.push('Logotypens ljusa/mörka variant kunde inte bedömas säkert. Granska den mot menyns bakgrund.');
+  }catch(error){console.warn('[mockup branding] Logo analysis unavailable:',error.message);project.warnings.push('Logotypens färger kunde inte kontrolleras automatiskt. Granska logotypen under Bilder.');}
+  finally{clearTimeout(timer);if(objectURL)URL.revokeObjectURL(objectURL);}
+}
 async function exportDemo(input){
-  const p=normalizeProject(input),content=[p,...(p.pages||[])],urls=[...new Set([p.logo,...content.flatMap(page=>[page.hero,...(page.heroGallery||[]).map(i=>i.url),...page.cards.flatMap(c=>[c.image,...(c.gallery||[]).map(i=>i.url)])])].filter(Boolean))],mapping=new Map();let size=0;
+  const p=normalizeProject(input),content=[p,...(p.pages||[])],urls=[...new Set([p.logo,p.branding?.logoLight,p.branding?.logoDark,...content.flatMap(page=>[page.hero,...(page.heroGallery||[]).map(i=>i.url),...page.cards.flatMap(c=>[c.image,...(c.gallery||[]).map(i=>i.url)])])].filter(Boolean))],mapping=new Map();let size=0;
   for(let start=0;start<urls.length;start+=3)await Promise.all(urls.slice(start,start+3).map(async url=>{
     let data;
     try {data=url.startsWith('data:')?url:await imageDataURL(await(await remote('/api/image',{url})).blob());}
@@ -127,6 +149,7 @@ async function exportDemo(input){
     face.url=fontData.get(face.url);
   }
   for(const page of content){page.hero=mapping.get(page.hero)||'';page.logo=mapping.get(page.logo)||'';page.cards=page.cards.map(c=>({...c,image:mapping.get(c.image)||''}));page.heroGallery=page.heroGallery?.map(i=>({...i,url:mapping.get(i.url)||''}));page.cards.forEach(c=>{if(c.gallery)c.gallery=c.gallery.map(i=>({...i,url:mapping.get(i.url)||''}));});page.images=[];}
+  for(const key of ['logoLight','logoDark'])if(p.branding?.[key])p.branding[key]=mapping.get(p.branding[key])||'';
   return new Response(renderDemo(p),{headers:{'Content-Type':'text/html; charset=utf-8'}});
 }
 export async function browserAPI(path,body) {

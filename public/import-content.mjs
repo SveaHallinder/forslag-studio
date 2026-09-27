@@ -94,6 +94,9 @@ export function extractContent(html, source, styles='') {
   const stylesheets=[...new Set([...doc.querySelectorAll('link[rel="stylesheet"][href]')].filter(unconditional).map(n=>({id:n.id,url:absolute(n.getAttribute('href'))})).filter(n=>/^https?:/.test(n.url)).sort((a,b)=>stylesheetScore(b)-stylesheetScore(a)).map(n=>n.url))].slice(0,8);
   const hasForms=!!doc.querySelector('form');
   removeCSSHidden(doc,css);
+  const inlineMark=[...doc.querySelectorAll('header a[href] svg,[data-elementor-type="header"] a[href] svg')].find(el=>{try{const u=new URL(el.closest('a').getAttribute('href'),source),base=new URL(source);return u.origin===base.origin&&['/',base.pathname].includes(u.pathname)&&!el.closest('[hidden],[aria-hidden="true"]');}catch{return false;}});
+  let inlineLogo='';if(inlineMark){const clone=inlineMark.cloneNode(true);clone.setAttribute('xmlns','http://www.w3.org/2000/svg');const box=(clone.getAttribute('viewBox')||'').trim().split(/[\s,]+/).map(Number);if(box.length===4&&box[2]>0&&box[3]>0&&!clone.hasAttribute('width')&&!clone.hasAttribute('height')){clone.setAttribute('width',String(box[2]));clone.setAttribute('height',String(box[3]));}inlineLogo=new XMLSerializer().serializeToString(clone);if(inlineLogo.length>200000)inlineLogo='';}
+
   doc.querySelectorAll('form,dialog:not([open]),[inert],[data-state="closed"],script,style,noscript,svg,template,iframe,object,embed,[hidden],[class~="hide-lg"],[class~="hidden-lg"],[class~="d-lg-none"],[style*="display:none"],[style*="display: none"],#cookie-banner,#cookie-consent,#onetrust-banner-sdk,[class*="cookie-banner"],[class*="cookie-consent"],[id*="CookieConsent"]').forEach(el=>el.remove());
   doc.querySelectorAll('br').forEach(el=>el.replaceWith('\n'));
   const navScore=el=>/^(?:huvudmeny|huvudnavigation|main(?: navigation| menu)?|primary(?: navigation| menu)?)$/i.test(el.getAttribute('aria-label')||'')?100:el.matches('.max-mega-menu')?80:/(?:^|[\s_-])primary(?:$|[\s_-])/i.test(el.className+' '+el.id)?60:/footer|social|breadcrumb|utility/i.test(el.className+' '+el.id+' '+el.getAttribute('aria-label'))?-50:el.closest('header,[data-elementor-type="header"]')?10:0;
@@ -220,7 +223,9 @@ export function extractContent(html, source, styles='') {
   const phone=decodeContact(links.find(u=>u.startsWith('tel:'))?.slice(4))||textPhone;
   const postal=contactBlocks.filter(el=>el.closest(contactRegion)).map(el=>el.textContent.match(/([^\n]{3,80}\d[^\n]{0,10})\n\s*(\d{3}\s?\d{2}\s+[^\n]{2,60})/)).find(Boolean);
   const address=postal?[clean(postal[1]),clean(postal[2])].join(', '):'';
-  const branding=extractBrand(doc,styleSources,{heading:heroHeading,button:heroLink}),accent=branding.accent||'#cdeb60';
+  const branding=extractBrand(doc,styleSources,{heading:heroHeading,button:heroLink,logo:headerImage?.el}),accent=branding.accent||branding.branding?.text||'#cdeb60';
+  if(inlineLogo&&/currentcolor/i.test(inlineLogo))inlineLogo=branding.branding?.headerText?inlineLogo.replace(/currentcolor/gi,branding.branding.headerText):'';
+  if(inlineLogo&&/var\(/.test(inlineLogo))inlineLogo='';
   const warnings=['Texten är hämtad från originalets innehållsblock. Kontrollera innehåll och bildkopplingar före delning.'];
   if(scope.querySelectorAll('video,[data-current-styles]').length&&hero)warnings.push('Rörligt eller konfigurerat bakgrundsmaterial visas som originalets stillbild i förslaget.');
   if(hasForms)warnings.push('Originalets formulär har inte återskapats. Använd en knapp till originalet för anmälan, bokning eller köp.');
@@ -232,5 +237,5 @@ export function extractContent(html, source, styles='') {
   if(!email&&!phone)warnings.push('Kontaktuppgifter saknas. Lägg till dem under Detaljer.');
   if(!headline&&!description&&!cards.length&&!email&&!phone)throw Object.assign(new Error('Hemsidan gav inget läsbart innehåll. Den kan kräva JavaScript eller blockera hämtning. Prova adressen till själva innehållssidan. Ditt öppna förslag är kvar.'),{code:'EMPTY_CONTENT'});
   if(contentHeadings.length>41||description.length>6000||cards.some(c=>c.description.length>6000))warnings.push('Startsidan är mycket lång. Delar har kortats; jämför med originalet före delning.');
-  return {sourceAnchors:Object.fromEntries(anchors),name,source,headline:headline||name,description,logo,hero,...(heroGallery.length?{heroGallery}:{}),email,phone,address,accent,...(branding.typography?{typography:branding.typography}:{}),cards,navigation,cta:cta||'Kontakta oss',ctaHref,images:[...new Map(imageNodes.map(i=>[i.url,{url:i.url,label:i.label}])).values()].slice(0,80),warnings,links,stylesheets,sectionTitle:'',importedAt:new Date().toISOString()};
+  return {sourceAnchors:Object.fromEntries(anchors),...(inlineLogo?{inlineLogo}:{}),name,source,headline:headline||name,description,logo,hero,...(heroGallery.length?{heroGallery}:{}),email,phone,address,accent,...(branding.branding?{branding:branding.branding}:{}),...(branding.typography?{typography:branding.typography}:{}),cards,navigation,cta:cta||'Kontakta oss',ctaHref,images:[...new Map(imageNodes.map(i=>[i.url,{url:i.url,label:i.label}])).values()].slice(0,80),warnings,links,stylesheets,sectionTitle:'',importedAt:new Date().toISOString()};
 }

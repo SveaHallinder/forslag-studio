@@ -8,6 +8,7 @@ export async function encodeProject(raw, publicBase) {
   for(const page of [project,...(project.pages||[])]){
     page.images=[];page.warnings=[];page.id='';page.benefits=page.benefits.filter(b=>b.title);
     page.hero=absolute(page.hero);page.logo=absolute(page.logo);
+    for(const key of ['logoLight','logoDark'])if(page.branding?.[key])page.branding[key]=absolute(page.branding[key]);
     page.heroGallery?.forEach(item=>item.url=absolute(item.url));
     page.cards.forEach(card=>{card.image=absolute(card.image);card.gallery?.forEach(item=>item.url=absolute(item.url));});
   }

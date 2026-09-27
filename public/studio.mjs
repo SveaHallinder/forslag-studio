@@ -1,3 +1,4 @@
+import {brandRoles,brandPalette,selectBrandLogo} from './branding.mjs';
 import { browserAPI } from './browser-api.mjs';
 import { normalizeProject, normalizeGallery, renderDemo, installDemoNavigation, escapeHTML as e } from './render.mjs';
 import { encodeProject } from './share.mjs';
@@ -169,10 +170,37 @@ function renderTypography() {
 for(const [id,key] of [['headingFont','heading'],['bodyFont','body']])$(id).addEventListener('change',()=>{
   project.typography={heading:'',body:'',faces:[],...project.typography,[key]:$(id).value};renderTypography();markDirty();updatePreview();
 });
+function renderBranding() {
+  const profile=project.branding||{},palette=brandPalette(profile);
+  $('brandColors').innerHTML=Object.entries(brandRoles).map(([key,label])=>`<div class="brand-color"><div><label for="brand-${key}">${e(label)}</label><span id="brand-value-${key}" class="field-help">${e(profile[key]||'Ej identifierad · automatiskt val')}</span></div><input type="color" id="brand-${key}" data-brand="${key}" value="${palette[key]}"><button type="button" data-clear-brand="${key}" aria-label="Återställ ${e(label.toLowerCase())}" title="Ta bort eget färgval">↺</button></div>`).join('');
+  updateBrandingStatus();
+}
+function updateBrandingStatus() {
+  const profile=project.branding||{},count=Object.keys(brandRoles).filter(key=>profile[key]).length,palette=brandPalette(profile);
+  const adjusted=['text','mutedText','headerText'].filter(key=>profile[key]&&profile[key]!==palette[key]);
+  $('brandingStatus').textContent=(count?`${count} av 7 färgroller är angivna. Färgerna gäller hela förslaget.`:'Ingen färgprofil sparad. Hämta företaget igen eller välj färger här.')+(adjusted.length?' För läsbarhet används ljusare eller mörkare text för: '+adjusted.map(key=>brandRoles[key].toLowerCase()).join(', ')+'.':'');
+}
+$('brandColors').addEventListener('input',event=>{
+  const key=event.target.dataset.brand;if(!Object.hasOwn(brandRoles,key))return;
+  project.branding={...project.branding,[key]:event.target.value};$('brand-value-'+key).textContent=event.target.value;
+  updateBrandingStatus();renderImages();markDirty();updatePreview();
+});
+$('brandColors').addEventListener('click',event=>{
+  const key=event.target.closest('[data-clear-brand]')?.dataset.clearBrand;if(!Object.hasOwn(brandRoles,key))return;
+  delete project.branding?.[key];renderBranding();renderImages();markDirty();updatePreview();
+});
+$('logoVariants').addEventListener('change',event=>{
+  const key=event.target.dataset.logoVariant;if(!['logoLight','logoDark'].includes(key))return;
+  project.branding={...project.branding,[key]:event.target.value};renderImages();markDirty();updatePreview();
+});
 function renderImages() {
-  $('logoThumbnail').hidden = !project.logo;
-  $('logoEmpty').hidden = !!project.logo;
-  if(project.logo)$('logoThumbnail').src = project.logo;
+  const shownLogo=selectBrandLogo(project);
+  $('logoVariants').innerHTML=['logoDark','logoLight'].map(key=>`<label for="${key}">${key==='logoDark'?'Mörk logotyp · på ljus meny':'Ljus logotyp · på mörk meny'}</label><select id="${key}" data-logo-variant="${key}">${imageOptions(project.branding?.[key]||'')}</select>`).join('');
+  const logoPreview=$('logoThumbnail').closest('.logo-preview'),palette=brandPalette(project.branding||{});
+  logoPreview.style.background=palette.headerBackground;logoPreview.style.color=palette.headerText;
+  $('logoThumbnail').hidden = !shownLogo;
+  $('logoEmpty').hidden = !!shownLogo;
+  if(shownLogo)$('logoThumbnail').src = shownLogo;
   else $('logoThumbnail').removeAttribute('src');
   $('heroGalleryEditor').innerHTML=galleryEditor('hero');
   $('heroThumbnail').hidden = !currentContent().hero;
@@ -232,7 +260,7 @@ function fillEditor(keepPreview = false) {
   $('savedState').textContent = dirty ? 'OSPARAT' : 'SPARAT';
   $('importStatus').className = 'import-status';
   $('importStatus').textContent = project.id === 'vegavista' ? 'Vegavista-pilot. Granska eventuella ändringar innan du delar.' : project.importedAt ? 'Importerat innehåll. Granska text och bildval innan du delar.' : 'Klistra in en företagslänk eller fyll i innehållet själv.';
-  renderNavigationSummary(); renderCards(); renderImages(); renderBenefits(); renderTypography(); if(!keepPreview)updatePreview();else updateTitle();
+  renderNavigationSummary(); renderCards(); renderImages(); renderBenefits(); renderTypography(); renderBranding(); if(!keepPreview)updatePreview();else updateTitle();
 }
 $('pageSelect').addEventListener('change',()=>{activePage=Number($('pageSelect').value);fillEditor();});
 async function refreshProjects() {
@@ -450,7 +478,7 @@ $('benefitsEditor').addEventListener('input', event => {
 $('addCard').addEventListener('click', () => { if(currentContent().cards.length<40) { currentContent().cards.push({title:'',description:'',image:''}); renderCards(); markDirty(); } });
 $('imageGrid').addEventListener('click', event => { const b=event.target.closest('[data-image]'); if(b){ setPrimaryImage(currentContent(),'heroGallery','hero',currentContent().images[Number(b.dataset.image)].url); renderImages(); markDirty(); updatePreview(); } });
 $('clearHero').addEventListener('click', ()=>{currentContent().hero='';currentContent().heroGallery=[];renderImages();markDirty();updatePreview();});
-$('clearLogo').addEventListener('click', ()=>{project.logo='';renderImages();markDirty();updatePreview();});
+$('clearLogo').addEventListener('click', ()=>{project.logo='';if(project.branding){delete project.branding.logoLight;delete project.branding.logoDark;}renderImages();markDirty();updatePreview();});
 async function readImage(file, isLogo) {
   if (!file || !['image/jpeg','image/png','image/webp'].includes(file.type)) throw new Error('Välj en JPG-, PNG- eller WebP-bild.');
   if (file.size > 10000000) throw new Error('Bilden får vara högst 10 MB.');
@@ -465,7 +493,7 @@ for(const id of ['imageUpload','logoUpload']) $(id).addEventListener('change',as
   const target=currentContent(),site=project;
   try { const url=await readImage(file,id==='logoUpload');
     if(project!==site)return toast('Bilden lades åt sidan eftersom du bytte projekt.');
-    if(id==='logoUpload')project.logo=url;
+    if(id==='logoUpload'){project.logo=url;if(project.branding){delete project.branding.logoLight;delete project.branding.logoDark;}}
     else { setPrimaryImage(target,'heroGallery','hero',url);target.images.unshift({url,label:file.name});target.images=target.images.slice(0,40); }
     renderImages();renderCards();markDirty();updatePreview();toast('Bilden är inlagd.');
   }catch(error){toast(error.message);}finally{event.target.value='';}

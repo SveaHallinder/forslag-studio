@@ -101,3 +101,11 @@ test('standalone export embeds galleries on both homepage and subpages',async()=
  for(const name of ['hero-extra','team-extra']){assert.ok(calls.includes(image(name)));assert.ok(html.includes(embedded(image(name))));assert.ok(!html.includes(image(name)));}
  assert.ok(html.includes('Team member'));
 });
+
+test('brand palette and both logo variants survive standalone export',async()=>{
+ const input=project();input.branding={background:'#f7f2eb',text:'#252c38',headerBackground:'#141414',logoLight:image('white-logo'),logoDark:image('dark-logo')};
+ const {context,calls}=harness();const response=await context.browserAPI('/api/export',input),html=await response.text();
+ assert.equal(response.status,200);assert.ok(calls.includes(image('white-logo'))&&calls.includes(image('dark-logo')));
+ assert.ok(html.includes(embedded(image('white-logo'))));assert.ok(!html.includes('https://example.com/white-logo'));
+ assert.ok(html.includes('--brand-background:#f7f2eb'));
+});

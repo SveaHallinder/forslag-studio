@@ -1,0 +1,18 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><title>Varumärkesprofil – tester</title><h1>Varumärkesprofil – tester</h1><pre id="results">Kör…</pre><iframe title="Varumärkestest" width="1200" height="700"></iframe><script type="module">
+import {renderDemo} from '/render.mjs';import {templates} from '/templates.mjs';import {contrast,brandPalette} from '/branding.mjs';
+const frame=document.querySelector('iframe'),results=[];
+function logo(color){const c=document.createElement('canvas');c.width=200;c.height=50;const x=c.getContext('2d');x.fillStyle=color;x.font='30px sans-serif';x.fillText('Original',10,35);return c.toDataURL();}
+const white=logo('#ffffff'),black=logo('#000000');
+for(const template of templates)for(const width of [375,1200])for(const mode of ['dark','light']){
+ const b={background:mode==='dark'?'#151020':'#f8f5ef',surface:mode==='dark'?'#251d32':'#ffffff',text:mode==='dark'?'#ffffff':'#25202c',mutedText:mode==='dark'?'#d5c9e4':'#61566a',secondary:'#4b3268',headerBackground:mode==='dark'?'#22112e':'#ffffff',headerText:mode==='dark'?'#ffffff':'#25202c',logoLight:white,logoDark:black};
+ frame.width=width;await new Promise(resolve=>{frame.onload=resolve;frame.srcdoc=renderDemo({name:'Original',headline:'Företagets riktiga uttryck',description:'Originalets text med rätt färger.',templateId:template.id,branding:b,importedAt:'today',navigation:[{label:'Om oss',href:'#team'}],cards:[{anchor:'team',title:'Teamet',description:'Rätt text under rätt rubrik.',image:black}],email:'hej@example.com'});});
+ const d=frame.contentDocument,w=frame.contentWindow,style=e=>w.getComputedStyle(e),hex=rgb=>'#'+rgb.match(/\d+/g).slice(0,3).map(n=>Number(n).toString(16).padStart(2,'0')).join('');
+ const errors=[],check=(ok,message)=>{if(!ok)errors.push(message);};
+ check(hex(style(d.body).backgroundColor)===b.background,'sidbakgrund');check(hex(style(d.querySelector('.hero-copy')).color)===b.text,'hero text');check(hex(style(d.querySelector('.card')).backgroundColor)===b.surface,'kortyta');
+ check(hex(style(d.querySelector('.nav')).backgroundColor)===b.headerBackground,'menybakgrund');check(d.querySelector('.brand img').src===(mode==='dark'?white:black),'logovariant');
+ check(contrast(hex(style(d.querySelector('.card')).color),b.surface)>=4.5,'kortkontrast');check(d.documentElement.scrollWidth===width,'horisontell overflow');
+ results.push((errors.length?'FAIL ':'PASS ')+template.id+' '+width+' '+mode+' '+errors.join(', '));document.querySelector('#results').textContent=results.join('\n');
+}
+const palette=brandPalette({background:'#ffffff',text:'#eeeeee'});results.push(contrast(palette.text,palette.background)>=4.5?'PASS oläsbar text får läsbar reservfärg':'FAIL textkontrast');
+document.querySelector('#results').textContent=results.join('\n')+'\n'+results.filter(r=>r.startsWith('PASS')).length+' PASS';
+</script></html>

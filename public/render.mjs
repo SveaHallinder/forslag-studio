@@ -1,3 +1,4 @@
+import {normalizeBranding,brandingCSS,selectBrandLogo} from './branding.mjs';
 import {normalizeTypography,typographyCSS} from './typography.mjs';
 import { getTemplate, templateCSS, templateContentCSS } from './templates.mjs';
 
@@ -24,6 +25,7 @@ export function normalizeGallery(items,primary='') {
 function normalizeFlatProject(raw = {}) {
   return {
     templateId: getTemplate(raw.templateId).id,
+    ...(normalizeBranding(raw.branding,imageURL)?{branding:normalizeBranding(raw.branding,imageURL)}:{}),
     ...(normalizeTypography(raw.typography)?{typography:normalizeTypography(raw.typography)}:{}),
     id: /^[a-z0-9-]{1,70}$/.test(raw.id ?? '') ? raw.id : '',
     name: text(raw.name, 100) || 'Ditt företag',
@@ -104,6 +106,7 @@ function renderContentCard(card,index,pic,imported) {
 }
 function renderSingleDemo(raw, options = {}) {
   const p = normalizeProject(raw), e = escapeHTML;
+  p.logo=selectBrandLogo(p);
   p.benefits = p.benefits.filter(b => b.title);
   const src = value => e(options.resolveImage ? options.resolveImage(value) : value);
   const pic = (url, alt, cls = '', lazy = true) => `<img src="${src(url)}" alt="${e(alt)}" class="${cls}" ${lazy?'loading="lazy"':''} decoding="async" referrerpolicy="no-referrer">`;
@@ -124,7 +127,7 @@ function renderSingleDemo(raw, options = {}) {
   ${p.about?`<section class="section about" id="om"><div><p class="section-kicker">Om ${e(p.name)}</p><h2>${e(p.aboutTitle || p.name)}</h2></div><p>${e(p.about)}</p></section>`:''}
   <section class="contact" id="kontakt"><div><p class="section-kicker" style="color:#bcc9b8">Ta nästa steg</p><h2>${p.ctaHref?'Kontakt':e(p.cta)+'.'}</h2><div class="contact-links">${p.email?`<a href="mailto:${e(p.email)}">${e(p.email)}</a>`:''}${p.phone?`<a href="tel:${e(p.phone.replace(/[^+\d]/g,''))}">${e(p.phone)}</a>`:''}${p.address?`<span>${e(p.address)}</span>`:''}${!contact?'<span class="contact-empty">Kontaktuppgifter saknas i det här designförslaget.</span>':''}</div></div>${contact?`<a class="button accent" href="${e(contact)}">${p.email?'Skicka ett mejl':'Ring oss'}<span aria-hidden="true">↗</span></a>`:''}</section></main>
   <footer class="footer"><span class="brand-name">${e(p.name)}</span><span class="source">Designförslag · Innehåll och bilder från ${p.source?`<a href="${e(p.source)}" rel="noopener noreferrer" target="_blank">företagets webbplats</a>`:'företaget'}.</span></footer></div>`;
-  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${templateCSS}${homepageCSS}${templateContentCSS}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}</body></html>`;
+  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${templateCSS}${homepageCSS}${templateContentCSS}${brandingCSS(p.branding)}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}</body></html>`;
 }
 
 export function resolveDemoRoute(href,source,pages) {
@@ -177,7 +180,7 @@ export function installDemoNavigation(doc=document,win=window,resolveRoute=resol
 export function renderDemo(raw,options = {}) {
   const root=normalizeProject(raw);
   if(!root.pages?.length)return renderSingleDemo(root,options);
-  const pages=[root,...root.pages],initial=Math.max(0,pages.findIndex(page=>page.source===options.pageSource)),documents=pages.map(page=>renderSingleDemo({...page,name:root.name,logo:root.logo,accent:root.accent,typography:root.typography,templateId:root.templateId,navigation:root.navigation},options));
+  const pages=[root,...root.pages],initial=Math.max(0,pages.findIndex(page=>page.source===options.pageSource)),documents=pages.map(page=>renderSingleDemo({...page,name:root.name,logo:root.logo,accent:root.accent,typography:root.typography,branding:root.branding,templateId:root.templateId,navigation:root.navigation},options));
   const bodies=documents.map(html=>html.match(/<body[^>]*>([\s\S]*)<\/body>/)[1]);
   const rootHref=escapeHTML(root.source||'#start');
   const contents=bodies.map(body=>body.replace('<a class="brand" href="#"','<a class="brand" href="'+rootHref+'"'));
