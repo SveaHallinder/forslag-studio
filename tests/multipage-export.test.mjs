@@ -109,3 +109,12 @@ test('brand palette and both logo variants survive standalone export',async()=>{
  assert.ok(html.includes(embedded(image('white-logo'))));assert.ok(!html.includes('https://example.com/white-logo'));
  assert.ok(html.includes('--brand-background:#f7f2eb'));
 });
+
+
+test('standalone export retains framing and section type without original snapshot or its assets',async()=>{
+ const input=project();input.heroGallery=[{url:input.hero,presentation:{fit:'cover',ratio:'square',x:23,y:71}}];input.cards[0].kind='team';
+ input.original={headline:'PRIVATE ORIGINAL COPY',hero:image('private-original')};input.pages[0].original={headline:'PRIVATE CHILD COPY',hero:image('private-child')};
+ const {context,calls}=harness();const response=await context.browserAPI('/api/export',input),html=await response.text();
+ assert.equal(response.status,200);assert.ok(html.includes('object-position:23% 71%'));assert.ok(html.includes('aspect-ratio:1/1'));assert.ok(html.includes('section-team'));
+ assert.ok(!html.includes('PRIVATE'));assert.ok(!calls.includes(image('private-original')));assert.ok(!calls.includes(image('private-child')));
+});

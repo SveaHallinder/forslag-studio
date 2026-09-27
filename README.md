@@ -313,11 +313,11 @@ Begränsningar: detta är konservativ CSS-analys, inte en fullständig tolkning 
 
 Tre designförslag visar företagets faktiska innehåll i tre befintliga, olika mallar. Valet ändrar bara mall-ID. Förslagen använder konservativa ordsignaler och valda bilder; de är inte en verifierad branschklassificering.
 
-Importerade sektioner med tydliga rubriker får presentation för tjänster, produkter, team, kundcase, priser, omdömen eller FAQ. Generella sektioner behåller standarddesignen. Inga priser, personer, omdömen eller andra fakta skapas. Explicit ändring av sektionstyp är ännu inte implementerad.
+Importerade sektioner med tydliga rubriker får presentation för tjänster, produkter, team, kundcase, priser, omdömen eller FAQ. Generella sektioner behåller standarddesignen. Inga priser, personer, omdömen eller andra fakta skapas. Explicit sektionstyp finns nu, se slutförandet nedan.
 
-Välj visuellt öppnar en sökbar bildväljare för huvudbild, kort och galleribilder. Avbryt lämnar projektet orört. Bildtexter och ordning bevaras när det går; ett befintligt bildval förekommer bara en gång. Sparad fokuspunkt/beskärning för enskilda bilder återstår och kräver godkända valfria projektfält.
+Välj visuellt öppnar en sökbar bildväljare för huvudbild, kort och galleribilder. Avbryt lämnar projektet orört. Bildtexter och ordning bevaras när det går; ett befintligt bildval förekommer bara en gång. Sparad fokuspunkt/beskärning har därefter färdigställts, se nedan.
 
-Jämför med original visar importerat originalinnehåll bredvid kunddemon och identifierar ändrade eller borttagna texter, meny, bilder och bildtexter. Borttagna sektioner kan återläggas. Originalkopian finns bara under sessionen; vid omladdning kan originalet läsas igen utan att skriva över förslaget. Det är en kopia av importerat innehåll, inte en garanti att importen fångat hela webbplatsen. Originalwebbsidan kan visas separat eller bäddas in på begäran; externa sajter kan blockera inbäddning. Sparad originalkopia väntar på schemaändringsgodkännande.
+Jämför med original visar importerat originalinnehåll bredvid kunddemon och identifierar ändrade eller borttagna texter, meny, bilder och bildtexter. Borttagna sektioner kan återläggas. Originalkopian sparas numera med projektet. Äldre projekt kan läsa in en originalkopia utan att skriva över förslaget. Det är en kopia av importerat innehåll, inte en garanti att importen fångat hela webbplatsen. Originalwebbsidan kan visas separat eller bäddas in på begäran; externa sajter kan blockera inbäddning. De valfria projektfälten har godkänts.
 
 Redigera i förhandsvisningen aktiverar klick- och tangentbordsval. Text ändras i en snabb dialog, bilder i bildväljaren och menyn i befintlig menyredigerare. Visningsläget behåller kundlänkar. Kundexporten innehåller inga redigeringskontroller. Tomma utkastblock förskjuter inte längre klickmålen.
 
@@ -329,7 +329,26 @@ Verifierat: lint, build, 170 Node-tester; 5 browserkontroller för klick/tangent
 2. Välj Tre designförslag. Kontrollera samma text/branding i tre kompositioner, välj en och spara.
 3. Slå på Redigera i förhandsvisningen. Klicka en rubrik och ändra text; prova Avbryt och Använd. Escape i förhandsvisningen lämnar redigeringsläget.
 4. Klicka en bild eller Välj visuellt. Sök, välj en miniatyr, ändra bildtext, testa Avbryt och sedan Använd.
-5. Välj Jämför med original. Ändrad rubrik/bild ska synas bland skillnaderna; återlägg en borttagen sektion. Efter omladdning behövs Läs originalet för jämförelse igen.
+5. Välj Jämför med original. Ändrad rubrik/bild ska synas bland skillnaderna; återlägg en borttagen sektion. Originalkopian ska finnas kvar efter sparning och omladdning.
 6. Kontrollera mobilvy, spara/ladda om, dela en kundlänk och exportera HTML. Kundversionen ska sakna redigeringsmarkeringar.
 
-Alla fem önskade förbättringar är ännu inte helt slutförda: beständig bildbeskärning, manuellt sektionsval och beständig originalkopia kräver svar på den ställda frågan om valfria projektfält. Inga schemaändringar eller nya dependencies gjordes i denna etapp.
+## Slutförd designarbetsyta, 27 september 2026
+
+Alla fem avgränsade förbättringar är implementerade: innehållsanpassade sektioner med manuellt val, tre designriktningar, visuell bildväljare med beständiga utsnitt, beständig originaljämförelse och klickredigering. Godkända valfria projektfält är `card.kind`, bildens `presentation` och sidans `original`. Ingen ny dependency.
+
+Bildväljaren erbjuder visa hela/beskär, mallformat/original/3:2/1:1/3:4 och fokus i två led. Inställningarna följer med till kundlänk och HTML-export. Manuellt sektionsval styr även FAQ-strukturen. Gamla projekts författade introduktion och CTA behålls när en sektion byter typ.
+
+Originalkopian innehåller normaliserat importerat innehåll, sparas lokalt och i projektkopian, men utelämnas från kundlänkar och HTML. En trasig valfri originalkopia blockerar inte återställning av förslaget. Äldre projekt behöver Läs originalet för jämförelse en gång och därefter Spara utkast.
+
+Verifierat: lint/build, 179 Node-tester, 5 browserkontroller för redigeringsläge samt 30 layoutscenarier över tio mallar vid 375/820/1200 px. Verklig Verkli-data: bildens cover/square/1%/100%, manuell teamtyp och originalkopia överlevde spara/omladdning. Avbryt i snabbredigeraren behöll typen. Mobil bilddialog: clientWidth=scrollWidth=333 px vid 375 px viewport. Kundlänk skapades och öppnades. Exportens inbäddning, bildformat, sektionstyp och utelämnad originalkopia är regressionstestade; det manuella nedladdningstestet avbröts av webbläsarverktygets timeout.
+
+Begränsning: automatisk import och sektionstolkning är konservativa och behöver granskas. Originaljämförelsen kan bara jämföra det innehåll importen faktiskt hittade. En extern sida kan blockera inbäddning, och externa bild-/fontfiler kan bli otillgängliga. Detta är inte ett löfte om perfekt resultat för varje URL.
+
+### QA i sex steg
+
+1. Öppna localhost:4174 eller livesidan och ladda om. Öppna ett gammalt projekt.
+2. Välj Tre designförslag och kontrollera samma innehåll i tre kompositioner; välj en.
+3. Välj en bild visuellt. Välj Beskär, Kvadrat och en fokuspunkt. Använd, spara och ladda om; kontrollera att inställningarna finns kvar.
+4. Ändra Sektionstyp till Team/Standard. Slå på Redigera i förhandsvisningen, klicka samma sektionsrubrik och kontrollera typen. Avbryt ska lämna den oförändrad.
+5. Öppna Jämför med original; läs originalet om kopia saknas. Spara/ladda om och kontrollera att originalkopian finns kvar. Ändra en rubrik och kontrollera skillnaden.
+6. Kontrollera mobilvy, skapa/öppna kundlänk och exportera HTML. Kontrollera utsnitt, typ och att kundversionen saknar editor och originalkopia.

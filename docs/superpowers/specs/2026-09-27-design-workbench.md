@@ -1,6 +1,6 @@
 # Design workbench
 
-User approved all five proposed improvements on 27 September. No new packages or accounts. Optional persistence additions await the explicit schema question; independent controls use existing fields.
+User approved all five proposed improvements on 27 September. No new packages or accounts. Optional persistence additions were approved by the subsequent “gör klart” instruction. Existing projects remain compatible.
 
 1. Content-aware sections: conservative Swedish/English detection of service, product, team, case study, pricing, testimonial and FAQ from source headings/structure. Unknown stays generic. Explicit override, preserve every original string and linked image. Distinct responsive presentation, no invented prices, ratings, quotes or people.
 2. Three directions: show three actual previews of the current company's content using existing template IDs, with a short reason based on its content. Applying one changes only templateId. Cancel never changes content.

@@ -1,4 +1,5 @@
-import {detectSectionKind,sectionDesignCSS} from './section-design.mjs';
+import {normalizePresentation,presentationStyle} from './image-presentation.mjs';
+import {sectionKinds,detectSectionKind,sectionDesignCSS} from './section-design.mjs';
 import {normalizeBranding,brandingCSS,selectBrandLogo} from './branding.mjs';
 import {normalizeTypography,typographyCSS} from './typography.mjs';
 import { getTemplate, templateCSS, templateContentCSS } from './templates.mjs';
@@ -19,13 +20,14 @@ export function linkURL(value) {
 }
 export function normalizeGallery(items,primary='') {
   if(!Array.isArray(items))return;
-  const seen=new Set(),valid=items.flatMap(item=>{const url=imageURL(item?.url);if(!url||seen.has(url))return [];seen.add(url);return [{url,label:text(item.label,160),caption:text(item.caption,600)}];});
+  const seen=new Set(),valid=items.flatMap(item=>{const url=imageURL(item?.url);if(!url||seen.has(url))return [];seen.add(url);return [{url,label:text(item.label,160),caption:text(item.caption,600),...(normalizePresentation(item.presentation)?{presentation:normalizePresentation(item.presentation)}:{})}];});
   if(primary){const index=valid.findIndex(item=>item.url===primary);const first=index<0?{url:primary,label:'',caption:''}:valid.splice(index,1)[0];valid.unshift(first);}
   return valid.slice(0,12);
 }
-function normalizeFlatProject(raw = {}) {
+function normalizeFlatProject(raw = {},includeOriginal=true) {
   return {
     templateId: getTemplate(raw.templateId).id,
+    ...(includeOriginal&&normalizeOriginal(raw.original)?{original:normalizeOriginal(raw.original)}:{}),
     ...(normalizeBranding(raw.branding,imageURL)?{branding:normalizeBranding(raw.branding,imageURL)}:{}),
     ...(normalizeTypography(raw.typography)?{typography:normalizeTypography(raw.typography)}:{}),
     id: /^[a-z0-9-]{1,70}$/.test(raw.id ?? '') ? raw.id : '',
@@ -48,12 +50,20 @@ function normalizeFlatProject(raw = {}) {
     ctaHref: linkURL(raw.ctaHref),
     navigation: (Array.isArray(raw.navigation)?raw.navigation:[]).slice(0,12).map(n=>({label:text(n?.label,70),href:linkURL(n?.href)})).filter(n=>n.label&&n.href),
     benefits: (Array.isArray(raw.benefits) ? raw.benefits : []).slice(0, 4).map(b => ({title:text(b.title,100),description:text(b.description,350)})),
-    cards: (Array.isArray(raw.cards) ? raw.cards : []).slice(0, 40).map(c => ({title:text(c.title,300),description:text(c.description,6000),image:imageURL(c.image)||normalizeGallery(c.gallery)?.[0]?.url||'',...(Array.isArray(c.gallery)?{gallery:normalizeGallery(c.gallery,imageURL(c.image))}:{}),...(c.href?{href:linkURL(c.href)}:{}),...(c.anchor?{anchor:/^[a-zA-Z0-9_-]{1,100}$/.test(c.anchor)?c.anchor:''}:{})})).filter(c => c.title || c.description || c.image),
+    cards: (Array.isArray(raw.cards) ? raw.cards : []).slice(0, 40).map(c => ({...Object.hasOwn(sectionKinds,c.kind)?{kind:c.kind}:{},title:text(c.title,300),description:text(c.description,6000),image:imageURL(c.image)||normalizeGallery(c.gallery)?.[0]?.url||'',...(Array.isArray(c.gallery)?{gallery:normalizeGallery(c.gallery,imageURL(c.image))}:{}),...(c.href?{href:linkURL(c.href)}:{}),...(c.anchor?{anchor:/^[a-zA-Z0-9_-]{1,100}$/.test(c.anchor)?c.anchor:''}:{})})).filter(c => c.title || c.description || c.image),
     images: (Array.isArray(raw.images) ? raw.images : []).slice(0, 80).map(i => ({url:imageURL(i.url),label:text(i.label,160)})).filter(i => i.url),
     warnings: (Array.isArray(raw.warnings) ? raw.warnings : []).slice(0,10).map(w=>text(w,250)),
     importedAt: text(raw.importedAt,80),
   };
 }
+
+function normalizeOriginal(raw) {
+  if(!raw||typeof raw!=='object'||Array.isArray(raw)||typeof raw.headline!=='string')return;
+  let p;try{p=normalizeFlatProject(raw,false);}catch{return;}
+  const keys=['source','name','headline','eyebrow','description','cta','ctaHref','hero','heroGallery','navigation','cards','logo','branding','typography'];
+  return {...Object.fromEntries(keys.filter(key=>p[key]!==undefined).map(key=>[key,p[key]])),capturedAt:text(raw.capturedAt,80)};
+}
+export function createOriginalSnapshot(page) {return normalizeOriginal({...page,capturedAt:new Date().toISOString()});}
 
 export function normalizeProject(raw = {}) {
   const project=normalizeFlatProject(raw);
@@ -95,11 +105,11 @@ function faqEntries(card) {
   return entries.length>=2&&entries.every(entry=>entry.answer)?entries:[];
 }
 function renderGallery(items,pic,title) {
-  return `<div class="section-gallery">${items.map(item=>`<figure>${pic(item.url,item.label||title)}${item.caption?`<figcaption>${escapeHTML(item.caption)}</figcaption>`:''}</figure>`).join('')}</div>`;
+  return `<div class="section-gallery">${items.map(item=>`<figure>${pic(item.url,item.label||title,'',true,item.presentation)}${item.caption?`<figcaption>${escapeHTML(item.caption)}</figcaption>`:''}</figure>`).join('')}</div>`;
 }
 function renderContentCard(card,index,pic,imported) {
-  const semantic=imported?detectSectionKind(card):'generic';
-  const e=escapeHTML,faq=imported?faqEntries(card):[],single=faq.length===1&&faq[0].question===card.title;
+  const semantic=Object.hasOwn(sectionKinds,card.kind)?card.kind:imported?detectSectionKind(card):'generic';
+  const e=escapeHTML,faq=imported&&(!card.kind||card.kind==='faq')?faqEntries(card):[],single=faq.length===1&&faq[0].question===card.title;
   const kind=card.gallery?.length>1?'multi':faq.length?'faq':card.image?(card.description.length<=280?'gallery':'editorial'):!card.description?'heading':'text';
   const heading=imported?'h2':'h3';
   const title=`<${heading}>${card.href?`<a href="${e(card.href)}" ${/^https?:/.test(card.href)?'target="_blank" rel="noopener noreferrer"':''}>${e(card.title)} ↗</a>`:e(card.title)}</${heading}>`;
@@ -111,10 +121,10 @@ function renderSingleDemo(raw, options = {}) {
   p.logo=selectBrandLogo(p);
   p.benefits = p.benefits.filter(b => b.title);
   const src = value => e(options.resolveImage ? options.resolveImage(value) : value);
-  const pic = (url, alt, cls = '', lazy = true) => `<img src="${src(url)}" alt="${e(alt)}" class="${cls}" ${lazy?'loading="lazy"':''} decoding="async" referrerpolicy="no-referrer">`;
+  const pic = (url, alt, cls = '', lazy = true, presentation) => `<img src="${src(url)}" alt="${e(alt)}" class="${cls}" ${presentationStyle(presentation)?`style="${presentationStyle(presentation)}"`:""} ${lazy?'loading="lazy"':''} decoding="async" referrerpolicy="no-referrer">`;
   const contact = p.email ? `mailto:${p.email}` : p.phone ? `tel:${p.phone.replace(/[^+\d]/g,'')}` : '';
   const benefits = `${p.benefits.length?`<div class="benefits" style="--benefit-count:${p.benefits.length}">${p.benefits.map(b=>`<div class="benefit"><h3>${e(b.title)}</h3><i></i><p>${e(b.description)}</p></div>`).join('')}</div>`:''}`;
-  const visual = `<div class="visual ${p.hero?'':'no-image'}">${p.templateId==='story'?benefits:''}${p.heroGallery?.length>1||p.heroGallery?.some(i=>i.caption)?renderGallery(p.heroGallery,pic,p.name):p.hero?`${pic(p.hero,p.name+' – verksamhetsbild','hero-image',false)}<div class="image-label">${e(p.name)}</div>`:''}</div>`;
+  const visual = `<div class="visual ${p.hero?'':'no-image'}">${p.templateId==='story'?benefits:''}${p.heroGallery?.length>1||p.heroGallery?.some(i=>i.caption)?renderGallery(p.heroGallery,pic,p.name):p.hero?`${pic(p.hero,p.name+' – verksamhetsbild','hero-image',false,p.heroGallery?.find(item=>item.url===p.hero)?.presentation)}<div class="image-label">${e(p.name)}</div>`:''}</div>`;
   // Legacy proposals include authored overview/about/benefit sections. Keep their
   // layout when editing navigation; a plain imported homepage stays imported even
   // after its last menu link is removed. Older customer links omit importedAt,
@@ -125,7 +135,7 @@ function renderSingleDemo(raw, options = {}) {
   <div class="shell"><header class="nav"><a class="brand" href="#" aria-label="${e(p.name)} startsida">${p.logo ? `<span class="brand-mark">${pic(p.logo,p.name,'',false)}</span>`:e(p.name)}</a><nav class="nav-links" aria-label="Huvudmeny">${p.navigation.length?navLinks:imported?'':`${p.cards.length?'<a href="#erbjudande">Utforska</a>':''}${p.about?'<a href="#om">Om oss</a>':''}<a class="nav-contact" href="#kontakt">${e(p.cta)}</a>`}</nav></header>
   <main id="start"><div class="hero-layout"><section class="hero-copy">${p.eyebrow?`<div class="eyebrow">${e(p.eyebrow)}</div>`:''}<h1>${e(p.headline)}</h1>${p.description?`<p>${e(p.description)}</p>`:''}${!imported||p.ctaHref?`<a class="button" href="${e(p.ctaHref||(p.cards.length?'#erbjudande':'#kontakt'))}" ${/^https?:/.test(p.ctaHref)?'target="_blank" rel="noopener noreferrer"':''}>${imported?e(p.cta):p.cards.length?'Utforska vårt utbud':e(p.cta)}<span aria-hidden="true">↗</span></a>`:''}</section>
   ${visual}</div>${p.templateId!=='story'?benefits:''}
-  ${p.cards.length?`<section class="section" id="erbjudande"><div class="section-top" ${imported?'hidden':''}><div><p class="section-kicker">${e(p.name)} / Utvalt</p><h2>${e(p.sectionTitle)}</h2></div>${p.sectionIntro?`<p>${e(p.sectionIntro)}</p>`:''}</div><div class="cards">${p.cards.map((c,i)=>renderContentCard(c,i,pic,imported)).join('')}</div></section>`:''}
+  ${p.cards.length?`<section class="section" id="erbjudande"><div class="section-top" ${imported?'hidden':''}><div><p class="section-kicker">${e(p.name)} / Utvalt</p><h2>${e(p.sectionTitle)}</h2></div>${p.sectionIntro?`<p>${e(p.sectionIntro)}</p>`:''}</div><div class="cards">${p.cards.map((c,i)=>renderContentCard(c,i,pic,imported||!!c.kind)).join('')}</div></section>`:''}
   ${p.about?`<section class="section about" id="om"><div><p class="section-kicker">Om ${e(p.name)}</p><h2>${e(p.aboutTitle || p.name)}</h2></div><p>${e(p.about)}</p></section>`:''}
   <section class="contact" id="kontakt"><div><p class="section-kicker" style="color:#bcc9b8">Ta nästa steg</p><h2>${p.ctaHref?'Kontakt':e(p.cta)+'.'}</h2><div class="contact-links">${p.email?`<a href="mailto:${e(p.email)}">${e(p.email)}</a>`:''}${p.phone?`<a href="tel:${e(p.phone.replace(/[^+\d]/g,''))}">${e(p.phone)}</a>`:''}${p.address?`<span>${e(p.address)}</span>`:''}${!contact?'<span class="contact-empty">Kontaktuppgifter saknas i det här designförslaget.</span>':''}</div></div>${contact?`<a class="button accent" href="${e(contact)}">${p.email?'Skicka ett mejl':'Ring oss'}<span aria-hidden="true">↗</span></a>`:''}</section></main>
   <footer class="footer"><span class="brand-name">${e(p.name)}</span><span class="source">Designförslag · Innehåll och bilder från ${p.source?`<a href="${e(p.source)}" rel="noopener noreferrer" target="_blank">företagets webbplats</a>`:'företaget'}.</span></footer></div>`;
