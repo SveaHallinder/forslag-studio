@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><title>Section layout regression</title><pre id="results">Running…</pre><iframe title="Semantic sections" height="700" width="1200"></iframe><script type="module">
+import {renderDemo} from '/render.mjs';import {templates} from '/templates.mjs';
+const frame=document.querySelector('iframe'),out=document.querySelector('#results'),results=[];
+const c=document.createElement('canvas');c.width=220;c.height=340;const ctx=c.getContext('2d');ctx.fillStyle='#798b79';ctx.fillRect(0,0,220,340);const img=c.toDataURL();
+const cards=[['Våra tjänster','Installation och rådgivning.'],['Produkter','Originalets produktbeskrivning.'],['Vårt team','Anna, arkitekt.'],['Kundcase','Originalets projektbeskrivning.'],['Priser','Klippning 450 kr\nFärgning 900 kr'],['Kundomdömen','Mycket bra service. — Anna'],['Vanliga frågor','Hur bokar jag?\n\nRing oss.']].map(([title,description],i)=>({title,description,anchor:'section-'+i,...(i<4?{image:img}:{})}));
+for(const template of templates)for(const width of [375,820,1200]){
+ frame.width=width;await new Promise(resolve=>{frame.onload=resolve;frame.srcdoc=renderDemo({templateId:template.id,name:'Testföretag',headline:'Originalets innehåll i rätt layout',importedAt:'today',hero:img,cards});});
+ const d=frame.contentDocument,errors=[];
+ if(d.documentElement.scrollWidth>width)errors.push('overflow');
+ if(d.querySelectorAll('.card[class*="section-"]').length!==7)errors.push('section count');
+ for(const [index,node] of [...d.querySelectorAll('.cards>.card')].entries())if(!node.textContent.includes(cards[index].description))errors.push('copy '+index);
+ const product=d.querySelector('.section-product'),grid=d.querySelector('.cards');if(product.getBoundingClientRect().right>grid.getBoundingClientRect().right+1)errors.push('implicit column');
+ results.push((errors.length?'FAIL':'PASS')+' '+template.id+' '+width+' '+errors.join(', '));out.textContent=results.join('\n');
+}
+ document.title=results.some(r=>r.startsWith('FAIL'))?'FAIL section layouts':'PASS section layouts';out.textContent+='\n'+results.length+' scenarios';
+</script>

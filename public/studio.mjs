@@ -1,3 +1,4 @@
+import {createDesignWorkbench} from './design-workbench.mjs';
 import {brandRoles,brandPalette,selectBrandLogo} from './branding.mjs';
 import { browserAPI } from './browser-api.mjs';
 import { normalizeProject, normalizeGallery, renderDemo, installDemoNavigation, escapeHTML as e } from './render.mjs';
@@ -8,6 +9,7 @@ import { assessProject, searchProjects, restoreProject, prepareNavigation } from
 const $ = id => document.getElementById(id);
 let project, config = {}, dirty = false, device = 'desktop', toastTimer, previewTimer, importBusy = false;
 let activePage = -1, editingSite, previewSource;
+const workbench=createDesignWorkbench({getProject:()=>project,getPage:()=>currentContent(),changed:()=>{markDirty();fillEditor();},navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}},editNavigation:()=>$('editNavigation').click(),notify:toast});
 function currentContent() { return project.pages?.[activePage] || project; }
 function fieldOwner(field) { return ['name','accent'].includes(field) ? project : currentContent(); }
 const draftKey = 'forslag-studio-draft-v1';
@@ -71,7 +73,7 @@ function updatePreview() {
       try {
         frame.contentWindow.scrollTo(0, top);
         installDemoNavigation(frame.contentDocument,frame.contentWindow);
-        const previewDocument=frame.contentDocument;
+        const previewDocument=frame.contentDocument;workbench.attach(previewDocument);
         previewDocument.fonts.ready.then(()=>{
           if(frame.contentDocument!==previewDocument)return;
           if([...previewDocument.fonts].some(face=>face.status==='error'))$('typographyStatus').textContent='Minst en originalfont kunde inte laddas. Förhandsvisningen använder en reservfont. Välj ett annat typsnitt eller försök igen före delning.';
@@ -80,7 +82,7 @@ function updatePreview() {
         frame.contentDocument.addEventListener('demo-page-change',event=>{
           const index=(project.pages||[]).findIndex(page=>page.source===event.detail.source);
           if(index===activePage)return;
-          activePage=index;previewSource=currentContent().source;fillEditor(true);
+          activePage=index;previewSource=currentContent().source;fillEditor(true);workbench.attach(frame.contentDocument);
         });
       } catch {}
     };
@@ -142,7 +144,7 @@ function setPrimaryImage(owner,key,primary,url) {
 }
 function galleryEditor(scope) {
   const items=galleryItems(scope),label=scope==='hero'?'Huvudsektion':'Block '+(Number(scope)+1);
-  return `<div class="gallery-editor"><p class="field-help">${items.length} av 12 bilder. Ordning och bildtexter följer med till kunddemon.</p>${items.map((item,i)=>`<div class="gallery-row"><img src="${e(item.url)}" alt="${e(item.label||'Bild '+(i+1))}" loading="lazy" referrerpolicy="no-referrer"><div><label for="gallery-${scope}-${i}">Bildtext ${i+1}</label><input id="gallery-${scope}-${i}" data-gallery-caption="${i}" data-gallery-scope="${scope}" value="${e(item.caption)}" maxlength="600"><div class="gallery-actions"><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="up" aria-label="${label}: flytta bild ${i+1} upp" ${i===0?'disabled':''}>↑</button><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="down" aria-label="${label}: flytta bild ${i+1} ned" ${i===items.length-1?'disabled':''}>↓</button><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="remove" aria-label="${label}: ta bort bild ${i+1}">Ta bort</button></div></div></div>`).join('')}<label for="gallery-add-${scope}">Lägg till bild i ${label.toLowerCase()}</label><select id="gallery-add-${scope}" data-gallery-add="${scope}" ${items.length>=12?'disabled':''}><option value="">Välj bild…</option>${currentContent().images.filter(item=>!items.some(used=>used.url===item.url)).map(item=>`<option value="${e(item.url)}">${e(item.label||item.url.split('/').at(-1))}</option>`).join('')}</select></div>`;
+  return `<div class="gallery-editor"><p class="field-help">${items.length} av 12 bilder. Ordning och bildtexter följer med till kunddemon.</p>${items.map((item,i)=>`<div class="gallery-row"><img src="${e(item.url)}" alt="${e(item.label||'Bild '+(i+1))}" loading="lazy" referrerpolicy="no-referrer"><div><label for="gallery-${scope}-${i}">Bildtext ${i+1}</label><input id="gallery-${scope}-${i}" data-gallery-caption="${i}" data-gallery-scope="${scope}" value="${e(item.caption)}" maxlength="600"><div class="gallery-actions"><button type="button" data-open-media="${scope}" data-media-index="${i}">Välj bild</button><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="up" aria-label="${label}: flytta bild ${i+1} upp" ${i===0?'disabled':''}>↑</button><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="down" aria-label="${label}: flytta bild ${i+1} ned" ${i===items.length-1?'disabled':''}>↓</button><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="remove" aria-label="${label}: ta bort bild ${i+1}">Ta bort</button></div></div></div>`).join('')}<label for="gallery-add-${scope}">Lägg till bild i ${label.toLowerCase()}</label><select id="gallery-add-${scope}" data-gallery-add="${scope}" ${items.length>=12?'disabled':''}><option value="">Välj bild…</option>${currentContent().images.filter(item=>!items.some(used=>used.url===item.url)).map(item=>`<option value="${e(item.url)}">${e(item.label||item.url.split('/').at(-1))}</option>`).join('')}</select></div>`;
 }
 function handleGallery(event) {
   const button=event.target.closest('[data-gallery-action]'),add=event.target.dataset.galleryAdd,caption=event.target.dataset.galleryCaption;
@@ -157,7 +159,7 @@ function handleGallery(event) {
 }
 for(const container of ['cardsEditor','heroGalleryEditor'])for(const type of ['click','change','input'])$(container).addEventListener(type,handleGallery);
 function renderCards() {
-  $('cardsEditor').innerHTML = currentContent().cards.map((card, i) => `<div class="card-editor"><div class="card-editor-header"><span>BLOCK ${String(i+1).padStart(2,'0')}</span><div class="card-actions"><button data-move-card="${i}" data-direction="-1" aria-label="Flytta block ${i+1} upp" ${i===0?'disabled':''}>↑</button><button data-move-card="${i}" data-direction="1" aria-label="Flytta block ${i+1} ned" ${i===currentContent().cards.length-1?'disabled':''}>↓</button><button data-remove-card="${i}" aria-label="Ta bort block ${i+1}">×</button></div></div><label for="card-title-${i}">Rubrik</label><input id="card-title-${i}" data-card="${i}" data-property="title" maxlength="300" value="${e(card.title)}"><label for="card-description-${i}">Beskrivning</label><textarea id="card-description-${i}" data-card="${i}" data-property="description" rows="2" maxlength="6000">${e(card.description)}</textarea><label for="card-image-${i}">Bild</label><select id="card-image-${i}" data-card="${i}" data-property="image">${imageOptions(card.image)}</select>${galleryEditor(String(i))}<label for="card-href-${i}">Länk <span>Valfri, på rubriken</span></label><input id="card-href-${i}" data-card="${i}" data-property="href" value="${e(card.href||'')}" maxlength="2000" placeholder="https://företaget.se/tjänst"></div>`).join('') || '<p class="empty-state">Inga bildkort ännu. Lägg till ett kort för en tjänst, produkt eller plats.</p>';
+  $('cardsEditor').innerHTML = currentContent().cards.map((card, i) => `<div class="card-editor"><div class="card-editor-header"><span>BLOCK ${String(i+1).padStart(2,'0')}</span><div class="card-actions"><button data-move-card="${i}" data-direction="-1" aria-label="Flytta block ${i+1} upp" ${i===0?'disabled':''}>↑</button><button data-move-card="${i}" data-direction="1" aria-label="Flytta block ${i+1} ned" ${i===currentContent().cards.length-1?'disabled':''}>↓</button><button data-remove-card="${i}" aria-label="Ta bort block ${i+1}">×</button></div></div><label for="card-title-${i}">Rubrik</label><input id="card-title-${i}" data-card="${i}" data-property="title" maxlength="300" value="${e(card.title)}"><label for="card-description-${i}">Beskrivning</label><textarea id="card-description-${i}" data-card="${i}" data-property="description" rows="2" maxlength="6000">${e(card.description)}</textarea><div class="field-heading">Bild <button type="button" class="text-button" data-open-media="${i}">Välj visuellt</button></div><label for="card-image-${i}" class="field-help">Vald bild</label><select id="card-image-${i}" data-card="${i}" data-property="image">${imageOptions(card.image)}</select>${galleryEditor(String(i))}<label for="card-href-${i}">Länk <span>Valfri, på rubriken</span></label><input id="card-href-${i}" data-card="${i}" data-property="href" value="${e(card.href||'')}" maxlength="2000" placeholder="https://företaget.se/tjänst"></div>`).join('') || '<p class="empty-state">Inga bildkort ännu. Lägg till ett kort för en tjänst, produkt eller plats.</p>';
   $('addCard').disabled = currentContent().cards.length >= 40;
 }
 function renderTypography() {
@@ -260,7 +262,7 @@ function fillEditor(keepPreview = false) {
   $('savedState').textContent = dirty ? 'OSPARAT' : 'SPARAT';
   $('importStatus').className = 'import-status';
   $('importStatus').textContent = project.id === 'vegavista' ? 'Vegavista-pilot. Granska eventuella ändringar innan du delar.' : project.importedAt ? 'Importerat innehåll. Granska text och bildval innan du delar.' : 'Klistra in en företagslänk eller fyll i innehållet själv.';
-  renderNavigationSummary(); renderCards(); renderImages(); renderBenefits(); renderTypography(); renderBranding(); if(!keepPreview)updatePreview();else updateTitle();
+  renderNavigationSummary(); renderCards(); renderImages(); renderBenefits(); renderTypography(); renderBranding(); workbench.sync(); if(!keepPreview)updatePreview();else updateTitle();
 }
 $('pageSelect').addEventListener('change',()=>{activePage=Number($('pageSelect').value);fillEditor();});
 async function refreshProjects() {
@@ -538,7 +540,7 @@ $('importButton').addEventListener('click',async()=>{
       $('importStatus').textContent='Importen lades åt sidan eftersom du ändrade eller bytte projekt. Dina senaste ändringar finns kvar.';
       return;
     }
-    project=imported;dirty=true;fillEditor();markDirty();
+    project=imported;workbench.captureOriginal(project);dirty=true;fillEditor();markDirty();
     $('importStatus').className='import-status';$('importStatus').textContent=`Startsida${project.pages?.length?' + '+project.pages.length+' undersidor':''} hämtad. ${project.images.length} bildkandidater och ${project.cards.length} innehållsblock på startsidan. Granska varje sida nedan.`;
     toast('Företagets innehåll är inlagt.');
   }catch(error){$('importStatus').className='import-status error';$('importStatus').textContent=error.name==='TimeoutError'?'Hämtningen tog för lång tid. Ditt utkast finns kvar; försök igen eller fortsätt manuellt.':error.message;}

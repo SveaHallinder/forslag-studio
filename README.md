@@ -308,3 +308,28 @@ Begränsningar: detta är konservativ CSS-analys, inte en fullständig tolkning 
 4. Under Bilder, välj en mörk/ljus logovariant. Kontrollera valet mot motsvarande menybakgrund. Ladda upp en egen logotyp och kontrollera att den ersätter automatiska val.
 5. Byt mall och växla mellan mobil/desktop. Kontrollera meny, läsbarhet, färger och bildproportioner.
 6. Spara och ladda om. Skapa kundlänk och ladda ner demosidan; jämför färger, logotyp och typsnitt med förhandsvisningen.
+
+## Designarbetsyta, 27 september 2026
+
+Tre designförslag visar företagets faktiska innehåll i tre befintliga, olika mallar. Valet ändrar bara mall-ID. Förslagen använder konservativa ordsignaler och valda bilder; de är inte en verifierad branschklassificering.
+
+Importerade sektioner med tydliga rubriker får presentation för tjänster, produkter, team, kundcase, priser, omdömen eller FAQ. Generella sektioner behåller standarddesignen. Inga priser, personer, omdömen eller andra fakta skapas. Explicit ändring av sektionstyp är ännu inte implementerad.
+
+Välj visuellt öppnar en sökbar bildväljare för huvudbild, kort och galleribilder. Avbryt lämnar projektet orört. Bildtexter och ordning bevaras när det går; ett befintligt bildval förekommer bara en gång. Sparad fokuspunkt/beskärning för enskilda bilder återstår och kräver godkända valfria projektfält.
+
+Jämför med original visar importerat originalinnehåll bredvid kunddemon och identifierar ändrade eller borttagna texter, meny, bilder och bildtexter. Borttagna sektioner kan återläggas. Originalkopian finns bara under sessionen; vid omladdning kan originalet läsas igen utan att skriva över förslaget. Det är en kopia av importerat innehåll, inte en garanti att importen fångat hela webbplatsen. Originalwebbsidan kan visas separat eller bäddas in på begäran; externa sajter kan blockera inbäddning. Sparad originalkopia väntar på schemaändringsgodkännande.
+
+Redigera i förhandsvisningen aktiverar klick- och tangentbordsval. Text ändras i en snabb dialog, bilder i bildväljaren och menyn i befintlig menyredigerare. Visningsläget behåller kundlänkar. Kundexporten innehåller inga redigeringskontroller. Tomma utkastblock förskjuter inte längre klickmålen.
+
+Verifierat: lint, build, 170 Node-tester; 5 browserkontroller för klick/tangentbord/dispose/originalindex; 30 sektionslayoutscenarier över tio mallar vid 375, 820 och 1200 px. Riktig Verkli-import, snabbändrad rubrik, originaljämförelse, bildval avbryt/använd, designval och sparning kontrollerades i UI. Tre nya dialoger kontrollerades vid 375 px utan horisontell dialogoverflow. Slutlig manuell kunddelning/export har inte körts om; befintliga roundtrip-/exporttester passerar.
+
+### QA i sex steg
+
+1. Öppna localhost:4174 eller livesidan, ladda om och importera ett företag.
+2. Välj Tre designförslag. Kontrollera samma text/branding i tre kompositioner, välj en och spara.
+3. Slå på Redigera i förhandsvisningen. Klicka en rubrik och ändra text; prova Avbryt och Använd. Escape i förhandsvisningen lämnar redigeringsläget.
+4. Klicka en bild eller Välj visuellt. Sök, välj en miniatyr, ändra bildtext, testa Avbryt och sedan Använd.
+5. Välj Jämför med original. Ändrad rubrik/bild ska synas bland skillnaderna; återlägg en borttagen sektion. Efter omladdning behövs Läs originalet för jämförelse igen.
+6. Kontrollera mobilvy, spara/ladda om, dela en kundlänk och exportera HTML. Kundversionen ska sakna redigeringsmarkeringar.
+
+Alla fem önskade förbättringar är ännu inte helt slutförda: beständig bildbeskärning, manuellt sektionsval och beständig originalkopia kräver svar på den ställda frågan om valfria projektfält. Inga schemaändringar eller nya dependencies gjordes i denna etapp.

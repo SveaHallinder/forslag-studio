@@ -1,3 +1,4 @@
+import {detectSectionKind,sectionDesignCSS} from './section-design.mjs';
 import {normalizeBranding,brandingCSS,selectBrandLogo} from './branding.mjs';
 import {normalizeTypography,typographyCSS} from './typography.mjs';
 import { getTemplate, templateCSS, templateContentCSS } from './templates.mjs';
@@ -97,12 +98,13 @@ function renderGallery(items,pic,title) {
   return `<div class="section-gallery">${items.map(item=>`<figure>${pic(item.url,item.label||title)}${item.caption?`<figcaption>${escapeHTML(item.caption)}</figcaption>`:''}</figure>`).join('')}</div>`;
 }
 function renderContentCard(card,index,pic,imported) {
+  const semantic=imported?detectSectionKind(card):'generic';
   const e=escapeHTML,faq=imported?faqEntries(card):[],single=faq.length===1&&faq[0].question===card.title;
   const kind=card.gallery?.length>1?'multi':faq.length?'faq':card.image?(card.description.length<=280?'gallery':'editorial'):!card.description?'heading':'text';
   const heading=imported?'h2':'h3';
   const title=`<${heading}>${card.href?`<a href="${e(card.href)}" ${/^https?:/.test(card.href)?'target="_blank" rel="noopener noreferrer"':''}>${e(card.title)} ↗</a>`:e(card.title)}</${heading}>`;
-  const content=faq.length?`${single?'':title}<div class="faq-list">${faq.map(item=>`<details class="faq-item" open><summary>${e(item.question)}</summary><p>${e(item.answer)}</p></details>`).join('')}</div>`:`${title}${card.description?`<p>${e(card.description)}</p>`:''}`;
-  return `<article class="card${imported?' content-'+kind:''}" ${card.anchor?`id="${e(card.anchor)}"`:''}>${card.gallery?.length?renderGallery(card.gallery,pic,card.title):card.image?pic(card.image,card.title):!imported?`<div class="card-placeholder" aria-hidden="true">${String(index+1).padStart(2,'0')}</div>`:''}<div class="card-meta"><div>${content}</div>${!imported?`<span class="card-number">${String(index+1).padStart(2,'0')}</span>`:''}</div></article>`;
+  const content=faq.length?`${single?'':title}<div class="faq-list">${faq.map(item=>`<details class="faq-item" open><summary>${e(item.question)}</summary><p>${e(item.answer)}</p></details>`).join('')}</div>`:`${title}${card.description?`<${semantic==='testimonial'?'blockquote':'p'}>${e(card.description)}</${semantic==='testimonial'?'blockquote':'p'}>`:''}`;
+  return `<article class="card${imported?' content-'+kind+(semantic!=='generic'?' section-'+semantic:''):''}" ${card.anchor?`id="${e(card.anchor)}"`:''}>${card.gallery?.length?renderGallery(card.gallery,pic,card.title):card.image?pic(card.image,card.title):!imported?`<div class="card-placeholder" aria-hidden="true">${String(index+1).padStart(2,'0')}</div>`:''}<div class="card-meta"><div>${content}</div>${!imported?`<span class="card-number">${String(index+1).padStart(2,'0')}</span>`:''}</div></article>`;
 }
 function renderSingleDemo(raw, options = {}) {
   const p = normalizeProject(raw), e = escapeHTML;
@@ -127,7 +129,7 @@ function renderSingleDemo(raw, options = {}) {
   ${p.about?`<section class="section about" id="om"><div><p class="section-kicker">Om ${e(p.name)}</p><h2>${e(p.aboutTitle || p.name)}</h2></div><p>${e(p.about)}</p></section>`:''}
   <section class="contact" id="kontakt"><div><p class="section-kicker" style="color:#bcc9b8">Ta nästa steg</p><h2>${p.ctaHref?'Kontakt':e(p.cta)+'.'}</h2><div class="contact-links">${p.email?`<a href="mailto:${e(p.email)}">${e(p.email)}</a>`:''}${p.phone?`<a href="tel:${e(p.phone.replace(/[^+\d]/g,''))}">${e(p.phone)}</a>`:''}${p.address?`<span>${e(p.address)}</span>`:''}${!contact?'<span class="contact-empty">Kontaktuppgifter saknas i det här designförslaget.</span>':''}</div></div>${contact?`<a class="button accent" href="${e(contact)}">${p.email?'Skicka ett mejl':'Ring oss'}<span aria-hidden="true">↗</span></a>`:''}</section></main>
   <footer class="footer"><span class="brand-name">${e(p.name)}</span><span class="source">Designförslag · Innehåll och bilder från ${p.source?`<a href="${e(p.source)}" rel="noopener noreferrer" target="_blank">företagets webbplats</a>`:'företaget'}.</span></footer></div>`;
-  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${templateCSS}${homepageCSS}${templateContentCSS}${brandingCSS(p.branding)}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}</body></html>`;
+  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${templateCSS}${homepageCSS}${templateContentCSS}${sectionDesignCSS}${brandingCSS(p.branding)}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}</body></html>`;
 }
 
 export function resolveDemoRoute(href,source,pages) {

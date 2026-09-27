@@ -26,6 +26,7 @@ function harness() {
     },
     api: () => pending,
     normalizeProject,
+    workbench:{captureOriginal(){}},
     confirm: () => true,
     refreshProjects: async () => {},
     fillEditor() {},
