@@ -1,7 +1,7 @@
 export const templates = Object.freeze([
   {id:'cinema',name:'Cinema',description:'Atmosfärisk helbild, stora rubriker och mörka bildberättelser. För restauranger, hotell och arkitektur.',reference:'Filmiskt · panoramabilder'},
   {id:'pop',name:'Pop',description:'Färgstarka block, fyllig typografi och lekfulla bildkort. För caféer, mat, produkter och kreativa varumärken.',reference:'Lekfullt · färg & form'},
-  {id:'atelier',name:'Atelier',description:'Skulpturala bildvalv, finstämda rubriker och asymmetriska uppslag. För mode, smycken, kultur och personliga varumärken.',reference:'Elegant · redaktionellt'},
+  {id:'atelier',name:'Atelier',description:'Storskalig typografi, ett bildburet omslag och redaktionella uppslag. För mode, smycken, kultur och personliga varumärken.',reference:'Elegant · redaktionellt'},
   {id:'precision',name:'Precision',description:'Centrerad introduktion, inramad huvudbild och strukturerade innehållspaneler. För digitala produkter och tjänsteföretag.',reference:'Tekniskt · rent & strukturerat'},
   {id:'story',name:'Bild & berättelse',description:'Luftig och ljus. För lokala företag, inredning och verksamheter med mycket att visa.',reference:'Mall 17',source:'https://www.figma.com/design/9Fp2kHtdlxKhsP6obpL9Df/?node-id=806-897'},
   {id:'studio',name:'Studio',description:'Mörk, stor typografi och ett bildgalleri. För kreativa företag, arkitektur och varumärken.',reference:'Lit Collective',source:'https://www.figma.com/design/fZEahfhBaRw9R48e53twLu/?node-id=4-3670'},

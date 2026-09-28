@@ -1,0 +1,22 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><title>Atelier QA</title><pre id="results">Kör…</pre><iframe title="Atelier test"></iframe><script type="module">
+import {renderDemo} from '/render.mjs';
+import {installPreviewEditing} from '/preview-edit.mjs';
+const frame=document.querySelector('iframe'),out=document.querySelector('pre'),failures=[];let passed=0;
+const image='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+for(const width of [375,820,1280])for(const personal of [true,false]){
+ const p={templateId:'atelier',name:personal?'Anna Lind':'Bolaget AB',headline:personal?'Författare och journalist':'Vår ursprungliga rubrik',description:personal?'Anna skriver om världen.':'Företagets ursprungliga beskrivning.',importedAt:'today',hero:image,cta:'Kontakt',ctaHref:'#kontakt',cards:[{title:'Rätt rubrik',description:'Rätt text till rätt bild.',image,anchor:'sektion'}]};
+ frame.width=width;frame.height=900;await new Promise(resolve=>{frame.onload=resolve;frame.srcdoc=renderDemo(p);});const d=frame.contentDocument;
+ const check=(ok,label)=>{if(ok)passed++;else failures.push(`${width}/${personal}: ${label}`);};
+ let selected;const dispose=installPreviewEditing(d,{onSelect:target=>selected=target});
+ d.querySelector('h1').click();check(selected?.field==='headline','headline target');
+ d.querySelector('.hero-copy>p:not(.profile-name)').click();check(selected?.field==='description','description target');
+ d.querySelector('.visual img').click();check(selected?.type==='image'&&selected.scope==='hero','hero image target');
+ d.querySelector('.card img').click();check(selected?.type==='image'&&selected.scope==='0','section image target');
+ dispose();check(!d.querySelector('[data-studio-edit]'),'editor controls removed');
+ const heading=d.querySelector('h1').getBoundingClientRect(),visual=d.querySelector('.visual').getBoundingClientRect();
+ check(d.documentElement.scrollWidth<=width,'horizontal overflow');
+ check(width<=760&&personal?heading.top>=visual.bottom:personal?heading.left>=visual.right:heading.bottom<=visual.top,'title and photography overlap');
+ check(d.querySelector('.card').textContent.includes('Rätt text till rätt bild.'),'section content preserved');
+}
+ document.title=failures.length?'FAIL Atelier':'PASS Atelier';out.textContent=JSON.stringify({passed,failures},null,2);
+</script></html>
