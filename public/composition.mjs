@@ -1,8 +1,20 @@
+import {detectSectionKind} from './section-design.mjs';
 // Presentation is derived at render time. Saved source content stays unchanged.
 export function sectionComposition(card) {
   if(!card.description&&!card.image&&!card.gallery?.length)return card.href?'link':'heading';
+  if(card.gallery?.length>1&&(!card.kind||card.kind==='generic')&&/\bpartners\b|samarbetspartners|samarbetspartner/i.test(card.title))return 'logos';
   if(card.gallery?.length>1)return 'collection';
   return card.image||card.gallery?.length?'feature':'text';
+}
+export function compactCardIndices(cards) {
+  const result=new Set(),eligible=card=>!!(card.image||card.gallery?.length)&&(!card.gallery||card.gallery.length<=1)&&card.description.length<=180&&['generic','service','product','case'].includes(detectSectionKind(card));
+  for(let start=0;start<cards.length;){
+    if(!eligible(cards[start])){start++;continue;}
+    let end=start+1;while(end<cards.length&&eligible(cards[end]))end++;
+    if(end-start>=2)for(let i=start;i<end;i++)result.add(i);
+    start=end;
+  }
+  return result;
 }
 export function paragraphContent(value,escape) {
   if(!/\n\s*\n/.test(value))return escape(value);
@@ -16,7 +28,7 @@ html body[data-template][data-imported="true"] .shell{max-width:1600px;padding:0
 html body[data-template][data-imported="true"] .demo-note{font-size:10px;letter-spacing:.12em;padding:8px 20px}
 html body[data-template][data-imported="true"] .nav{min-height:100px;height:auto;gap:32px;padding-block:24px;border-bottom:1px solid var(--rule);background:transparent;color:inherit}
 html body[data-template][data-imported="true"] .brand{font-size:28px;letter-spacing:-.055em}
-html body[data-template][data-imported="true"] .brand-mark img{max-width:180px;max-height:46px;object-fit:contain}
+html body[data-template][data-imported="true"] .brand-mark img{max-width:180px;max-height:64px;object-fit:contain}
 html body[data-template][data-imported="true"] .nav-links{gap:clamp(20px,2.8vw,44px);font-size:13px;font-weight:500;letter-spacing:0}
 html body[data-template][data-imported="true"] .nav-links a{padding:10px 0;min-height:44px;display:inline-flex;align-items:center;text-decoration:none}
 html body[data-template][data-imported="true"] .nav-links a:hover{text-decoration:underline;text-underline-offset:7px}
@@ -152,6 +164,26 @@ html body[data-template][data-imported="true"] .hero-layout[data-hero="text"]{di
 html body[data-template][data-imported="true"] .hero-layout[data-hero="text"] .hero-copy{display:block;max-width:1040px;width:100%;margin:0;padding:0!important}
 html body[data-template][data-imported="true"] .hero-layout[data-hero="text"] h1{max-width:20ch;font-size:clamp(54px,8vw,120px)}
 html body[data-template][data-imported="true"] .hero-layout[data-hero="text"] .hero-copy>p{max-width:65ch;margin:32px 0}
+/* Consecutive short image entries share a portfolio rhythm; source order stays intact. */
+html body[data-template][data-imported="true"] .hero-copy:not(:has(p)):not(:has(.button)){display:block;width:100%}
+html body[data-template][data-imported="true"] .hero-copy:not(:has(p)):not(:has(.button)) h1{max-width:none}
+html body[data-template][data-imported="true"] .card[data-density="compact"],html body[data-template][data-imported="true"] .card[data-density="compact"]:nth-of-type(even){grid-column:span 3;display:flex;flex-direction:column;align-items:stretch;gap:24px;padding:40px 0 48px!important}
+html body[data-template][data-imported="true"] .card[data-density="compact"]>.section-gallery,html body[data-template][data-imported="true"] .card[data-density="compact"]>img{order:0!important;width:100%}
+html body[data-template][data-imported="true"] .card[data-density="compact"] .card-meta{order:1}
+html body[data-template][data-imported="true"] .card[data-density="compact"] .card-meta>div{display:block}
+html body[data-template][data-imported="true"] .card[data-density="compact"] img{height:clamp(240px,28vw,380px);max-height:none;object-fit:contain;border-radius:0}
+html body[data-template][data-imported="true"] .card[data-density="compact"] h2{font-size:clamp(24px,2.4vw,34px);line-height:1.2;letter-spacing:-.025em;max-width:none;margin-bottom:12px}
+html body[data-template][data-imported="true"] .card[data-density="compact"] p{font-size:15px;line-height:1.7;max-width:48ch}
+@media(min-width:761px){
+ html body[data-template][data-imported="true"] .card[data-density="compact"]:first-child,html body[data-template][data-imported="true"] .card:not([data-density="compact"])+.card[data-density="compact"]{grid-column:1/span 3}
+ html body[data-template][data-imported="true"] .card[data-density="compact"]+.card[data-composition="link"]{grid-column:1/span 2}
+}
+html body[data-template][data-imported="true"] .card[data-composition="logos"]{grid-column:1/-1;display:flex;flex-direction:column;gap:36px;padding:48px 0!important}
+html body[data-template][data-imported="true"] .card[data-composition="logos"] .card-meta{order:-1}
+html body[data-template][data-imported="true"] .card[data-composition="logos"] h2{font:inherit;font-size:14px;letter-spacing:.04em;margin:0;max-width:none}
+html body[data-template][data-imported="true"] .card[data-composition="logos"] .section-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:32px;align-items:center}
+html body[data-template][data-imported="true"] .card[data-composition="logos"] img{width:100%;height:80px;max-height:none;object-fit:contain;border-radius:0;background:transparent}
+html body[data-template][data-imported="true"] .card[data-composition="logos"] figcaption{font-size:12px;text-align:center}
 @media(max-width:1000px){
  html body[data-template][data-imported="true"] .hero-layout{gap:36px}
  html body[data-template][data-imported="true"] .hero-copy h1{font-size:clamp(42px,6vw,70px)}
@@ -161,7 +193,7 @@ html body[data-template][data-imported="true"] .hero-layout[data-hero="text"] .h
 @media(max-width:760px){
  html body[data-template][data-imported="true"]{--page-gutter:24px;--section-space:56px}
  html body[data-template][data-imported="true"] .nav{min-height:80px;padding:20px 0;gap:20px;flex-wrap:wrap}
- html body[data-template][data-imported="true"] .brand-mark img{max-width:150px;max-height:38px}
+ html body[data-template][data-imported="true"] .brand-mark img{max-width:150px;max-height:48px}
  html body[data-template][data-imported="true"] .nav-links{display:flex;gap:6px 22px;flex-wrap:wrap;width:100%;justify-content:flex-start;font-size:12px}
  html body[data-template][data-imported="true"] .nav-links a{padding:4px 0}
  html body[data-template][data-imported="true"] .hero-layout{display:flex;flex-direction:column;gap:36px;padding:44px 0 56px}
@@ -177,6 +209,8 @@ html body[data-template][data-imported="true"] .hero-layout[data-hero="text"] .h
  html body[data-template][data-imported="true"] .cards{grid-template-columns:minmax(0,1fr);gap:0}
  html body[data-template][data-imported="true"] .card[data-composition],html body[data-template][data-imported="true"] .card[data-composition]:nth-of-type(even){grid-column:1/-1;display:flex;flex-direction:column;align-items:stretch;gap:28px;grid-template-columns:minmax(0,1fr)}
  html body[data-template][data-imported="true"] .card[data-composition]>.section-gallery,html body[data-template][data-imported="true"] .card[data-composition]>img{order:0!important}
+ html body[data-template][data-imported="true"] .card[data-density="compact"],html body[data-template][data-imported="true"] .card[data-density="compact"]:nth-of-type(even){grid-column:1/-1;padding:32px 0!important;gap:20px}
+ html body[data-template][data-imported="true"] .card[data-density="compact"] img{height:auto;max-height:420px}
  html body[data-template][data-imported="true"] .card[data-composition="link"]{padding:20px 0!important;display:block}
  html body[data-template][data-imported="true"] .card[data-composition="heading"]{padding:48px 0 24px!important}
  html body[data-template][data-imported="true"] .card[data-composition] .card-meta>div,html body[data-template][data-imported="true"] .card.content-faq .card-meta>div{display:block}
@@ -188,6 +222,8 @@ html body[data-template][data-imported="true"] .hero-layout[data-hero="text"] .h
  html body[data-template][data-imported="true"] .card .section-gallery[data-image-count="1"],html body[data-template][data-imported="true"] .card[data-composition="feature"] .section-gallery{grid-template-columns:minmax(0,1fr)}
  html body[data-template][data-imported="true"] .card[data-composition="collection"] img{height:220px}
  html body[data-template][data-imported="true"] .section-team[data-composition="collection"] img{height:170px}
+ html body[data-template][data-imported="true"] .card[data-composition="logos"] .section-gallery{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 16px}
+ html body[data-template][data-imported="true"] .card[data-composition="logos"] img{height:60px}
  html body[data-template][data-imported="true"] .contact{padding:32px 24px;display:block;margin-top:16px}
  html body[data-template][data-imported="true"] .contact h2{font-size:48px}
  html body[data-template][data-imported="true"] .contact .button{margin-top:28px}

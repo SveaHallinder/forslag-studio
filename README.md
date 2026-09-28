@@ -371,3 +371,22 @@ Begränsning: automatisk import och sektionstolkning är konservativa och behöv
 4. Ändra Sektionstyp till Team/Standard. Slå på Redigera i förhandsvisningen, klicka samma sektionsrubrik och kontrollera typen. Avbryt ska lämna den oförändrad.
 5. Öppna Jämför med original; läs originalet om kopia saknas. Spara/ladda om och kontrollera att originalkopian finns kvar. Ändra en rubrik och kontrollera skillnaden.
 6. Kontrollera mobilvy, skapa/öppna kundlänk och exportera HTML. Kontrollera utsnitt, typ och att kundversionen saknar editor och originalkopia.
+
+## Vegavista-pilot, 28 september 2026
+
+En granskad startsidesdemo finns på `/vegavista.html`. Den använder samma renderer som editorn, med Vegavistas importerade originaltext, meny, logotyp, färger, sju partnerloggor och tio annonslägen. Huvudbilden har valts manuellt bland deras egna bilder. Korta sammanhängande bildkort visas i två kolumner på desktop och en på mobil. Partnerloggor får ett separat band; större berättande avsnitt behåller sin layout. Inga nya dependencies eller projektfält.
+
+Importen behåller uttryckliga listtitlar och partnerbilder, skiljer listkortens rubrik från deras text och behåller blandad inline-/stycketext. Video använder sin uttryckliga poster när den finns; annars behålls den konfigurerade reservbilden med ett tydligt granskningsmeddelande.
+
+Begränsningar: pilotens video är ersatt med en stillbild. Undersidor i menyn öppnar originalet. Bilder och eventuella externa typsnitt behöver vara fortsatt tillgängliga hos källan. Piloten är manuellt granskad; god kvalitet för den betyder inte att varje ny URL importeras perfekt.
+
+### QA i sex steg
+
+1. Starta `npm start` efter `npm run build`; öppna `http://localhost:4174/vegavista.html`.
+2. Kontrollera första vyn: originalets logotyp visas en gång, rubriken är ”Maximal synlighet” och huvudbilden visar Stadium Outlet.
+3. Scrolla: sju partnerloggor och ”Utforska våra lägen” ska synas. Jämför de tio platsnamnen, bilderna och storlekarna med originalet.
+4. Kontrollera 375 px mobil och desktop: en respektive två kolumner, ingen horisontell scroll och inga överlappande texter.
+5. Kontrollera meny- och mejllänkarnas mål utan att skicka ett mejl. Undersidor öppnar Vegavistas original.
+6. Öppna editorn, importera Vegavista utan undersidor och välj Magasin & arkitektur. Granska videovarningen och välj önskad huvudbild; spara och skapa kundlänk. Nya importer ändrar inte den statiska piloten.
+
+Verifiering: lint, build och 195 Node-tester; 16 pilotimportkontroller, 83 tidigare importkontroller och 30 portfoliolayouter över tio mallar. Kunddemon granskades visuellt på desktop och mobil; alla tio plats-/bild-/storlekskopplingar kontrollerades. Publiceringsstatus dokumenteras separat med exakt commit.

@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8"><title>Portfolio QA</title><pre id="results">Running</pre><iframe title="Portfolio"></iframe><script type="module">
+import {renderDemo} from '/render.mjs';import {templates} from '/templates.mjs';
+const out=document.querySelector('#results'),frame=document.querySelector('iframe'),results=[];
+const canvas=document.createElement('canvas');canvas.width=600;canvas.height=400;const c=canvas.getContext('2d');c.fillStyle='#839491';c.fillRect(0,0,600,400);const image=canvas.toDataURL();
+const cards=[{title:'Quick link',href:'#a',anchor:'quick'},{title:'Source introduction',description:'Original words remain here.',anchor:'intro'},{title:'Another link',href:'#a',anchor:'another'},
+ {title:'Location A',description:'Size: 5 sqm',image,anchor:'a'}, {title:'Location B',description:'Size: 8 sqm',image,anchor:'b'},
+ {title:'Our partners',gallery:Array.from({length:6},(_,i)=>({url:image+'#'+i,caption:'Partner '+i})),anchor:'partners'}];
+// Distinct valid image URLs use pixel variants rather than URL fragments in data URLs.
+cards[5].gallery=Array.from({length:6},(_,i)=>{c.fillStyle=['#122233','#334455','#556677','#667788','#778899','#8899aa'][i];c.fillRect(0,0,600,400);return {url:canvas.toDataURL(),caption:'Partner '+i};});
+for(const template of templates)for(const width of [375,820,1280]){
+ frame.width=width;await new Promise(resolve=>{frame.onload=resolve;frame.srcdoc=renderDemo({templateId:template.id,name:'Company',headline:'A short source heading',importedAt:'today',hero:image,cards});});
+ const d=frame.contentDocument,[a,b]=d.querySelectorAll('[data-density="compact"]'),errors=[];
+ if(d.documentElement.scrollWidth>width)errors.push('overflow');
+ if(!a||!b)errors.push('missing compact cards');else{
+  const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();
+  if(width>760&&(Math.abs(x.top-y.top)>1||x.right>y.left+1))errors.push('desktop cards not side by side');
+  if(width<=760&&y.top<x.bottom-1)errors.push('mobile cards overlap');
+  if(a.querySelector('img').getBoundingClientRect().bottom>a.querySelector('.card-meta').getBoundingClientRect().top+1)errors.push('image overlaps text');
+ }
+ const logos=d.querySelector('[data-composition="logos"]');
+ if(logos.querySelectorAll('figure').length!==6||logos.querySelectorAll('figcaption').length!==6)errors.push('lost partners');
+ if(logos.querySelector('img').getBoundingClientRect().height>90)errors.push('oversized logo');
+ if(!d.getElementById('b').textContent.includes('Size: 8 sqm'))errors.push('lost source text');
+ results.push((errors.length?'FAIL':'PASS')+' '+template.id+'/'+width+' '+errors.join(', '));out.textContent=results.join('\n');
+}
+document.title=results.some(x=>x.startsWith('FAIL'))?'FAIL portfolio':'PASS portfolio';out.textContent+='\n'+results.length+' scenarios';
+</script>
