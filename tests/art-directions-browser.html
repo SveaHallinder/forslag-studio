@@ -1,0 +1,31 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><title>Design directions QA</title><style>body{font:14px system-ui}iframe{border:0;display:block}pre{white-space:pre-wrap}</style><h1>Designriktningar – regressionstest</h1><pre id="results">Kör…</pre><iframe title="Design fixture"></iframe><script type="module">
+import {renderDemo} from '/render.mjs';
+import {contrast} from '/branding.mjs';
+const frame=document.querySelector('iframe'),out=document.querySelector('pre'),failures=[],signatures=new Set();let cases=0;
+const canvas=document.createElement('canvas');canvas.width=800;canvas.height=600;const ctx=canvas.getContext('2d');ctx.fillStyle='#9ba69c';ctx.fillRect(0,0,800,600);const image=canvas.toDataURL();
+const base={name:'Exempelbolaget',headline:'Omsorg i varje detalj.',description:'Originalets introduktion som hör ihop med huvudbilden.',hero:image,importedAt:'today',accent:'#dc6b34',cta:'Upptäck mer',ctaHref:'#sektion',navigation:[{label:'Hem',href:'#start'},{label:'Vårt erbjudande',href:'#sektion'},{label:'Kontakt',href:'#kontakt'}],email:'hej@example.com',cards:[{title:'Första originaltexten',description:'Den här texten hör ihop med första bilden.',image,anchor:'sektion'},{title:'Andra originaltexten',description:'Den här texten hör ihop med andra bilden.',image},{title:'Samlat galleri',description:'Båda originalbilderna med sina bildtexter.',gallery:[{url:image,caption:'Första bildtexten'},{url:image,caption:'Andra bildtexten'}]}]};
+const scenarios={normal:{},titleOnly:{description:"",ctaHref:""},person:{name:"Alexandra Pascalidou",headline:"Journalist och författare",description:"Alexandra skriver och föreläser."},long:{headline:'Ett väldigt långt företagslöfte som måste förbli läsbart i varje design och på alla skärmstorlekar utan att klippa några ord alls.',description:'Originalets långa introduktion. '.repeat(90)},empty:{hero:'',cards:[]},gallery:{heroGallery:[{url:image,caption:'Bild ett'},{url:image,caption:'Bild två'}]},brand:{branding:{background:'#14212e',surface:'#25384c',text:'#ffffff',headerBackground:'#ffffff',headerText:'#111111'},typography:{heading:'Georgia',body:'Verdana'}},framing:{heroGallery:[{url:image,presentation:{fit:'contain',ratio:'original',x:12,y:34}}]}};
+const hex=rgb=>'#'+rgb.match(/\d+/g).slice(0,3).map(n=>Number(n).toString(16).padStart(2,'0')).join('');
+for(const id of ['cinema','pop','atelier','precision'])for(const width of [375,820,1280])for(const [scenario,changes]of Object.entries(scenarios)){
+ const p={...base,...changes,templateId:id};frame.width=width;frame.height=900;
+ await new Promise(resolve=>{frame.onload=resolve;frame.srcdoc=renderDemo(p);});
+ const d=frame.contentDocument,w=frame.contentWindow,style=e=>w.getComputedStyle(e),check=(ok,msg)=>{if(!ok)failures.push(`${id}/${width}/${scenario}: ${msg}`);};cases++;
+ check(d.documentElement.scrollWidth<=width,'horizontal overflow');
+ check(d.querySelector('h1').textContent===p.headline,'headline changed');
+ check((d.querySelector('.hero-copy>p:not(.profile-name)')?.textContent||'')===p.description.trim(),'description changed');
+ check(d.querySelectorAll('.card').length===p.cards.length,'sections lost');
+ check(d.querySelectorAll('.nav-links a').length===3,'navigation lost');
+ const hero=d.querySelector('.hero-layout'),copy=d.querySelector('.hero-copy'),rect=copy.getBoundingClientRect(),heroRect=hero.getBoundingClientRect();
+ check(rect.left>=-1&&rect.right<=width+1,'copy outside viewport');
+ check(rect.bottom<=heroRect.bottom+1,'copy outside hero');
+ if(id==='pop'&&scenario==='titleOnly'&&width>760)check(style(copy).display==='flex','title-only panel alignment');
+ if(id==='cinema')check(style(copy).color==='rgb(255, 250, 241)','cinema text is not readable on dark stage');
+ if(id==='pop')check(contrast(hex(style(copy).color),hex(style(copy).backgroundColor))>=4.5,'pop text contrast');
+ if(scenario==='brand')check(style(d.querySelector('h1')).fontFamily.includes('Georgia'),'source font lost');
+ if(scenario==='framing')check(style(d.querySelector('.hero-image')).objectFit==='contain','explicit image framing lost');
+ if(width===1280&&scenario==='normal')signatures.add([style(hero).display,style(copy).backgroundColor,style(d.querySelector('.hero-image')).borderRadius,style(d.querySelector('.card')).borderRadius,style(d.querySelector('.button')).borderRadius].join('|'));
+ out.textContent=`${cases} scenarios…`;
+}
+if(signatures.size!==4)failures.push('Directions are not visually distinct');
+ document.title=failures.length?'FAIL design directions':'PASS design directions';out.textContent=failures.length?'FAIL\n'+failures.join('\n'):`PASS ${cases} scenarios; 4 distinct compositions; responsive, source content, source fonts, contrast, framing`;
+</script></html>

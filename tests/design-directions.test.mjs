@@ -91,3 +91,10 @@ test('building trust and building software are not construction industry cues',(
 test('many repeated secondary cards cannot outweigh an explicit business name',()=>{
  assert.equal(recommendDirections({name:'Klar Advokatbyrå',cards:Array.from({length:40},()=>({title:'Café',description:'Restaurang med lunch'}))})[0].templateId,'consulting');
 });
+
+test('new visual families are recommended for relevant businesses without changing source content',()=>{
+ for(const [name,expected] of [['Café och restaurang','pop'],['Butik med produkter','atelier'],['Hotell och boende','cinema'],['Skräddarsydda webblösningar','precision']]) {
+  const project=Object.freeze({name,hero:'/original.jpg'});
+  assert.ok(recommendDirections(project).some(d=>d.templateId===expected));
+ }
+});

@@ -5,10 +5,20 @@ import { encodeProject, decodeProject } from '../public/share.mjs';
 import { restoreProject } from '../public/project-tools.mjs';
 import { templates } from '../public/templates.mjs';
 
-test('ten distinct industry templates are available',()=>{
-  assert.equal(templates.length,10);
-  assert.equal(new Set(templates.map(t=>t.id)).size,10);
+test('fourteen distinct industry templates are available',()=>{
+  assert.equal(templates.length,14);
+  assert.equal(new Set(templates.map(t=>t.id)).size,14);
   for(const id of ['editorial','construction','hospitality','consulting'])assert.ok(templates.some(t=>t.id===id));
+});
+
+test('art directions are selectable, preserve source copy and only ship their own style',()=>{
+  for(const templateId of ['cinema','pop','atelier','precision']) {
+    const html=renderDemo({templateId,importedAt:'today',name:'Kundens namn',headline:'Kundens rubrik',description:'Oförändrad introduktion',hero:'/photo.jpg',cards:[{title:'Kundens avsnitt',description:'Oförändrad text',image:'/second.jpg'}]});
+    assert.equal(normalizeProject({templateId}).templateId,templateId);
+    assert.match(html,new RegExp('Art direction: '+templateId));
+    for(const text of ['Kundens rubrik','Oförändrad introduktion','Kundens avsnitt','Oförändrad text'])assert.ok(html.includes(text));
+    assert.equal((html.match(/Art direction:/g)||[]).length,1);
+  }
 });
 
 test('a supplied wordmark is not framed or duplicated by a second company name',()=>{

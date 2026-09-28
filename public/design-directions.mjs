@@ -1,19 +1,23 @@
 import {detectSectionKind} from './section-design.mjs';
 import {sectionComposition} from './composition.mjs';
 const profiles = [
-  {cues:/^(journalist|forfattare|author$|novelist|poet$|dramatiker|fotograf|photographer|konstnar|artist$)/,ids:['editorial','story','studio']},
-  {cues:/^(webblosning|webbplats|hemsidor|mjukvara|software|webbutveckl|digitalbyra)/,ids:['story','consulting','studio']},
+  {cues:/^(journalist|forfattare|author$|novelist|poet$|dramatiker|fotograf|photographer|konstnar|artist$)/,ids:['editorial','story','atelier']},
+  {cues:/^(webblosning|webbplats|hemsidor|mjukvara|software|webbutveckl|digitalbyra)/,ids:['precision','consulting','studio']},
   {cues:/^(annons|annonser|annonsera|dooh$|utomhusreklam|storbildsskarm)/,ids:['editorial','story','studio']},
-  {cues:/^(butik|sortiment|produkt|retail|shop$)/,ids:['story','retail','studio']},
-  {cues:/^(restaurang|cafe|bageri|lunch|restaurant|bakery|dining)/,ids:['story','dining','studio']},
+  {cues:/^(butik|sortiment|produkt|retail|shop$)/,ids:['atelier','retail','pop']},
+  {cues:/^(restaurang|cafe|bageri|lunch|restaurant|bakery|dining)/,ids:['cinema','dining','pop']},
   {cues:/^(salong|behandling|klinik|traning|frisor|halsa|wellness|yoga|spa$)/,ids:['wellness','story','studio']},
   {cues:/^(bygg$|byggforetag|byggfirma|byggbolag|byggtjanst|hantverk|verkstad|snickeri|renover|construction)/,ids:['services','construction','studio']},
-  {cues:/^(hotell|hotel|boende|resa$|resor|upplevelse|hospitality)/,ids:['story','hospitality','dining']},
+  {cues:/^(hotell|hotel|boende|resa$|resor|upplevelse|hospitality)/,ids:['story','hospitality','cinema']},
   {cues:/^(radgiv|jurid|jurist|advokat|konsult|redovis|consult|law$|accounting)/,ids:['consulting','story','services']},
-  {cues:/^(arkitekt|architect|inred|kultur|magasin|editorial|design)/,ids:['story','editorial','studio']},
+  {cues:/^(arkitekt|architect|inred|kultur|magasin|editorial|design)/,ids:['story','editorial','atelier']},
 ];
 
 const reasons = {
+  cinema:'Ger verksamheten en filmisk entré med panoramabild och stora bildberättelser.',
+  pop:'Ger innehållet ett lekfullt uttryck med färgblock, fylliga rubriker och rundade bildkort.',
+  atelier:'Ger bilder och text en elegant rytm med bildvalv och asymmetriska uppslag.',
+  precision:'Ger erbjudandet struktur med centrerad introduktion och tydliga innehållspaneler.',
   story:'Ger innehållet luft med generösa mellanrum och tydlig läsordning.',
   studio:'Ger innehållet större uttryck med stor typografi och breda bildsektioner.',
   services:'Ger tjänstetexter tydliga sektioner och ett framträdande erbjudande.',
