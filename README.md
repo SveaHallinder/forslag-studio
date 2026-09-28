@@ -406,3 +406,19 @@ Verifiering: lint, build, 203 Node-tester, 90 nya layoutscenarier och 30 tidigar
 3. Prova en huvudrubrik över 80 tecken och över 150 tecken: alla ord ska vara kvar, med mindre typografi på desktop/mobil.
 4. Lägg tre korta tjänsteblock efter varandra. De ska visas i tre kolumner på desktop och staplas på mobil. En lång berättelse eller FAQ ska bryta gruppen.
 5. Spara en projektkopia och öppna kundlänken. Kontrollera samma ordning, texter, meny, färger, typsnitt och manuella bildinställningar.
+
+## Menyer för alla mallar, 28 september 2026
+
+Headern får tre uttryck utifrån vald mall: rundad för Bild & berättelse, Hälsa & skönhet och Butik & sortiment; redaktionell för Studio, Restaurang och Magasin; strukturerad för tjänste-, bygg-, hotell- och konsultmallarna. Originalets menytexter, destinationer, ordning och logotyp behålls. En befintlig kontakt- eller bokningslänk blir en tydligare knapp. Importerade menyfärger behålls och logotypen får begränsad höjd utan beskärning eller extra bakgrundsplatta.
+
+På mindre skärmar, vid fler än fem länkar eller sammanlagt mer än 64 tecken visas en öppningsbar meny. Den stöder tangentbord, Escape med återställt fokus och stängning efter länkval. Redigeringsläget öppnar menyeditorn även från mobilknappen. Saknad importerad navigation ger ingen påhittad meny. Ingen dependency eller ändrad projektstruktur.
+
+Verifiering: lint, build, 207 Node-tester; 90 menyfall (tio mallar × tre bredder × tom/normal/lång meny), 41 brandingkontroller och fem tidigare redigeringskontroller. HallInc granskad visuellt på desktop och 375 px; den fristående HTML-demons Escape/fokus testades utan modulinstallation. Testerna bevisar menyhanteringen för dessa fall, inte automatiskt perfekt innehåll/import från alla webbplatser.
+
+### QA i fem steg
+
+1. Öppna localhost:4174 och ladda om. Öppna ett befintligt importerat projekt med meny och logotyp.
+2. Växla mellan Bild & berättelse, Magasin & arkitektur och en tjänstemall: kontrollera tre olika headers, loggans proportioner och originalets färger/länkar.
+3. Växla till mobil: öppna Meny med tangentbord, stäng med Escape och kontrollera att fokus återgår. Öppna igen och välj en intern länk.
+4. Lägg sex eller fler menylänkar och prova ett långt företagsnamn. Kontrollera att menyn öppnas separat, alla länkar finns kvar och inget sticker ut åt sidan. Prova också tom meny.
+5. Öppna Redigera direkt och klicka Meny på mobil. Ändra en länk, spara, öppna kundlänken och ladda ner HTML-demon; kontrollera samma meny och fungerande mobilkontroll.

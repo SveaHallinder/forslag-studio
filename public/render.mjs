@@ -1,3 +1,4 @@
+import {renderHeader,installHeaderNavigation,navigationCSS} from './navigation.mjs';
 import {sectionComposition,compactCardIndices,compactTextIndices,paragraphContent,compositionCSS} from './composition.mjs';
 import {normalizePresentation,presentationStyle} from './image-presentation.mjs';
 import {sectionKinds,detectSectionKind,sectionDesignCSS} from './section-design.mjs';
@@ -133,16 +134,15 @@ function renderSingleDemo(raw, options = {}) {
   const imported=!!p.ctaHref||p.cards.some(c=>c.anchor)||((!!p.importedAt||p.navigation.length>0)&&!p.sectionIntro&&!p.about&&!p.benefits.length);
   const compact=imported?compactCardIndices(p.cards):new Set();
   const textCompact=imported?compactTextIndices(p.cards):new Set();
-  const navLinks=p.navigation.map(n=>`<a href="${e(n.href)}" ${/^https?:/.test(n.href)?'target="_blank" rel="noopener noreferrer" title="Öppnar företagets original"':''}>${e(n.label)}</a>`).join('');
   const body = `<div class="demo-note">Designförslag · Framtagen för ${e(p.name)}</div>
-  <div class="shell"><header class="nav"><a class="brand" href="#" aria-label="${e(p.name)} startsida">${p.logo ? `<span class="brand-mark">${pic(p.logo,p.name,'',false)}</span>`:e(p.name)}</a><nav class="nav-links" aria-label="Huvudmeny">${p.navigation.length?navLinks:imported?'':`${p.cards.length?'<a href="#erbjudande">Utforska</a>':''}${p.about?'<a href="#om">Om oss</a>':''}<a class="nav-contact" href="#kontakt">${e(p.cta)}</a>`}</nav></header>
+  <div class="shell">${renderHeader(p,imported,e,pic)}
   <main id="start"><div class="hero-layout" data-hero="${p.hero?'image':'text'}"><section class="hero-copy" data-density="${p.description.length>300?'long':'short'}">${p.eyebrow?`<div class="eyebrow">${e(p.eyebrow)}</div>`:''}<h1 data-length="${p.headline.length>150?'extended':p.headline.length>80?'long':'short'}">${e(p.headline)}</h1>${p.description?`<p>${paragraphContent(p.description,e)}</p>`:''}${!imported||p.ctaHref?`<a class="button" href="${e(p.ctaHref||(p.cards.length?'#erbjudande':'#kontakt'))}" ${/^https?:/.test(p.ctaHref)?'target="_blank" rel="noopener noreferrer"':''}>${imported?e(p.cta):p.cards.length?'Utforska vårt utbud':e(p.cta)}<span aria-hidden="true">↗</span></a>`:''}</section>
   ${visual}</div>${p.templateId!=='story'?benefits:''}
   ${p.cards.length?`<section class="section" id="erbjudande"><div class="section-top" ${imported?'hidden':''}><div><p class="section-kicker">${e(p.name)} / Utvalt</p><h2>${e(p.sectionTitle)}</h2></div>${p.sectionIntro?`<p>${e(p.sectionIntro)}</p>`:''}</div><div class="cards">${p.cards.map((c,i)=>renderContentCard(c,i,pic,imported||!!c.kind,compact.has(i),textCompact.has(i))).join('')}</div></section>`:''}
   ${p.about?`<section class="section about" id="om"><div><p class="section-kicker">Om ${e(p.name)}</p><h2>${e(p.aboutTitle || p.name)}</h2></div><p>${e(p.about)}</p></section>`:''}
   <section class="contact" id="kontakt"><div><p class="section-kicker" style="color:#bcc9b8">Ta nästa steg</p><h2>${p.ctaHref?'Kontakt':e(p.cta)+'.'}</h2><div class="contact-links">${p.email?`<a href="mailto:${e(p.email)}">${e(p.email)}</a>`:''}${p.phone?`<a href="tel:${e(p.phone.replace(/[^+\d]/g,''))}">${e(p.phone)}</a>`:''}${p.address?`<span>${e(p.address)}</span>`:''}${!contact?'<span class="contact-empty">Kontaktuppgifter saknas i det här designförslaget.</span>':''}</div></div>${contact?`<a class="button accent" href="${e(contact)}">${p.email?'Skicka ett mejl':'Ring oss'}<span aria-hidden="true">↗</span></a>`:''}</section></main>
   <footer class="footer"><span class="brand-name">${e(p.name)}</span><span class="source">Designförslag · Innehåll och bilder från ${p.source?`<a href="${e(p.source)}" rel="noopener noreferrer" target="_blank">företagets webbplats</a>`:'företaget'}.</span></footer></div>`;
-  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${templateCSS}${homepageCSS}${templateContentCSS}${sectionDesignCSS}${compositionCSS}${brandingCSS(p.branding)}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}</body></html>`;
+  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${templateCSS}${homepageCSS}${templateContentCSS}${sectionDesignCSS}${compositionCSS}${brandingCSS(p.branding)}${typographyCSS(p.typography)}${navigationCSS}</style></head><body data-imported="${imported}" data-template="${p.templateId}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}<script data-header-navigation>(${installHeaderNavigation.toString()})(document);</script></body></html>`;
 }
 
 export function resolveDemoRoute(href,source,pages) {
@@ -157,6 +157,7 @@ export function resolveDemoRoute(href,source,pages) {
 }
 
 export function installDemoNavigation(doc=document,win=window,resolveRoute=resolveDemoRoute) {
+  if(typeof installHeaderNavigation==='function')installHeaderNavigation(doc);
   if(doc.__disposeDemoNavigation)doc.__disposeDemoNavigation();
   const stage=doc.querySelector('[data-demo-stage]'),data=doc.querySelector('script[data-demo-pages]');
   if(!stage||!data){

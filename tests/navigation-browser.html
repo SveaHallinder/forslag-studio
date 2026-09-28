@@ -1,0 +1,26 @@
+<!doctype html><meta charset="utf-8"><title>Header QA</title><pre id="results">Running</pre><iframe title="Header QA frame"></iframe><script type="module">
+import {renderDemo} from '/render.mjs';import {templates} from '/templates.mjs';import {installHeaderNavigation} from '/navigation.mjs';import {installPreviewEditing} from '/preview-edit.mjs';
+const frame=document.querySelector('iframe'),out=document.querySelector('pre'),results=[];
+const canvas=document.createElement('canvas');canvas.width=500;canvas.height=80;const c=canvas.getContext('2d');c.fillStyle='#112233';c.fillRect(0,0,500,80);const logo=canvas.toDataURL();
+for(const t of templates)for(const width of [375,820,1280])for(const count of [0,4,12]){
+ const p={name:count===12?'Ett riktigt långt företagsnamn som måste få plats i menyn':'Företaget',logo:count===4?logo:'',templateId:t.id,importedAt:'today',headline:'Original rubrik',accent:'#2546cb',branding:{headerBackground:'#fffaf1',headerText:'#182324'},navigation:Array.from({length:count},(_,i)=>({label:i===count-1?'Kontakt':'Original sida '+i,href:i===count-1?'#kontakt':'#start'}))};
+ frame.width=width;await new Promise(r=>{frame.onload=r;frame.srcdoc=renderDemo(p);});
+ const d=frame.contentDocument,w=frame.contentWindow,nav=d.querySelector('.nav'),menu=d.querySelector('details'),errors=[];installHeaderNavigation(d);
+ if(d.documentElement.scrollWidth>width)errors.push('page overflow');
+ if(count===4&&nav.getBoundingClientRect().height>(width>900?90:84))errors.push('header too tall');
+ if(d.querySelectorAll('.nav-links a').length!==count)errors.push('source links lost');
+ if(count===0&&menu)errors.push('empty menu');
+ if(count){const desktop=width>900&&count===4;if((w.getComputedStyle(menu).display==='none')!==desktop)errors.push('wrong menu mode');
+  if(!desktop){if(menu.open)errors.push('menu initially open');menu.querySelector('summary').click();if(!menu.open)errors.push('menu will not open');
+   const links=d.querySelector('.mobile-links'),r=links.getBoundingClientRect();if(r.left<0||r.right>width+1)errors.push('panel overflow');
+   for(const a of links.children)if(a.getBoundingClientRect().height<44)errors.push('small touch target');
+   menu.querySelector('summary').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));if(menu.open||d.activeElement!==menu.querySelector('summary'))errors.push('escape/focus');
+   menu.open=true;d.addEventListener('click',e=>e.preventDefault(),{once:true});links.querySelector('a').click();if(menu.open)errors.push('link did not close menu');
+   let selected;const dispose=installPreviewEditing(d,{onSelect:x=>selected=x});menu.querySelector('summary').click();if(selected?.type!=='navigation')errors.push('mobile editing target');dispose();
+  }
+ }
+ const brand=nav.querySelector('.brand').getBoundingClientRect(),nr=nav.getBoundingClientRect();if(brand.right>nr.right+1||brand.bottom>nr.bottom+1)errors.push('brand overflow');
+ results.push((errors.length?'FAIL':'PASS')+' '+t.id+'/'+width+'/'+count+' '+errors.join(', '));out.textContent=results.join('\n');
+}
+out.textContent+='\n'+results.length+' scenarios';document.title=results.some(r=>r.startsWith('FAIL'))?'FAIL headers':'PASS headers';
+</script>
