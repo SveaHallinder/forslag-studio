@@ -19,6 +19,6 @@ export function typographyCSS(raw) {
   const t=normalizeTypography(raw);if(!t)return '';
   const quote=value=>JSON.stringify(value).replace(/</g,'\\3c ').replace(/>/g,'\\3e ');
   const css=t.faces.map(f=>`@font-face{font-family:${quote(f.family)};src:url(${quote(f.url.startsWith('data:')?f.url:'/api/font?url='+encodeURIComponent(f.url))});font-weight:${f.weight};font-style:${f.style};font-display:swap;${f.unicodeRange?'unicode-range:'+f.unicodeRange+';':''}}`).join('');
-  const fallback=name=>/serif/i.test(name)&&!/sans/i.test(name)?'serif':'sans-serif';
-  return css+(t.body?`html body[data-template]{font-family:${quote(t.body)},${fallback(t.body)}}`:'')+(t.heading?`html body[data-template][data-imported] :is(h1,h2,h3,h4,.card h2,.card h3){font-family:${quote(t.heading)},${fallback(t.heading)}}`:'');
+  const fallback=name=>(/serif/i.test(name)&&!/sans/i.test(name))||/^Playfair Display$/i.test(name)?'serif':'sans-serif';
+  return css+(t.body?`html body[data-template]{font-family:${quote(t.body)},${fallback(t.body)}}`:'')+(t.heading?`html body[data-template][data-imported] :is(h1,h2,h3,h4,.card h2,.card h3,.profile-name){font-family:${quote(t.heading)},${fallback(t.heading)}}`:'');
 }

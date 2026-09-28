@@ -422,3 +422,21 @@ Verifiering: lint, build, 207 Node-tester; 90 menyfall (tio mallar × tre bredde
 3. Växla till mobil: öppna Meny med tangentbord, stäng med Escape och kontrollera att fokus återgår. Öppna igen och välj en intern länk.
 4. Lägg sex eller fler menylänkar och prova ett långt företagsnamn. Kontrollera att menyn öppnas separat, alla länkar finns kvar och inget sticker ut åt sidan. Prova också tom meny.
 5. Öppna Redigera direkt och klicka Meny på mobil. Ändra en länk, spara, öppna kundlänken och ladda ner HTML-demon; kontrollera samma meny och fungerande mobilkontroll.
+
+## Personporträtt och äldre färgprofiler, 28 september 2026
+
+Journalister, författare och liknande kreativa verksamheter får Magasin & arkitektur som första designförslag. Sparade mallval byts inte automatiskt. När namn, yrkesrubrik och biografins inledning tillsammans pekar på en person visas namnet tydligare, originalrubriken som yrkesbeskrivning och porträttet i ett stående format. På mobil kommer porträttet före den längre biografin. Originaltexten ändras inte. Namn och introduktion har separata redigeringsmål.
+
+Enskilda bilder uttryckligen märkta ”bokomslag” eller ”book cover” får obeskurna bokytor, två kolumner på desktop och en på mobil. Företagsbilder och omärkta foton får inte automatiskt den behandlingen. Ingen schemaändring eller ny dependency.
+
+Äldre webbplatser utan färgvariabler kan få en profilfärg från minst tre olika innehållslänkars överensstämmande textfärg. Nästan identiska färger (högst tre RGB-steg per kanal) behandlas som samma familj; en faktiskt förekommande färg väljs. Verkligt skilda eller responsivt motstridiga färger lämnas för granskning. WordPress-blockens egna bakgrunder kan identifieras som ytton. Playfair Display får en serif-reservfont om originalfilen saknas; det är inte en exakt återgivning av den saknade fontfilen.
+
+Verifiering: lint, build, 212 Node-tester, 21 brandingfall, 30 person-/boklayouter över tio mallar och tre bredder samt sex redigeringsfall. Alexandra-exportens text jämfördes på samtliga sex sidor och alla 52 bildinstanser matchade originalfilens bilddata. Bokundersidans navigation och återgång till startsidan kontrollerades. Desktop, mobil och bokpar granskades visuellt.
+
+### QA i fem steg
+
+1. Öppna localhost:4174. Hämta Pascalidou på nytt för att uppdatera den tidigare grå färgprofilen; välj första designförslaget Magasin & arkitektur. Gamla sparade färger ändras inte av en omladdning.
+2. Kontrollera rosa accent, ljusrosa ytor, namn-/yrkesrubrikens hierarki och rätt porträtt. En saknad separat logotyp visas fortfarande som textnamn.
+3. Växla till mobil: kontrollera att porträttet ligger före biografin, att texten är komplett och att inget sticker ut åt sidan.
+4. Granska Mammorna och me too: omslagen ska visas hela, sida vid sida på desktop och staplade på mobil. Klicka på namnet respektive biografin i redigeringsläge och kontrollera rätt fält.
+5. Öppna den uppdaterade Alexandra-HTML-filen. Välj Författare i menyn, kontrollera bokundersidan och gå tillbaka via namnet. Pressrum, Kontakt och Blogg öppnar fortfarande originalet eftersom de inte ingick bland de fem importerade undersidorna.

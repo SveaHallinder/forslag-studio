@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><title>Personal design QA</title><pre id="results"></pre><iframe title="Personal design fixture"></iframe><script type="module">
+import {renderDemo} from '/render.mjs';import {templates} from '/templates.mjs';
+const frame=document.querySelector('iframe'),out=document.querySelector('pre'),results=[];
+const canvas=document.createElement('canvas');canvas.width=400;canvas.height=600;const ctx=canvas.getContext('2d');ctx.fillStyle='#442233';ctx.fillRect(0,0,400,600);const image=canvas.toDataURL();
+for(const template of templates)for(const width of [375,820,1280]){
+ const p={name:'Alexandra Pascalidou',headline:'Flerfaldigt prisbelönt journalist, författare och människorättskämpe',description:'Alexandra är journalist och författare. '+('Originalets berättelse. '.repeat(20)),hero:image,importedAt:'today',templateId:template.id,accent:'#da2c7c',branding:{background:'#ffffff',surface:'#fff9fc',text:'#404040'},cards:[1,2].map(i=>({title:'Bok '+i,description:'Original text '.repeat(30),gallery:[{url:image,label:'Bokomslag '+i}]}))};
+ frame.width=width;await new Promise(r=>{frame.onload=r;frame.srcdoc=renderDemo(p);});const d=frame.contentDocument,w=frame.contentWindow,errors=[];
+ if(d.documentElement.scrollWidth>width)errors.push('page overflow');
+ const name=d.querySelector('.profile-name'),headline=d.querySelector('h1'),books=[...d.querySelectorAll('[data-publication]')];
+ if(name.textContent!==p.name||headline.textContent!==p.headline||d.querySelector('.hero-copy>p:not(.profile-name)').textContent!==p.description.trim())errors.push('copy changed');
+ if(parseFloat(w.getComputedStyle(name).fontSize)<=parseFloat(w.getComputedStyle(headline).fontSize))errors.push('name hierarchy');
+ if(books.length!==2)errors.push('book missing');
+ if(books.length===2){const a=books[0].getBoundingClientRect(),b=books[1].getBoundingClientRect();if(width>760&&Math.abs(a.top-b.top)>2)errors.push('books not paired');if(width<=760&&b.top<a.bottom-1)errors.push('books not stacked');}
+ if(books.some(b=>w.getComputedStyle(b.querySelector('img')).objectFit!=='contain'))errors.push('cover cropped');
+ results.push((errors.length?'FAIL':'PASS')+' '+template.id+'/'+width+' '+errors.join(', '));out.textContent=results.join('\n');
+}
+document.title=results.some(x=>x.startsWith('FAIL'))?'FAIL personal design':'PASS personal design';out.textContent+='\n'+results.length+' scenarios';
+</script>

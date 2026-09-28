@@ -5,7 +5,7 @@ export function installPreviewEditing(doc,{onSelect,onExit=()=>{},cardIndexes=[]
   const add=(element,target,label)=>{if(!element)return;const attrs={};for(const key of ['tabindex','role','aria-label','title'])attrs[key]=element.getAttribute(key);nodes.set(element,{target,attrs});element.dataset.studioEdit='';element.tabIndex=0;element.setAttribute('role','button');element.setAttribute('aria-label','Redigera '+label);element.title='Redigera '+label;};
   const one=(selector,target,label)=>add(doc.querySelector(selector),target,label);
   one('.nav .brand',{type:'logo'},'logotyp');one('.nav-links',{type:'navigation'},'menyn');one('.mobile-menu summary',{type:'navigation'},'menyn');
-  for(const [selector,field,label] of [['h1','headline','huvudrubrik'],[':scope>p','description','introduktion'],['.eyebrow','eyebrow','liten rubrik'],['.button','cta','huvudknapp']])add(doc.querySelector('.hero-copy')?.querySelector(selector),{type:'field',field},label);
+  for(const [selector,field,label] of [['.profile-name','name','företagsnamn'],['h1','headline','huvudrubrik'],[':scope>p:not(.profile-name)','description','introduktion'],['.eyebrow','eyebrow','liten rubrik'],['.button','cta','huvudknapp']])add(doc.querySelector('.hero-copy')?.querySelector(selector),{type:'field',field},label);
   doc.querySelectorAll('.visual img').forEach((img,index)=>add(img,{type:'image',scope:'hero',index},'huvudbild '+(index+1)));
   doc.querySelectorAll('.cards>.card').forEach((card,renderedIndex)=>{
     const index=cardIndexes[renderedIndex]??renderedIndex;

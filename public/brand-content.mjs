@@ -107,6 +107,20 @@ export function extractBrand(doc,styleSources,{heading,button,logo}={}) {
     if(!uncertain&&ink&&colors.has(ink)){accent=ink;warnings.push('Färgen stöds av både huvudlänkens text och en global varumärkesvariabel. Kontrollera färgvalet före delning.');}
     else if(!uncertain&&colors.size===1)accent=[...colors][0];else if(uncertain||colors.size>1)warnings.push('Flera möjliga varumärkesfärger hittades. Välj färg manuellt.');
   }
+  if(!accent&&!buttonColor.uncertain){
+    // Legacy themes often repeat their brand ink on real content links instead
+    // of declaring a CSS variable. Require agreement across distinct targets.
+    const colors=new Map();let uncertain=false;
+    for(const link of [...doc.querySelectorAll('main a[href],[role="main"] a[href]')].slice(0,100)){
+      if(link.closest('nav,aside,footer')||!link.textContent.trim())continue;
+      const entry=resolved(link,'color');uncertain ||= entry.uncertain;
+      const color=entry.uncertain?'':colorHex(doc,entry.value);if(!color)continue;
+      if(!colors.has(color))colors.set(color,new Set());colors.get(color).add(link.getAttribute('href'));
+    }
+    const ranked=[...colors].sort((a,b)=>b[1].size-a[1].size),candidate=ranked[0]?.[0];
+    const agrees=candidate&&ranked.every(([color])=>[1,3,5].every(i=>Math.abs(parseInt(color.slice(i,i+2),16)-parseInt(candidate.slice(i,i+2),16))<=3));
+    if(!uncertain&&agrees&&new Set(ranked.flatMap(([,targets])=>[...targets])).size>=3){accent=candidate;warnings.push('Profilfärgen är hämtad från återkommande länkar i originalets innehåll. Kontrollera färgvalet före delning.');}
+  }
   if(!accent&&!warnings.some(warning=>/färg/.test(warning)))warnings.push('Ingen säker varumärkesfärg hittades. Mallens färg används tills du väljer en egen.');
   for(const family of new Set([headingFamily,bodyFamily].filter(Boolean)))if(!/^(?:serif|sans-serif|monospace|cursive|fantasy|system-ui|Arial|Verdana|Georgia|Times New Roman|Helvetica|Tahoma|Trebuchet MS|Courier New)$/i.test(family)&&!faces.some(face=>face.family===family))warnings.push(`Typsnittet ${family} hittades men ingen tillgänglig fontfil. Webbläsarens reservfont kan användas.`);
   const colorFor=(element,property)=>{if(!element)return '';const entry=resolved(element,property);return entry.uncertain?'':colorHex(doc,entry.value,true);};
@@ -120,7 +134,7 @@ export function extractBrand(doc,styleSources,{heading,button,logo}={}) {
   };
   const header=logo?.closest('header,[data-elementor-type="header"]')||doc.querySelector('header,[data-elementor-type="header"]');
   const paragraph=doc.querySelector('main p,[role="main"] p,p'),background=backgroundFor(doc.body);
-  const surface=[...doc.querySelectorAll('main section,main article,[role="main"] section')].map(el=>colorFor(el,'background-color')).find(value=>value&&value!==background)||'';
+  const surface=[...doc.querySelectorAll('main section,main article,main .has-background,[role="main"] section')].map(el=>colorFor(el,'background-color')).find(value=>value&&value!==background)||'';
   const secondaryButton=doc.querySelector('main a[class*="secondary"],main button[class*="secondary"]');
   let secondary=colorFor(secondaryButton,'background-color');
   if(!secondary){const values=new Set();for(const el of [doc.documentElement,doc.body])for(const name of new Set(declarations(el).flatMap(rule=>[...rule.style]).filter(name=>/^--(?:brand-|color-)?secondary(?:-color)?$/i.test(name)))){const entry=resolved(el,name);if(!entry.uncertain){const color=colorHex(doc,entry.value,true);if(color)values.add(color);}}if(values.size===1)secondary=[...values][0];}

@@ -1,6 +1,7 @@
 import {detectSectionKind} from './section-design.mjs';
 import {sectionComposition} from './composition.mjs';
 const profiles = [
+  {cues:/^(journalist|forfattare|author$|novelist|poet$|dramatiker|fotograf|photographer|konstnar|artist$)/,ids:['editorial','story','studio']},
   {cues:/^(webblosning|webbplats|hemsidor|mjukvara|software|webbutveckl|digitalbyra)/,ids:['story','consulting','studio']},
   {cues:/^(annons|annonser|annonsera|dooh$|utomhusreklam|storbildsskarm)/,ids:['editorial','story','studio']},
   {cues:/^(butik|sortiment|produkt|retail|shop$)/,ids:['story','retail','studio']},
