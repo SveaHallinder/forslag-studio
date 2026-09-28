@@ -43,7 +43,7 @@ for(const templateId of templates.map(t=>t.id)) {
     assert.equal(decoded.heroPosition,0);
     const html=renderDemo(decoded);
     assert.match(html,new RegExp(`data-template="${templateId}"`));
-    assert.equal((html.match(/<h1>/g)||[]).length,1);
+    assert.equal((html.match(/<h1\b[^>]*>/g)||[]).length,1);
     for(const text of ['Åkes ateljé','Vårt arbete','En egen beskrivning','Lokalt','Nära dig'])assert.ok(html.includes(text));
   });
   test(`${templateId} handles text-only projects and untrusted content`,()=>{

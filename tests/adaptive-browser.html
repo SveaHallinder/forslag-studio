@@ -1,0 +1,21 @@
+<!doctype html><html><meta charset="utf-8"><title>Adaptive QA</title><pre id="results">Running</pre><iframe title="Adaptive layout"></iframe><script type="module">
+import {renderDemo} from '/render.mjs';import {templates} from '/templates.mjs';
+const frame=document.querySelector('iframe'),out=document.querySelector('pre'),results=[];
+const canvas=document.createElement('canvas');canvas.width=600;canvas.height=400;const ctx=canvas.getContext('2d');ctx.fillStyle='#718b8c';ctx.fillRect(0,0,600,400);const image=canvas.toDataURL();
+const headlines=['Rådgivning som tar dig vidare','Vi hjälper företag och privatpersoner med genomtänkta lösningar, personlig rådgivning och långsiktiga samarbeten i hela Sverige','Vi hjälper företag och privatpersoner med genomtänkta lösningar, personlig rådgivning och långsiktiga samarbeten i hela Sverige – från första samtalet till det färdiga resultatet.'];
+for(const template of templates)for(const width of [375,820,1280])for(const [index,headline] of headlines.entries()){
+ const cards=[{title:'Ett längre avsnitt',description:'Originaltext med sammanhang. '.repeat(30)},...['Planering','Genomförande','Uppföljning'].map((title,i)=>({title,description:'Personlig hjälp från start till mål.',kind:'service',anchor:'service-'+i})),{title:'Nästa länk',href:'#kontakt'}];
+ frame.width=width;await new Promise(resolve=>{frame.onload=resolve;frame.srcdoc=renderDemo({name:'Klar rådgivning',headline,description:'Tydliga råd och personlig kontakt.',templateId:template.id,importedAt:'today',hero:index===2?'':image,cards});});
+ const d=frame.contentDocument,w=frame.contentWindow,errors=[],h=d.querySelector('h1'),texts=[...d.querySelectorAll('[data-density="text-compact"]')];
+ if(d.documentElement.scrollWidth>width)errors.push('page overflow');
+ if(h.textContent!==headline)errors.push('source headline changed');
+ if(index>0&&parseFloat(w.getComputedStyle(h).fontSize)>(index===2?54:66))errors.push('headline too large');
+ if(texts.length!==3)errors.push('missing text blocks');
+ if(width>760&&texts.some(el=>Math.abs(el.getBoundingClientRect().top-texts[0].getBoundingClientRect().top)>1))errors.push('not one desktop row');
+ if(width<=760&&texts.some((el,i)=>i&&el.getBoundingClientRect().top<texts[i-1].getBoundingClientRect().bottom-1))errors.push('mobile overlap');
+ for(const el of texts){const r=el.getBoundingClientRect();for(const child of el.querySelectorAll('h2,p')){const b=child.getBoundingClientRect();if(b.right>r.right+1||b.bottom>r.bottom+1)errors.push('card content overflow');}}
+ const last=texts.at(-1).getBoundingClientRect(),next=d.querySelector('[data-composition="link"]').getBoundingClientRect();if(next.top<last.bottom-1)errors.push('next section overlaps');
+ results.push((errors.length?'FAIL':'PASS')+' '+template.id+'/'+width+'/'+index+' '+errors.join(', '));out.textContent=results.join('\n');
+}
+out.textContent+='\n'+results.length+' scenarios';document.title=results.some(x=>x.startsWith('FAIL'))?'FAIL adaptive':'PASS adaptive';
+</script></html>

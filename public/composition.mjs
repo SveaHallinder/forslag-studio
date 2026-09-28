@@ -16,6 +16,16 @@ export function compactCardIndices(cards) {
   }
   return result;
 }
+export function compactTextIndices(cards) {
+  const result=new Set(),eligible=card=>!card.image&&!card.gallery?.length&&card.title.length<=80&&card.description.length>=20&&card.description.length<=180&&!card.description.includes('\n')&&['generic','service'].includes(detectSectionKind(card));
+  for(let start=0;start<cards.length;){
+    if(!eligible(cards[start])){start++;continue;}
+    let end=start+1;while(end<cards.length&&eligible(cards[end]))end++;
+    if(end-start>=3)for(let i=start;i<end;i++)result.add(i);
+    start=end;
+  }
+  return result;
+}
 export function paragraphContent(value,escape) {
   if(!/\n\s*\n/.test(value))return escape(value);
   return String(value).split(/(\n\s*\n)/).map((part,i)=>i%2?part:`<span class="copy-part">${escape(part)}</span>`).join('');
@@ -230,4 +240,23 @@ html body[data-template][data-imported="true"] .card[data-composition="logos"] f
  html body[data-template][data-imported="true"] .footer{align-items:flex-start}
 }
 @media(prefers-reduced-motion:reduce){html body[data-template][data-imported="true"] .button,html body[data-template][data-imported="true"] .button:hover{transition:none;transform:none}}
+
+/* Content length adjusts typesetting, never the source words or chosen fonts. */
+html body[data-template][data-imported="true"] .hero-copy h1[data-length="long"]{font-size:clamp(38px,4.5vw,66px);line-height:1.12;letter-spacing:-.035em;max-width:28ch}
+html body[data-template][data-imported="true"] .hero-copy h1[data-length="extended"]{font-size:clamp(34px,3.7vw,54px);line-height:1.16;letter-spacing:-.025em;max-width:34ch}
+@media(min-width:761px){
+ html body[data-template][data-imported="true"] .card[data-density="text-compact"]{grid-column:span 2;display:block;padding:36px 0 48px!important}
+ html body[data-template][data-imported="true"] .card[data-density="text-compact"] .card-meta>div{display:block}
+ html body[data-template][data-imported="true"] .card[data-density="text-compact"] h2{font-size:clamp(24px,2.3vw,34px);line-height:1.2;margin-bottom:18px}
+ html body[data-template][data-imported="true"] .card[data-density="text-compact"] p{font-size:15px;line-height:1.75}
+ html body[data-template][data-imported="true"] .card:not([data-density="text-compact"])+.card[data-density="text-compact"],html body[data-template][data-imported="true"] .card[data-density="text-compact"]:first-child{grid-column:1/span 2}
+ html body[data-template][data-imported="true"] .card[data-density="text-compact"]+.card[data-composition="link"]{grid-column:1/span 2}
+}
+@media(max-width:760px){
+ html body[data-template][data-imported="true"] .hero-layout[data-hero="text"]{padding:44px 0 56px}
+ html body[data-template][data-imported="true"] .hero-copy h1[data-length="long"]{font-size:32px;max-width:28ch}
+ html body[data-template][data-imported="true"] .hero-copy h1[data-length="extended"]{font-size:28px;max-width:34ch}
+ html body[data-template][data-imported="true"] .card[data-density="text-compact"]{padding:28px 0!important;gap:16px}
+ html body[data-template][data-imported="true"] .card[data-density="text-compact"] h2{font-size:26px}
+}
 `;

@@ -44,3 +44,23 @@ test('explicit partner galleries use a compact logo band and retain captions',()
  const ordinary=renderDemo({...base,cards:[{title:'Våra platser',gallery:[{url:'https://example.com/a.jpg'},{url:'https://example.com/b.jpg'}]}]});
  assert.ok(ordinary.includes('<article data-composition="collection"'));
 });
+test('long source headlines get derived typesetting without changing words or saved data',()=>{
+ const headline='Vi hjälper företag och privatpersoner med genomtänkta lösningar, personlig rådgivning och långsiktiga samarbeten i hela Sverige';
+ const input={...base,headline},before=JSON.stringify(input),html=renderDemo(input);
+ assert.match(html,/<h1 data-length="long">/);
+ assert.ok(html.includes(headline));assert.equal(JSON.stringify(input),before);
+ assert.match(renderDemo({...base,headline:'Kort rubrik'}),/<h1 data-length="short">/);
+});
+test('short consecutive service texts form a compact text group while stories remain full width',()=>{
+ const cards=[{title:'Story',description:'Long copy. '.repeat(100)},...['Planering','Genomförande','Uppföljning'].map(title=>({title,description:'Personlig hjälp från start till mål.',kind:'service'})),{title:'Vanliga frågor',description:'Fråga?\nSvar.'}];
+ const input={...base,cards},before=JSON.stringify(input),html=renderDemo(input);
+ assert.equal((html.match(/<article[^>]*data-density="text-compact"/g)||[]).length,3);
+ assert.equal(JSON.stringify(input),before);assert.ok(html.includes('Long copy. '));
+});
+test('text grouping leaves image, FAQ, prices and paragraph structure alone',()=>{
+ const short={title:'Tjänst',description:'En kort originalbeskrivning för kunden.'};
+ for(const middle of [{...short,kind:'faq'},{...short,kind:'pricing'},{...short,description:'Första stycket.\n\nAndra stycket.'},{...short,image:'https://example.com/a.jpg'}]){
+  const html=renderDemo({...base,cards:[short,middle,short]});
+  assert.equal((html.match(/<article[^>]*data-density="text-compact"/g)||[]).length,0);
+ }
+});

@@ -390,3 +390,19 @@ Begränsningar: pilotens video är ersatt med en stillbild. Undersidor i menyn �
 6. Öppna editorn, importera Vegavista utan undersidor och välj Magasin & arkitektur. Granska videovarningen och välj önskad huvudbild; spara och skapa kundlänk. Nya importer ändrar inte den statiska piloten.
 
 Verifiering: lint, build och 195 Node-tester; 16 pilotimportkontroller, 83 tidigare importkontroller och 30 portfoliolayouter över tio mallar. Kunddemon granskades visuellt på desktop och mobil; alla tio plats-/bild-/storlekskopplingar kontrollerades. Publiceringsstatus dokumenteras separat med exakt commit.
+
+## Innehållsanpassad design, 28 september 2026
+
+Tre designförslag väger nu företagets namn och huvudbudskap tyngre än upprepad sekundär text. Ord som ”bygger förtroende” ger inte längre byggfirmemallar. Digitala tjänster och annonsering har egna urvalsregler bland de tio befintliga mallarna. Partnergallerier och teamsektioner räknas inte som produktbilder. En längre introduktion utan huvudbild får ett textorienterat förstaförslag. Användarens valda mall byts inte automatiskt.
+
+Långa huvudrubriker får anpassad typstorlek utan omskrivning. Tre eller fler sammanhängande korta text-/tjänsteblock får tre desktopkolumner och en mobilkolumn. Flerstyckestext, FAQ, priser, omdömen och bildsektioner behåller sin struktur. Ingen ny dependency eller ändrad projektstruktur.
+
+Verifiering: lint, build, 203 Node-tester, 90 nya layoutscenarier och 30 tidigare portfolioscenarier. Sparade HallInc-/Vegavista-importer och designväljarens UI kontrollerade. Texttung testdemo granskad på desktop/mobil. Detta är inte ett löfte om perfekt import från varje webbplats.
+
+### QA i fem steg
+
+1. Öppna localhost:4174 eller livesidan och ladda om. Öppna ett importerat projekt.
+2. Välj Tre designförslag: HallInc ska få riktningar för digitala tjänster, Vegavista för annonsering. Kontrollera att öppna/stänga dialogen inte byter vald mall.
+3. Prova en huvudrubrik över 80 tecken och över 150 tecken: alla ord ska vara kvar, med mindre typografi på desktop/mobil.
+4. Lägg tre korta tjänsteblock efter varandra. De ska visas i tre kolumner på desktop och staplas på mobil. En lång berättelse eller FAQ ska bryta gruppen.
+5. Spara en projektkopia och öppna kundlänken. Kontrollera samma ordning, texter, meny, färger, typsnitt och manuella bildinställningar.

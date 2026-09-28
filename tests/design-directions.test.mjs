@@ -69,3 +69,25 @@ test('recommendations are deterministic and never change project or previous res
 test('unrelated words do not turn ordinary company information into a dining recommendation',()=>{
   assert.deepEqual(recommendDirections({description:'Information om företaget'}),recommendDirections({}));
 });
+
+test('repeated secondary copy does not override the company’s own business heading',()=>{
+ const directions=recommendDirections({name:'Klar Advokatbyrå',headline:'Juridisk rådgivning för företag',cards:[{title:'Nyheter',description:'Restaurang café lunch '.repeat(60)}]});
+ assert.equal(directions[0].templateId,'consulting');
+});
+test('partner logos and team portraits are not counted as a product catalogue',()=>{
+ const directions=recommendDirections({cards:[{title:'Our partners',gallery:[{url:'/a.png'},{url:'/b.png'},{url:'/c.png'}]},{title:'Team',image:'/team.jpg'}]});
+ assert.notEqual(directions[1].templateId,'retail');
+});
+test('a text-heavy introduction without a hero favours a readable first direction',()=>{
+ const directions=recommendDirections({name:'Hotell Utsikten',description:'Vår berättelse. '.repeat(70)});
+ assert.equal(directions[0].templateId,'consulting');
+ assert.ok(directions.some(d=>d.templateId==='hospitality'));
+ assert.match(directions[0].reason,/introduktion/);
+});
+test('building trust and building software are not construction industry cues',()=>{
+ assert.deepEqual(recommendDirections({description:'Vi bygger förtroende genom långsiktiga relationer.'}),recommendDirections({}));
+ assert.ok(!recommendDirections({headline:'Skräddarsydda webblösningar',description:'Vi bygger digitala verktyg.'}).some(d=>d.templateId==='construction'));
+});
+test('many repeated secondary cards cannot outweigh an explicit business name',()=>{
+ assert.equal(recommendDirections({name:'Klar Advokatbyrå',cards:Array.from({length:40},()=>({title:'Café',description:'Restaurang med lunch'}))})[0].templateId,'consulting');
+});

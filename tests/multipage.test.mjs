@@ -44,7 +44,7 @@ test('editor can request a subpage without changing the source project',()=>{
  assert.match(html,/data-demo-initial="1"/);
  assert.equal(JSON.stringify(root),original);
  const visible=html.split('<template')[0].split('<div data-demo-stage')[1];
- assert.match(visible,/Om företaget/);assert.doesNotMatch(visible,/<h1>Startsida<\/h1>/);
+ assert.match(visible,/Om företaget/);assert.doesNotMatch(visible,/<h1\b[^>]*>Startsida<\/h1>/);
 });
 
 test('navigation leaves an unknown destination fragment on the original site',()=>{
