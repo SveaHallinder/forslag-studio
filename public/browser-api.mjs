@@ -1,3 +1,4 @@
+import {trimLogoBlob} from './logo-framing.mjs';
 import {logoTone,bestInk} from './branding.mjs';
 import { normalizeProject, renderDemo } from './render.mjs';
 import { extractContent } from './import-content.mjs';
@@ -114,11 +115,18 @@ export async function imageDataURL(blob) {
     canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);return canvas.toDataURL('image/png');
   }finally{clearTimeout(timer);image.src='';URL.revokeObjectURL(url);}
 }
+export async function trimLogo(url) {
+  const blob=url.startsWith('data:')?await(await fetch(url)).blob():await(await remote('/api/image',{url})).blob();
+  if(blob.size>2_000_000)throw problem('Logotypen är för stor. Välj en bild under 2 MB.');
+  return trimLogoBlob(blob);
+}
 async function identifyLogo(project) {
   let objectURL='',timer;
   try{
-    const blob=project.logo.startsWith('data:')?await(await fetch(project.logo)).blob():await(await remote('/api/image',{url:project.logo})).blob();
+    let blob=project.logo.startsWith('data:')?await(await fetch(project.logo)).blob():await(await remote('/api/image',{url:project.logo})).blob();
     if(blob.size>2_000_000)throw new Error('Logotypen är för stor för färganalys.');
+    const trimmed=await trimLogoBlob(blob);
+    if(trimmed){const original=project.logo;project.logo=trimmed;for(const key of ['logoLight','logoDark'])if(project.branding?.[key]===original)project.branding[key]=trimmed;blob=await(await fetch(trimmed)).blob();}
     const image=new Image();objectURL=URL.createObjectURL(blob);
     await new Promise((resolve,reject)=>{timer=setTimeout(()=>reject(new Error('Logotypen tog för lång tid att avkoda.')),5000);image.onload=resolve;image.onerror=()=>reject(new Error('Logotypen kunde inte avkodas.'));image.src=objectURL;});
     const canvas=document.createElement('canvas'),scale=Math.min(1,160/Math.max(image.naturalWidth,image.naturalHeight));canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));

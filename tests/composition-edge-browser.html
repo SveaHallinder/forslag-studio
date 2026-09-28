@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><title>Composition edge QA</title><pre id="results">Running…</pre><iframe title="Edge cases" width="1200" height="700"></iframe><script type="module">
+import {renderDemo} from '/render.mjs';import {templates} from '/templates.mjs';import {contrast} from '/branding.mjs';
+const frame=document.querySelector('iframe'),out=document.querySelector('#results'),failures=[];let checks=0;
+const canvas=document.createElement('canvas');canvas.width=300;canvas.height=240;const ctx=canvas.getContext('2d');const images=['#657989','#728177','#9b8678'].map(color=>{ctx.fillStyle=color;ctx.fillRect(0,0,300,240);return{url:canvas.toDataURL()};});
+const rgbHex=value=>'#'+value.match(/[\d.]+/g).slice(0,3).map(n=>Number(n).toString(16).padStart(2,'0')).join('');
+for(const template of templates)for(const width of [375,1200]){
+ frame.width=width;await new Promise(r=>{frame.onload=r;frame.srcdoc=renderDemo({templateId:template.id,name:'Source',headline:'Original heading',importedAt:'today',hero:images[0].url,heroGallery:images,cards:[{title:'Photo A',image:images[0].url,description:'Original A'},{title:'Photo B',image:images[1].url,description:'Original B'},{title:'Hur bokar jag?',description:'Ring oss.'}]});});
+ const d=frame.contentDocument,w=frame.contentWindow,assert=(ok,label)=>{checks++;if(!ok)failures.push(template.id+'/'+width+' '+label);};
+ const faq=d.querySelector('.faq-list'),parent=faq.parentElement;assert(Math.abs(faq.getBoundingClientRect().width-parent.getBoundingClientRect().width)<2,'single FAQ narrow');
+ const fg=rgbHex(w.getComputedStyle(d.querySelector('.contact-empty')).color),bg=rgbHex(w.getComputedStyle(d.body).backgroundColor);assert(contrast(fg,bg)>=4.5,'empty contact contrast '+fg+' on '+bg);
+ if(width===375){const columns=w.getComputedStyle(d.querySelector('.visual .section-gallery')).gridTemplateColumns.split(' ').length;assert(columns===1,'mobile hero gallery columns '+columns);}
+ if(template.id==='retail')for(const card of d.querySelectorAll('[data-composition="feature"]'))assert(card.querySelector('img').getBoundingClientRect().top<card.querySelector('.card-meta').getBoundingClientRect().top,'product below copy');
+ out.textContent=checks+' checks…';
+}
+out.textContent=failures.length?'FAIL\n'+failures.join('\n'):'PASS '+checks+' checks';document.title=failures.length?'FAIL composition edge':'PASS composition edge';
+</script>

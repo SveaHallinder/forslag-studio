@@ -1,7 +1,7 @@
 import {sectionKinds,detectSectionKind} from './section-design.mjs';
 import {createDesignWorkbench} from './design-workbench.mjs';
 import {brandRoles,brandPalette,selectBrandLogo} from './branding.mjs';
-import { browserAPI } from './browser-api.mjs';
+import { browserAPI, trimLogo } from './browser-api.mjs';
 import { normalizeProject, normalizeGallery, renderDemo, installDemoNavigation, escapeHTML as e } from './render.mjs';
 import { encodeProject } from './share.mjs';
 import { templates, getTemplate } from './templates.mjs';
@@ -201,6 +201,7 @@ function renderImages() {
   $('logoVariants').innerHTML=['logoDark','logoLight'].map(key=>`<label for="${key}">${key==='logoDark'?'Mörk logotyp · på ljus meny':'Ljus logotyp · på mörk meny'}</label><select id="${key}" data-logo-variant="${key}">${imageOptions(project.branding?.[key]||'')}</select>`).join('');
   const logoPreview=$('logoThumbnail').closest('.logo-preview'),palette=brandPalette(project.branding||{});
   logoPreview.style.background=palette.headerBackground;logoPreview.style.color=palette.headerText;
+  $('trimLogo').disabled=!shownLogo;
   $('logoThumbnail').hidden = !shownLogo;
   $('logoEmpty').hidden = !!shownLogo;
   if(shownLogo)$('logoThumbnail').src = shownLogo;
@@ -483,6 +484,18 @@ $('addCard').addEventListener('click', () => { if(currentContent().cards.length<
 $('imageGrid').addEventListener('click', event => { const b=event.target.closest('[data-image]'); if(b){ setPrimaryImage(currentContent(),'heroGallery','hero',currentContent().images[Number(b.dataset.image)].url); renderImages(); markDirty(); updatePreview(); } });
 $('clearHero').addEventListener('click', ()=>{currentContent().hero='';currentContent().heroGallery=[];renderImages();markDirty();updatePreview();});
 $('clearLogo').addEventListener('click', ()=>{project.logo='';if(project.branding){delete project.branding.logoLight;delete project.branding.logoDark;}renderImages();markDirty();updatePreview();});
+$('trimLogo').addEventListener('click',async()=>{
+  const site=project,original=selectBrandLogo(project);if(!original)return;
+  const button=$('trimLogo');button.disabled=true;$('logoTrimStatus').textContent='Kontrollerar logotypens kanter…';
+  try{
+    const trimmed=await trimLogo(original);if(project!==site||selectBrandLogo(project)!==original)return;
+    if(!trimmed){$('logoTrimStatus').textContent='Ingen säker tom kant hittades. Originalet behålls.';return;}
+    if(project.logo===original)project.logo=trimmed;
+    for(const key of ['logoLight','logoDark'])if(project.branding?.[key]===original)project.branding[key]=trimmed;
+    renderImages();markDirty();updatePreview();$('logoTrimStatus').textContent='Tomma kanter är trimmade. Spara utkast för att behålla ändringen.';
+  }catch(error){console.warn('[mockup logo framing]',error.message);if(project===site)$('logoTrimStatus').textContent='Logotypen kunde inte trimmas: '+error.message;}
+  finally{button.disabled=!selectBrandLogo(project);}
+});
 async function readImage(file, isLogo) {
   if (!file || !['image/jpeg','image/png','image/webp'].includes(file.type)) throw new Error('Välj en JPG-, PNG- eller WebP-bild.');
   if (file.size > 10000000) throw new Error('Bilden får vara högst 10 MB.');

@@ -10,14 +10,14 @@ const profiles = [
 
 const reasons = {
   story:'Ger innehållet luft med generösa mellanrum och tydlig läsordning.',
-  studio:'Ger innehållet större uttryck med rymliga sektioner och ett förskjutet bildgalleri.',
+  studio:'Ger innehållet större uttryck med stor typografi och breda bildsektioner.',
   services:'Ger tjänstetexter tydliga sektioner och ett framträdande erbjudande.',
   dining:'Ger innehållet en växlande rytm med text och stora bildytor sida vid sida.',
-  wellness:'Ger innehållet en lugn rytm med inramade kort och mjuka former.',
+  wellness:'Ger innehållet en lugn rytm med luftig typografi och mjuka bildformer.',
   editorial:'Ger innehållet en redaktionell rytm med stora rubriker och asymmetriska bildpar.',
   construction:'Ger projektsektioner tyngd med kraftiga linjer och bilden först.',
   hospitality:'Ger bilderna stort utrymme med panorama och en inramad introduktion.',
-  consulting:'Ger texten fokus med en kompakt huvudbild och numrerade sektioner.',
+  consulting:'Ger texten fokus med en kompakt huvudbild och tydligt uppdelade sektioner.',
   retail:'Ger bilderna tydliga ytor i ett luftigt galleri.',
 };
 

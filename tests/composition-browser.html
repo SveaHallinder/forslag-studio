@@ -1,0 +1,21 @@
+<!doctype html><meta charset="utf-8"><title>Composition QA</title><pre id="results">Running…</pre><iframe title="Composition test" width="1200" height="800"></iframe><script type="module">
+import {renderDemo} from '/render.mjs';import {templates} from '/templates.mjs';import {installPreviewEditing} from '/preview-edit.mjs';
+const canvas=document.createElement('canvas');canvas.width=600;canvas.height=450;const ctx=canvas.getContext('2d');ctx.fillStyle='#789489';ctx.fillRect(0,0,600,450);const image=canvas.toDataURL();
+const copy='Ett första stycke med originalets ord.\n\nAndra stycket ska finnas kvar.\nEn sista rad.';
+const cards=[{title:'Våra tjänster',description:copy,anchor:'intro'},{title:'Tjänst A',href:'#feature',anchor:'link-a'},{title:'Tjänst B',href:'#feature',anchor:'link-b'},{title:'Ett mycket långt sektionsnamn för ett företags erbjudande',description:copy,image,anchor:'feature'},{title:'Vårt team',kind:'team',description:copy,gallery:Array.from({length:5},(_,i)=>({url:image+'#'+i,caption:'Person '+i})),anchor:'team'}];
+// Unique data URLs for normalization without adding network requests.
+for(let i=0;i<5;i++){ctx.fillStyle=['#798a90','#958779','#897f92','#768677','#909182'][i];ctx.fillRect(0,0,600,450);cards[4].gallery[i].url=canvas.toDataURL();}
+const frame=document.querySelector('iframe'),results=[],out=document.querySelector('#results');let checks=0;
+for(const template of templates)for(const width of [375,820,1440])for(const hasImage of [true,false]){
+ frame.width=width;const raw={name:'Original Företag',headline:'Längre huvudrubrik som ska få plats även på en liten skärm.',description:copy,hero:hasImage?image:'',templateId:template.id,importedAt:'today',navigation:[{label:'Tjänster',href:'#intro'},{label:'Kontakt',href:'#kontakt'}],cards};
+ await new Promise(r=>{frame.onload=r;frame.srcdoc=renderDemo(raw);});const d=frame.contentDocument,w=frame.contentWindow,errors=[],assert=(ok,label)=>{checks++;if(!ok)errors.push(label);};
+ assert(d.documentElement.scrollWidth===width,'overflow');assert(d.querySelector('.hero-copy>p').textContent===copy,'hero copy changed');assert(d.querySelector('#intro .section-copy').textContent===copy,'section copy changed');assert(d.querySelectorAll('.card').length===5,'card count');assert(d.querySelectorAll('.section-gallery figcaption').length===5,'captions');
+ const a=d.querySelector('#link-a').getBoundingClientRect(),b=d.querySelector('#link-b').getBoundingClientRect();assert(width<=760||Math.abs(a.y-b.y)<1,'links not compact row');
+ const contact=d.querySelector('.contact').getBoundingClientRect();assert(contact.height<260,'empty contact dominates');
+ const hero=d.querySelector('.hero-copy').getBoundingClientRect();assert(hero.right<=width&&hero.left>=0,'hero outside viewport');
+ for(const c of d.querySelectorAll('.card')){const r=c.getBoundingClientRect();assert(r.right<=width+1&&r.left>=0,'card outside viewport');}
+ let selected;const dispose=installPreviewEditing(d,{onSelect:target=>selected=target});d.querySelector('#intro .copy-part:last-child').click();assert(selected?.type==='card'&&selected.index===0,'paragraph click selection');dispose();
+ results.push(`${errors.length?'FAIL':'PASS'} ${template.id}/${width}/${hasImage?'image':'text'} ${errors.join(', ')}`);out.textContent=results.join('\n');
+}
+out.textContent+=`\n${checks} checks`;document.title=results.some(r=>r.startsWith('FAIL'))?'FAIL composition':'PASS composition';
+</script>

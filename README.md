@@ -332,6 +332,25 @@ Verifierat: lint, build, 170 Node-tester; 5 browserkontroller för klick/tangent
 5. Välj Jämför med original. Ändrad rubrik/bild ska synas bland skillnaderna; återlägg en borttagen sektion. Originalkopian ska finnas kvar efter sparning och omladdning.
 6. Kontrollera mobilvy, spara/ladda om, dela en kundlänk och exportera HTML. Kundversionen ska sakna redigeringsmarkeringar.
 
+## Förbättrade kunddesigner, 28 september 2026
+
+De tio befintliga mallarna har nu olika hero-kompositioner: bland annat asymmetrisk bild/text, typografisk masthead, produktgrid och fotografisk introduktion. Importerat innehåll styr sektionernas format. Korta länkar blir kompakta rader, längre texter får tydligare hierarki, bildsektioner varierar och gallerier anpassas efter antalet bilder. Originalets stycken, bildtexter, meny, ordning och länkmål bevaras. Importerade färger/typsnitt och manuella bildutsnitt har fortsatt företräde.
+
+Importen kan trimma tydligt identifierade tomma logotypkanter utan att ändra märket. Under Bilder finns samma funktion för gamla projekt. Endast transparenta eller enhetligt vita/svarta kanter accepteras, inklusive blandade neutrala/transparanta kanter. Osäkra bilder behålls. Ingen dependency eller projektstruktur har lagts till.
+
+Verifierat: lint, build och 192 Node-tester. Browserkontroller: 840 kompositionskontroller över tio mallar, tre bredder och med/utan huvudbild; 54 layoutkantfall; 521 mall-/logokontroller; 41 brandingkontroller; 30 sektionsscenarier; fem redigeringskontroller. Riktig HallInc-import gav 11 innehållsblock och logotypen trimmades från 1007 × 540 till 904 × 188. Både manuell trimning, ny automatisk import och spara/omladdning kontrollerades i editorn. Desktop, tjänstesektioner, Studio-varianten och mobil granskades visuellt. Mobilens dokumentbredd var 375 px vid 375 px viewport.
+
+Begränsning: bättre presentation garanterar inte rätt import från varje URL. Kvarvarande kopplingar mellan text och bild behöver granskas. Den manuella exportkontrollen avbröts av browserverktygets nedladdningstimeout; exportens innehåll, inbäddning och bildinställningar omfattas av godkända regressionstester. Visuell kvalitet bedöms på de faktiska förslagen, inte utifrån antalet godkända tester.
+
+### QA i sex steg
+
+1. Öppna localhost:4174 eller livesidan och ladda om. Öppna ett sparat importerat förslag; innehållet ska finnas kvar i den nya layouten.
+2. Hämta https://hallinc.se/ utan undersidor. Kontrollera huvudbild, meny, originaltext och logotypens proportioner.
+3. Öppna Bilder i ett äldre projekt och välj Trimma tomma kanter. Kontrollera att märket inte beskärs; osäkra kanter ska ge besked och behålla originalet.
+4. Växla mellan Bild & berättelse, Studio & portfolio och Butik & sortiment. Samma innehåll ska få olika komposition, och egna färger/typsnitt ska behållas.
+5. Kontrollera Mobil, tjänstelänkar, bildtexter och längre textsektioner. Redigera en rubrik via förhandsvisningen och kontrollera rätt block.
+6. Spara, ladda om och kontrollera logotypen. Öppna kundlänken och ladda ner demosidan; jämför innehåll och utseende med förhandsvisningen.
+
 ## Slutförd designarbetsyta, 27 september 2026
 
 Alla fem avgränsade förbättringar är implementerade: innehållsanpassade sektioner med manuellt val, tre designriktningar, visuell bildväljare med beständiga utsnitt, beständig originaljämförelse och klickredigering. Godkända valfria projektfält är `card.kind`, bildens `presentation` och sidans `original`. Ingen ny dependency.

@@ -9,7 +9,7 @@ test('FAQ pairs become accessible disclosures without losing answers or section 
 });
 test('uncertain question sequences keep the complete original text',()=>{
  const description='En introduktion.\n\nVar finns ni?\n\nI Borås.\n\nMer information.';
- const html=renderDemo(imported([{title:'Information',description}]));assert.ok(html.includes(description));assert.doesNotMatch(html,/<details class="faq-item"/);
+ const html=renderDemo(imported([{title:'Information',description}]));assert.ok(html.replace(/<[^>]+>/g,'').includes(description));assert.doesNotMatch(html,/<details class="faq-item"/);
 });
 test('long copy gets a reading section while short image blocks retain gallery treatment',()=>{
  const html=renderDemo({...imported([{title:'Produkt',description:'Kort originaltext.',image:'https://example.com/product.webp',anchor:'product'},{title:'Vår berättelse',description:'Lång originaltext. '.repeat(70),image:'https://example.com/team.jpg',anchor:'story'}]),templateId:'retail'});

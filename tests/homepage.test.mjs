@@ -29,7 +29,7 @@ test('plain contact details and small section images survive a customer link',as
 test('an imported page without a menu or CTA gets no invented marketing copy',()=>{
   const html=renderDemo({name:'Original',headline:'Enda rubriken',cards:[{title:'Information',description:'Riktig text',anchor:'section-1'}]});
   assert.match(html,/<body data-imported="true"/);
-  const hero=html.match(/<section class="hero-copy">([\s\S]*?)<\/section>/)[1];
+  const hero=html.match(/<section class="hero-copy"[^>]*>([\s\S]*?)<\/section>/)[1];
   assert.doesNotMatch(hero,/<a|Utforska/);
 });
 
@@ -37,7 +37,7 @@ test('adding a menu to an existing project preserves its introduction and hero a
   const seed=JSON.parse(readFileSync(new URL('../seed.json',import.meta.url),'utf8'));
   const before=renderDemo(seed),after=renderDemo({...seed,navigation:[{label:'Egen meny',href:'#kontakt'}]});
   assert.match(after,/<body data-imported="false"/);
-  assert.equal(after.match(/<section class="hero-copy">([\s\S]*?)<\/section>/)[1],before.match(/<section class="hero-copy">([\s\S]*?)<\/section>/)[1]);
+  assert.equal(after.match(/<section class="hero-copy"[^>]*>([\s\S]*?)<\/section>/)[1],before.match(/<section class="hero-copy"[^>]*>([\s\S]*?)<\/section>/)[1]);
   assert.ok(after.includes(seed.sectionIntro));assert.match(after,/>Egen meny<\/a>/);
 });
 test('removing the final menu link from a text-only import does not invent navigation or actions in a shared demo',async()=>{
@@ -47,7 +47,7 @@ test('removing the final menu link from a text-only import does not invent navig
   assert.equal(html,renderDemo(p));
   assert.match(html,/<body data-imported="true"/);
   assert.doesNotMatch(html.match(/<nav[^>]*>([\s\S]*?)<\/nav>/)[1],/<a/);
-  assert.doesNotMatch(html.match(/<section class="hero-copy">([\s\S]*?)<\/section>/)[1],/<a/);
+  assert.doesNotMatch(html.match(/<section class="hero-copy"[^>]*>([\s\S]*?)<\/section>/)[1],/<a/);
 });
 test('previously issued text-only customer links without import dates retain their original menu and no hero action',async()=>{
   // Older encoders cleared importedAt before issuing customer links.
@@ -56,5 +56,5 @@ test('previously issued text-only customer links without import dates retain the
   const html=renderDemo(shared);
   assert.match(html,/<body data-imported="true"/);
   assert.match(html,/>Om företaget<\/a>/);
-  assert.doesNotMatch(html.match(/<section class="hero-copy">([\s\S]*?)<\/section>/)[1],/<a/);
+  assert.doesNotMatch(html.match(/<section class="hero-copy"[^>]*>([\s\S]*?)<\/section>/)[1],/<a/);
 });
