@@ -1,0 +1,21 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><title>Dining layout</title><h1>Dining layout</h1><pre id="results">Kör…</pre><iframe title="Restauranglayout" height="800"></iframe><script type="module">
+import {renderDemo} from '/render.mjs';
+import {contrast} from '/branding.mjs';
+const frame=document.querySelector('iframe'),results=[];
+const photo='data:image/gif;base64,R0lGODlhAQABAIAAAP8AAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+const menus=[{title:'Öppettider',description:'Måndag – Fredag 07:30 - 16:00\nLördag 11:00 - 16:00',anchor:'oppet'},{title:'Frukost',description:'Vardagar 08:00 - 10:00'},{title:'Dagens lunch',description:'Vardagar 11:00 - 14:00'},{title:'Meny',anchor:'meny'},{title:'Kaffe och något till',description:'Bryggkaffe 35:-\nEspresso 30:-\nKanelbulle 45:-'},{title:'Lunch från vårt kök',description:'Dagens soppa 99:-\nBröd och smör.\nGrön sallad 129:-\nHusets dressing.\nFråga oss om allergier.'},{title:'Vår plats',description:'Källans berättelse om verksamheten. '.repeat(20),image:photo},{title:'Catering',description:'Mat till ert sällskap. Kontakta oss för mer information.'}];
+for(const width of [320,375,620,820,1280])for(const mode of ['light','dark'])for(const image of [true,false]){
+ const p={templateId:'dining',name:'Kaféet vid den långa strandpromenaden',headline:'En plats för kaffe, mat och möten',description:'Originalets introduktion.',importedAt:'today',hero:image?photo:'',heroGallery:image?[{url:photo,caption:'Foto: originalets fotograf'}]:[],email:'hej@example.com',branding:{background:mode==='dark'?'#171d19':'#fffaf1',text:mode==='dark'?'#fffaf1':'#171d19'},navigation:[{label:'Meny',href:'#meny'},{label:'Öppettider',href:'#oppet'},{label:'Kontakt',href:'#kontakt'}],cards:menus};
+ frame.width=width;frame.style.width=width+'px';await new Promise(resolve=>{frame.onload=resolve;frame.srcdoc=renderDemo(p);});
+ const d=frame.contentDocument,w=frame.contentWindow,errors=[],check=(pass,message)=>{if(!pass)errors.push(message);};
+ check(d.documentElement.scrollWidth===width,'horizontal overflow');check(d.querySelectorAll('.cards>.card').length===menus.length,'card count');
+ check(d.querySelectorAll('[data-dining=menu]').length===2,'menu classification');check(d.querySelectorAll('[data-dining=hours]').length===3,'hours classification');
+ check(d.querySelector('.menu-item').textContent==='Bryggkaffe 35:-','copy separator');
+ check([...d.querySelectorAll('.cards>.card')].every(c=>c.querySelector('h2,h3')&&c.getBoundingClientRect().width>100),'cards visible');
+ if(image){const rgb=w.getComputedStyle(d.querySelector('.hero-copy')).color.match(/\d+/g).slice(0,3),color='#'+rgb.map(v=>Number(v).toString(16).padStart(2,'0')).join('');check(contrast(color,'#707070')>=4.5,'photo hero contrast');}
+ if(image)check(d.querySelector('figcaption')?.textContent==='Foto: originalets fotograf'&&w.getComputedStyle(d.querySelector('figcaption')).display!=='none','photo credit');
+ const summary=d.querySelector('summary');summary.click();check(d.querySelector('.mobile-menu').open,'menu opens');summary.click();check(!d.querySelector('.mobile-menu').open,'menu closes');
+ results.push((errors.length?'FAIL ':'PASS ')+[width,mode,image?'photo':'text'].join(' ')+' '+errors.join(', '));document.querySelector('#results').textContent=results.join('\n');
+}
+document.title=results.some(r=>r.startsWith('FAIL'))?'FAIL Dining':'PASS Dining 20 scenarios';document.body.dataset.testStatus=results.some(r=>r.startsWith('FAIL'))?'fail':'pass';
+</script></html>
