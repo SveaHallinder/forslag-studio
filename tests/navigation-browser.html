@@ -9,16 +9,22 @@ for(const t of templates)for(const width of [375,820,1280])for(const count of [0
  if(d.documentElement.scrollWidth>width)errors.push('page overflow');
  if(count===4&&nav.getBoundingClientRect().height>(width>900?90:84))errors.push('header too tall');
  if(d.querySelectorAll('.nav-links a').length!==count)errors.push('source links lost');
+ if(JSON.stringify([...d.querySelectorAll('.mobile-links .menu-label')].map(a=>a.textContent))!==JSON.stringify(p.navigation.map(a=>a.label)))errors.push('menu label order');
+ if(count===12&&width>900){const visible=[...d.querySelectorAll('.nav-links a')].filter(a=>w.getComputedStyle(a).display!=='none');if(!visible.length||visible.length>3)errors.push('overflow previews missing');for(const a of visible){const r=a.getBoundingClientRect(),m=menu.getBoundingClientRect();if(r.right>m.left)errors.push('preview overlaps menu');}}
  if(count===0&&menu)errors.push('empty menu');
  if(count){const desktop=width>900&&count===4;if((w.getComputedStyle(menu).display==='none')!==desktop)errors.push('wrong menu mode');
   if(!desktop){if(menu.open)errors.push('menu initially open');menu.querySelector('summary').click();if(!menu.open)errors.push('menu will not open');
    const links=d.querySelector('.mobile-links'),r=links.getBoundingClientRect();if(r.left<0||r.right>width+1)errors.push('panel overflow');
    for(const a of links.children)if(a.getBoundingClientRect().height<44)errors.push('small touch target');
    menu.querySelector('summary').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));if(menu.open||d.activeElement!==menu.querySelector('summary'))errors.push('escape/focus');
+   menu.open=true;menu.querySelector('.menu-backdrop').click();if(menu.open||d.activeElement!==menu.querySelector('summary'))errors.push('backdrop/focus');
+   menu.open=true;d.querySelector('h1').click();if(menu.open)errors.push('outside click');
+   menu.open=true;menu.querySelector('summary').focus();nav.querySelector('.brand').focus();if(menu.open)errors.push('focus leaves menu');
    menu.open=true;d.addEventListener('click',e=>e.preventDefault(),{once:true});links.querySelector('a').click();if(menu.open)errors.push('link did not close menu');
    let selected;const dispose=installPreviewEditing(d,{onSelect:x=>selected=x});menu.querySelector('summary').click();if(selected?.type!=='navigation')errors.push('mobile editing target');dispose();
   }
  }
+ const artwork=nav.querySelector('.brand img');if(artwork&&(w.getComputedStyle(artwork).filter!=='none'||w.getComputedStyle(artwork).objectFit!=='contain'))errors.push('logo changed');
  const brand=nav.querySelector('.brand').getBoundingClientRect(),nr=nav.getBoundingClientRect();if(brand.right>nr.right+1||brand.bottom>nr.bottom+1)errors.push('brand overflow');
  results.push((errors.length?'FAIL':'PASS')+' '+t.id+'/'+width+'/'+count+' '+errors.join(', '));out.textContent=results.join('\n');
 }

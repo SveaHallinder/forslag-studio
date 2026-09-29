@@ -1,0 +1,68 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><title>Whole-page QA</title><style>body{font:14px system-ui}iframe{display:block;border:0}pre{white-space:pre-wrap}</style><h1>Hela sidan – regressionstest</h1><pre id="results">Kör…</pre><iframe title="Whole-page fixture"></iframe><script type="module">
+import {renderDemo,normalizeProject} from '/render.mjs';
+import {pageSectionPlan} from '/page-design.mjs';
+import {installPreviewEditing} from '/preview-edit.mjs';
+const frame=document.querySelector('iframe'),out=document.querySelector('pre'),failures=[],signatures=new Map();let cases=0;
+const image='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+const secondImage='data:image/gif;base64,R0lGODlhAQABAIAAAP8AAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+const longCopy='Den längre originaltexten tillhör just denna bild och ska vara läsbar hela vägen genom sidan. '.repeat(7).trim();
+const base={name:'Originalföretaget',source:'https://example.com/original',headline:'En sida med tydlig egen karaktär.',description:'Originalets inledning.',hero:image,importedAt:'today',accent:'#963f28',email:'hej@example.com',navigation:[{label:'Aktuellt',href:'#aktuellt'},{label:'Böcker',href:'#bocker'},{label:'Kontakt',href:'#kontakt'}],cards:[
+ {title:'Aktuellt',anchor:'aktuellt'},
+ {title:'Ny föreläsning',description:'Originalets inbjudan och information om evenemanget.',href:'https://example.com/evenemang'},
+ {title:'Intervjun',description:'Den här texten hör till fotografiet från intervjun.',gallery:[{url:image,label:'Intervjun',caption:'Originalets bildtext från intervjun.'}]},
+ {title:'Samtal i podden',description:'Två bilder som tillhör samma avsnitt.',gallery:[{url:image,label:'Första omslaget',caption:'Bildtext ett.'},{url:secondImage,label:'Andra omslaget',caption:'Bildtext två.'}]},
+ {title:'Författare',description:'Originalets introduktion till författarskapet.',anchor:'bocker'},
+ {title:'Första boken',description:longCopy,gallery:[{url:image,label:'Bokomslag första boken',caption:'Omslag ett.'}]},
+ {title:'Andra boken',description:longCopy,gallery:[{url:secondImage,label:'Book cover second',caption:'Omslag två.'}]},
+ {title:'Utvalda platser'},
+ {title:'Första platsen',description:'Storlek: 5 kvm',image},
+ {title:'Andra platsen',description:'Storlek: 8 kvm',image:secondImage},
+ {title:'Tredje platsen',description:'Storlek: 12 kvm',image},
+ {title:'Fjärde platsen',description:'Storlek: 18 kvm',image:secondImage},
+ {title:'Ett urval av våra partners',gallery:[{url:image,label:'Partner ett'},{url:secondImage,label:'Partner två'}]},
+ {title:'Mer information',href:'https://example.com/information'},
+ {title:'Längre berättelse',description:longCopy,gallery:[{url:image,label:'Originalfotografi',presentation:{fit:'contain',ratio:'portrait',x:23,y:71}}]},
+ {title:'En annan berättelse',description:longCopy,image:secondImage},
+ {title:'Kundens egna ord',kind:'testimonial',description:'Detta är originalets kundcitat och ska behålla sin avsändare.'}
+]};
+const overlap=(a,b)=>Math.min(a.right,b.right)-Math.max(a.left,b.left)>2&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>2;
+const inside=(a,b)=>a.left>=b.left-2&&a.right<=b.right+2;
+const scenarios={normal:()=>base,empty:()=>({...base,hero:'',description:'',cards:[]}),long:()=>({...base,cards:base.cards.map((card,index)=>({...card,title:card.title+' – '+('Lång originalrubrik med oförändrat innehåll ').repeat(3),description:card.description?card.description+'\n\n'+('Hela originalets text får plats utan att gömmas eller klippas. ').repeat(index%2?45:24):''}))})};
+for(const templateId of ['atelier','cinema','pop','precision','story'])for(const width of [375,820,1280])for(const [scenario,make]of Object.entries(scenarios)) {
+ const raw={...make(),templateId},snapshot=JSON.stringify(raw),p=normalizeProject(raw);frame.width=width;frame.height=900;
+ await new Promise(resolve=>{frame.onload=resolve;frame.srcdoc=renderDemo(raw);});
+ const d=frame.contentDocument,w=frame.contentWindow;await d.fonts.ready;await Promise.all([...d.images].map(img=>{img.loading='eager';return img.decode().catch(()=>{});}));
+ const check=(ok,message)=>{if(!ok)failures.push(`${templateId}/${width}/${scenario}: ${message}`);},style=node=>w.getComputedStyle(node),cards=[...d.querySelectorAll('.cards>.card')];cases++;
+ check(d.documentElement.scrollWidth<=width+1,'page horizontal overflow');check(cards.length===p.cards.length,'source card count');check(JSON.stringify(raw)===snapshot,'source mutated');
+ check(!!d.querySelector(`a[href="${p.source}"]`),'source attribution missing');
+ const plan=pageSectionPlan(p.cards);
+ cards.forEach((card,index)=>{
+  const expected=p.cards[index],rect=card.getBoundingClientRect(),heading=card.querySelector('h2,h3'),copy=card.querySelector('.card-meta p,.card-meta blockquote');
+  check(card.dataset.flow===plan[index].role,`role ${index}`);check(heading?.textContent.replace(/\s*↗\s*$/,'').trim()===expected.title,`title/order ${index}`);
+  check((copy?.textContent||'')===expected.description,`source copy ${index}`);
+  if(expected.anchor)check(card.id===expected.anchor,`source anchor ${index}`);
+  if(expected.href)check(heading.querySelector('a')?.getAttribute('href')===expected.href,`source destination ${index}`);
+  const expectedImages=expected.gallery?.length?expected.gallery.map(item=>item.url):expected.image?[expected.image]:[];
+  check(JSON.stringify([...card.querySelectorAll('img')].map(img=>img.getAttribute('src')))===JSON.stringify(expectedImages),`image association ${index}`);
+  check(JSON.stringify([...card.querySelectorAll('figcaption')].map(node=>node.textContent))===JSON.stringify((expected.gallery||[]).filter(item=>item.caption).map(item=>item.caption)),`caption association ${index}`);
+  check(rect.left>=-1&&rect.right<=width+1,`card outside viewport ${index}`);check(card.scrollWidth<=card.clientWidth+2,`card overflow ${index}`);
+  const children=[...card.children].filter(node=>style(node).display!=='none'&&node.getBoundingClientRect().height>0);
+  for(const child of children)check(inside(child.getBoundingClientRect(),rect),`child outside card ${index}`);
+  for(let a=0;a<children.length;a++)for(let b=a+1;b<children.length;b++)check(!overlap(children[a].getBoundingClientRect(),children[b].getBoundingClientRect()),`overlapping direct children ${index}`);
+ });
+ for(let a=0;a<cards.length;a++)for(let b=a+1;b<cards.length;b++)check(!overlap(cards[a].getBoundingClientRect(),cards[b].getBoundingClientRect()),`overlapping source cards ${a}/${b}`);
+ if(cards.length){
+  const framed=cards[14].querySelector('img');check(style(framed).objectFit==='contain','manual framing fit');check(style(framed).objectPosition==='23% 71%','manual framing focal point');check(style(framed).aspectRatio==='3 / 4','manual framing ratio');
+  for(const card of cards.filter(card=>card.dataset.flow==='publication'))check(style(card.querySelector('img')).objectFit==='contain','book cover cropped');
+  let selected;const dispose=installPreviewEditing(d,{onSelect:target=>selected=target});
+  cards.forEach((card,index)=>{selected=undefined;card.querySelector('h2,h3').click();check(selected?.type==='card'&&selected.index===index&&selected.field==='title',`edit card index ${index}`);const img=card.querySelector('img');if(img){selected=undefined;img.click();check(selected?.type==='image'&&selected.scope===String(index)&&selected.index===0,`edit image index ${index}`);}});dispose();
+ }
+ if(scenario==='normal'&&width===1280){
+  const feature=cards.find(card=>card.dataset.flow==='feature'),showcase=cards.find(card=>card.dataset.flow==='showcase'),collection=cards.find(card=>card.dataset.flow==='collection');
+  signatures.set(templateId,JSON.stringify([style(feature).display,style(feature).gridTemplateColumns,style(feature).backgroundColor,style(feature).borderRadius,style(showcase).gridColumn,style(showcase).padding,style(showcase.querySelector('img')).aspectRatio,style(collection).gridTemplateColumns]));
+ }
+ out.textContent=`${cases} scenarios…`;
+}
+const primary=['atelier','cinema','pop','precision'].map(id=>signatures.get(id));if(new Set(primary).size!==4)failures.push('Four art directions have the same body composition');
+document.title=failures.length?'FAIL whole-page design':'PASS whole-page design';out.textContent=failures.length?'FAIL\n'+failures.join('\n'):`PASS ${cases} scenarios; source order, text/image associations, chapter roles, books, framing, responsive card bounds, no overlap, edit indices, 4 distinct body compositions`;
+</script></html>

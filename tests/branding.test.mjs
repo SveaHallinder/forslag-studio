@@ -23,7 +23,11 @@ test('brand colors override all templates and the selected logo matches header c
 });
 test('root branding applies to subpages and local logo URLs are made absolute',async()=>{
  const html=renderDemo({branding,pages:[{source:'https://example.com/about',branding:{headerBackground:'#ffffff'},headline:'About'}]});
- assert.equal((html.match(/<img src="https:\/\/example.com\/logo-white.svg"/g)||[]).length,3);
+ const headers=[...html.matchAll(/<header\b[\s\S]*?<\/header>/g)].map(match=>match[0]);
+ const footers=[...html.matchAll(/<footer\b[\s\S]*?<\/footer>/g)].map(match=>match[0]);
+ assert.equal(headers.length,3);
+ assert.equal(footers.length,3);
+ for(const region of [...headers,...footers])assert.equal((region.match(/<img src="https:\/\/example.com\/logo-white.svg"/g)||[]).length,1);
  const link=await encodeProject({branding:{logoDark:'/assets/logo.png'}},'https://demo.example/');
  assert.equal((await decodeProject(new URL(link).hash)).branding.logoDark,'https://demo.example/assets/logo.png');
 });

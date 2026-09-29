@@ -8,6 +8,12 @@ import {getTemplate} from './templates.mjs';
 import {recommendDirections} from './design-directions.mjs';
 import {installPreviewEditing} from './preview-edit.mjs';
 
+// A thumbnail shows one page. Keep the site's shared identity, but do not clone
+// every imported page into each of the fourteen template comparison frames.
+export function renderTemplateThumbnail(project,page=project,templateId=project.templateId) {
+  return renderDemo({...page,pages:undefined,templateId,name:project.name,logo:project.logo,accent:project.accent,branding:project.branding,typography:project.typography,navigation:project.navigation});
+}
+
 export function createDesignWorkbench({getProject,getPage,changed,navigate,editNavigation,notify}) {
   const $=id=>document.getElementById(id);
   let editing=false,disposePreview,previewDoc,textTarget,directionProject,mediaTarget,mediaChoice,comparisonRows=[],comparePage;
@@ -22,7 +28,7 @@ export function createDesignWorkbench({getProject,getPage,changed,navigate,editN
   new ResizeObserver(fitDirections).observe($('directionsGrid'));
   $('designDirections').addEventListener('click',()=>{
     directionProject=getProject();
-    $('directionsGrid').innerHTML=recommendDirections(directionProject).map(d=>`<article class="direction-option"><div class="direction-sample" aria-hidden="true"><iframe inert tabindex="-1" sandbox title="${e(d.label)}" srcdoc="${e(renderDemo({...directionProject,templateId:d.templateId},{pageSource:getPage().source}))}"></iframe></div><div class="direction-copy"><p class="overline">${e(d.label)}</p><h3>${e(getTemplate(d.templateId).name)}</h3><p>${e(d.reason)}</p><button class="button ${directionProject.templateId===d.templateId?'primary':'secondary'}" data-direction="${e(d.templateId)}" aria-pressed="${directionProject.templateId===d.templateId}">${directionProject.templateId===d.templateId?'Behåll denna':'Välj denna design'}</button></div></article>`).join('');
+    $('directionsGrid').innerHTML=recommendDirections(directionProject).map(d=>`<article class="direction-option"><div class="direction-sample" aria-hidden="true"><iframe inert tabindex="-1" sandbox title="${e(d.label)}" srcdoc="${e(renderTemplateThumbnail(directionProject,getPage(),d.templateId))}"></iframe></div><div class="direction-copy"><p class="overline">${e(d.label)}</p><h3>${e(getTemplate(d.templateId).name)}</h3><p>${e(d.reason)}</p><button class="button ${directionProject.templateId===d.templateId?'primary':'secondary'}" data-direction="${e(d.templateId)}" aria-pressed="${directionProject.templateId===d.templateId}">${directionProject.templateId===d.templateId?'Behåll denna':'Välj denna design'}</button></div></article>`).join('');
     $('directionsDialog').showModal();fitDirections();
   });
   $('directionsGrid').addEventListener('click',event=>{const button=event.target.closest('[data-direction]');if(!button)return;if(getProject()!==directionProject)return $('directionsDialog').close();getProject().templateId=button.dataset.direction;changed();$('directionsDialog').close();notify('Designen är vald. Innehållet är oförändrat.');});

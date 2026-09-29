@@ -1,13 +1,15 @@
 import {sectionKinds,detectSectionKind} from './section-design.mjs';
-import {createDesignWorkbench} from './design-workbench.mjs';
+import {createDesignWorkbench,renderTemplateThumbnail} from './design-workbench.mjs';
 import {brandRoles,brandPalette,selectBrandLogo} from './branding.mjs';
 import { browserAPI, trimLogo } from './browser-api.mjs';
 import { normalizeProject, normalizeGallery, renderDemo, installDemoNavigation, escapeHTML as e } from './render.mjs';
 import { encodeProject } from './share.mjs';
 import { templates, getTemplate } from './templates.mjs';
 import { assessProject, searchProjects, restoreProject, prepareNavigation } from './project-tools.mjs';
+import { createStudioImageOptions } from './studio-images.mjs';
 
 const $ = id => document.getElementById(id);
+const imageChoices = createStudioImageOptions(e);
 let project, config = {}, dirty = false, device = 'desktop', toastTimer, previewTimer, importBusy = false;
 let activePage = -1, editingSite, previewSource;
 const workbench=createDesignWorkbench({getProject:()=>project,getPage:()=>currentContent(),changed:()=>{markDirty();fillEditor();},navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}},editNavigation:()=>$('editNavigation').click(),notify:toast});
@@ -92,9 +94,7 @@ function updatePreview() {
   }, 160);
 }
 function imageOptions(selected) {
-  const images = [...currentContent().images];
-  if (selected && !images.some(i=>i.url===selected)) images.unshift({url:selected,label:'Vald bild'});
-  return '<option value="">Ingen bild</option>' + images.map((image, i) => `<option value="${e(image.url)}" ${image.url===selected?'selected':''}>${e(image.label || 'Bild ' + (i+1))}</option>`).join('');
+  return '<option value="">Ingen bild</option>' + imageChoices.options(currentContent().images,selected);
 }
 let navigationDraft=[], navigationProject;
 function renderNavigationSummary() {
@@ -145,7 +145,7 @@ function setPrimaryImage(owner,key,primary,url) {
 }
 function galleryEditor(scope) {
   const items=galleryItems(scope),label=scope==='hero'?'Huvudsektion':'Block '+(Number(scope)+1);
-  return `<div class="gallery-editor"><p class="field-help">${items.length} av 12 bilder. Ordning och bildtexter följer med till kunddemon.</p>${items.map((item,i)=>`<div class="gallery-row"><img src="${e(item.url)}" alt="${e(item.label||'Bild '+(i+1))}" loading="lazy" referrerpolicy="no-referrer"><div><label for="gallery-${scope}-${i}">Bildtext ${i+1}</label><input id="gallery-${scope}-${i}" data-gallery-caption="${i}" data-gallery-scope="${scope}" value="${e(item.caption)}" maxlength="600"><div class="gallery-actions"><button type="button" data-open-media="${scope}" data-media-index="${i}">Välj bild</button><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="up" aria-label="${label}: flytta bild ${i+1} upp" ${i===0?'disabled':''}>↑</button><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="down" aria-label="${label}: flytta bild ${i+1} ned" ${i===items.length-1?'disabled':''}>↓</button><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="remove" aria-label="${label}: ta bort bild ${i+1}">Ta bort</button></div></div></div>`).join('')}<label for="gallery-add-${scope}">Lägg till bild i ${label.toLowerCase()}</label><select id="gallery-add-${scope}" data-gallery-add="${scope}" ${items.length>=12?'disabled':''}><option value="">Välj bild…</option>${currentContent().images.filter(item=>!items.some(used=>used.url===item.url)).map(item=>`<option value="${e(item.url)}">${e(item.label||item.url.split('/').at(-1))}</option>`).join('')}</select></div>`;
+  return `<div class="gallery-editor"><p class="field-help">${items.length} av 12 bilder. Ordning och bildtexter följer med till kunddemon.</p>${items.map((item,i)=>`<div class="gallery-row"><img src="${e(item.url)}" alt="${e(item.label||'Bild '+(i+1))}" loading="lazy" referrerpolicy="no-referrer"><div><label for="gallery-${scope}-${i}">Bildtext ${i+1}</label><input id="gallery-${scope}-${i}" data-gallery-caption="${i}" data-gallery-scope="${scope}" value="${e(item.caption)}" maxlength="600"><div class="gallery-actions"><button type="button" data-open-media="${scope}" data-media-index="${i}">Välj bild</button><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="up" aria-label="${label}: flytta bild ${i+1} upp" ${i===0?'disabled':''}>↑</button><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="down" aria-label="${label}: flytta bild ${i+1} ned" ${i===items.length-1?'disabled':''}>↓</button><button type="button" data-gallery-scope="${scope}" data-gallery-index="${i}" data-gallery-action="remove" aria-label="${label}: ta bort bild ${i+1}">Ta bort</button></div></div></div>`).join('')}<label for="gallery-add-${scope}">Lägg till bild i ${label.toLowerCase()}</label><select id="gallery-add-${scope}" data-gallery-add="${scope}" ${items.length>=12?'disabled':''}><option value="">Välj bild…</option>${imageChoices.options(currentContent().images.filter(item=>!items.some(used=>used.url===item.url)))}</select></div>`;
 }
 function handleGallery(event) {
   const button=event.target.closest('[data-gallery-action]'),add=event.target.dataset.galleryAdd,caption=event.target.dataset.galleryCaption;
@@ -153,7 +153,7 @@ function handleGallery(event) {
   if(!button&&add===undefined&&caption===undefined)return;
   const scope=button?.dataset.galleryScope??add??event.target.dataset.galleryScope,{owner,key,primary}=galleryTarget(scope),items=galleryItems(scope);
   if(button){const i=Number(button.dataset.galleryIndex),action=button.dataset.galleryAction;if(action==='remove')items.splice(i,1);else{const next=i+(action==='up'?-1:1);if(next<0||next>=items.length)return;[items[i],items[next]]=[items[next],items[i]];}}
-  else if(add!==undefined){const image=currentContent().images.find(item=>item.url===event.target.value);if(!image||items.length>=12||items.some(item=>item.url===image.url))return;items.push({...image,caption:''});}
+  else if(add!==undefined){const url=imageChoices.resolve(event.target.value),image=currentContent().images.find(item=>item.url===url);if(!image||items.length>=12||items.some(item=>item.url===image.url))return;items.push({...image,caption:''});}
   else items[Number(caption)].caption=event.target.value;
   owner[key]=items;owner[primary]=items[0]?.url||'';markDirty();updatePreview();
   if(caption===undefined){if(scope==='hero')renderImages();else renderCards();}
@@ -194,7 +194,8 @@ $('brandColors').addEventListener('click',event=>{
 });
 $('logoVariants').addEventListener('change',event=>{
   const key=event.target.dataset.logoVariant;if(!['logoLight','logoDark'].includes(key))return;
-  project.branding={...project.branding,[key]:event.target.value};renderImages();markDirty();updatePreview();
+  const url=imageChoices.resolve(event.target.value);if(url===null)return;
+  project.branding={...project.branding,[key]:url};renderImages();markDirty();updatePreview();
 });
 function renderImages() {
   const shownLogo=selectBrandLogo(project);
@@ -232,7 +233,7 @@ function fitTemplatePreviews() {
   });
 }
 function showTemplates() {
-  $('templateGallery').innerHTML = templates.map(template=>`<article class="template-option ${project.templateId===template.id?'is-selected':''}"><div class="template-sample" aria-hidden="true"><iframe title="${e(template.name)} miniatyr" tabindex="-1" inert sandbox srcdoc="${e(renderDemo({...project,templateId:template.id}))}"></iframe></div><div class="template-option-copy"><p class="overline">${e(template.reference)}</p><h3>${e(template.name)}</h3><p>${e(template.description)}</p><button class="button ${project.templateId===template.id?'primary':'secondary'}" data-template="${template.id}" aria-pressed="${project.templateId===template.id}">${project.templateId===template.id?'Vald mall':'Använd '+e(template.name)}</button></div></article>`).join('');
+  $('templateGallery').innerHTML = templates.map(template=>`<article class="template-option ${project.templateId===template.id?'is-selected':''}"><div class="template-sample" aria-hidden="true"><iframe title="${e(template.name)} miniatyr" tabindex="-1" inert sandbox srcdoc="${e(renderTemplateThumbnail(project,currentContent(),template.id))}"></iframe></div><div class="template-option-copy"><p class="overline">${e(template.reference)}</p><h3>${e(template.name)}</h3><p>${e(template.description)}</p><button class="button ${project.templateId===template.id?'primary':'secondary'}" data-template="${template.id}" aria-pressed="${project.templateId===template.id}">${project.templateId===template.id?'Vald mall':'Använd '+e(template.name)}</button></div></article>`).join('');
   $('templateDialog').showModal();
   fitTemplatePreviews();
 }
@@ -264,7 +265,7 @@ function fillEditor(keepPreview = false) {
   $('savedState').textContent = dirty ? 'OSPARAT' : 'SPARAT';
   $('importStatus').className = 'import-status';
   $('importStatus').textContent = project.id === 'vegavista' ? 'Vegavista-pilot. Granska eventuella ändringar innan du delar.' : project.importedAt ? 'Importerat innehåll. Granska text och bildval innan du delar.' : 'Klistra in en företagslänk eller fyll i innehållet själv.';
-  renderNavigationSummary(); renderCards(); renderImages(); renderBenefits(); renderTypography(); renderBranding(); workbench.sync(); if(!keepPreview)updatePreview();else updateTitle();
+  imageChoices.clear();renderNavigationSummary(); renderCards(); renderImages(); renderBenefits(); renderTypography(); renderBranding(); workbench.sync(); if(!keepPreview)updatePreview();else updateTitle();
 }
 $('pageSelect').addEventListener('change',()=>{activePage=Number($('pageSelect').value);fillEditor();});
 async function refreshProjects() {
@@ -464,7 +465,7 @@ document.querySelectorAll('[data-tab]').forEach(button => button.addEventListene
 }));
 $('cardsEditor').addEventListener('input', event => {
   const {card, property} = event.target.dataset;
-  if (card !== undefined) { if(property==='kind'&&!event.target.value)delete currentContent().cards[Number(card)].kind;else if(property==='image')setPrimaryImage(currentContent().cards[Number(card)],'gallery','image',event.target.value);else currentContent().cards[Number(card)][property] = event.target.value; markDirty(); updatePreview(); }
+  if (card !== undefined) { if(property==='kind'&&!event.target.value)delete currentContent().cards[Number(card)].kind;else if(property==='image'){const url=imageChoices.resolve(event.target.value);if(url===null)return;setPrimaryImage(currentContent().cards[Number(card)],'gallery','image',url);}else currentContent().cards[Number(card)][property] = event.target.value; markDirty(); updatePreview(); }
 });
 $('cardsEditor').addEventListener('change',event=>{if(event.target.dataset.property==='image')renderCards();});
 $('cardsEditor').addEventListener('click', event => {

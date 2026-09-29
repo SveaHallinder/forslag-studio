@@ -1,5 +1,7 @@
 import {personalProfile,publicationCard,personalDesignCSS} from './personal-design.mjs';
 import {atelierHero,atelierCSS} from './atelier.mjs';
+import {pageSectionPlan,pageDesignFamily,pageDesignCSS} from './page-design.mjs';
+import {renderSiteEnding,siteEndingCSS} from './site-ending.mjs';
 import {artDirectionCSS} from './art-directions.mjs';
 import {renderHeader,installHeaderNavigation,navigationCSS} from './navigation.mjs';
 import {sectionComposition,compactCardIndices,compactTextIndices,paragraphContent,compositionCSS} from './composition.mjs';
@@ -112,14 +114,15 @@ function faqEntries(card) {
 function renderGallery(items,pic,title) {
   return `<div class="section-gallery" data-image-count="${items.length}">${items.map(item=>`<figure>${pic(item.url,item.label||title,'',true,item.presentation)}${item.caption?`<figcaption>${escapeHTML(item.caption)}</figcaption>`:''}</figure>`).join('')}</div>`;
 }
-function renderContentCard(card,index,pic,imported,compact=false,textCompact=false) {
+function renderContentCard(card,index,pic,imported,compact=false,textCompact=false,flow={}) {
   const semantic=Object.hasOwn(sectionKinds,card.kind)?card.kind:imported?detectSectionKind(card):'generic';
   const e=escapeHTML,faq=imported&&(!card.kind||card.kind==='faq')?faqEntries(card):[],single=faq.length===1&&faq[0].question===card.title;
   const kind=card.gallery?.length>1?'multi':faq.length?'faq':card.image?(card.description.length<=280?'gallery':'editorial'):!card.description?'heading':'text';
   const heading=imported?'h2':'h3';
-  const title=`<${heading}>${card.href?`<a href="${e(card.href)}" ${/^https?:/.test(card.href)?'target="_blank" rel="noopener noreferrer"':''}>${e(card.title)} ↗</a>`:e(card.title)}</${heading}>`;
+  const title=`<${heading}>${card.href?`<a href="${e(card.href)}" ${/^https?:/.test(card.href)?'target="_blank" rel="noopener noreferrer"':''}>${e(card.title)} <span class="section-link-arrow" aria-hidden="true">↗</span></a>`:e(card.title)}</${heading}>`;
   const content=faq.length?`${single?'':title}<div class="faq-list">${faq.map(item=>`<details class="faq-item" open><summary>${e(item.question)}</summary><p>${e(item.answer)}</p></details>`).join('')}</div>`:`${title}${card.description?`<${semantic==='testimonial'?'blockquote':'p'}${semantic==='testimonial'?'':' class="section-copy"'}>${paragraphContent(card.description,e)}</${semantic==='testimonial'?'blockquote':'p'}>`:''}`;
-  return `<article data-composition="${sectionComposition(card)}"${publicationCard(card)?' data-publication="true"':''}${compact?' data-density="compact"':textCompact?' data-density="text-compact"':''} class="card${imported?' content-'+kind+(semantic!=='generic'?' section-'+semantic:''):''}" ${card.anchor?`id="${e(card.anchor)}"`:''}>${card.gallery?.length?renderGallery(card.gallery,pic,card.title):card.image?pic(card.image,card.title):!imported?`<div class="card-placeholder" aria-hidden="true">${String(index+1).padStart(2,'0')}</div>`:''}<div class="card-meta"><div>${content}</div>${!imported?`<span class="card-number">${String(index+1).padStart(2,'0')}</span>`:''}</div></article>`;
+  const marker=flow.chapter||flow.role==='index'?`<span class="flow-index" aria-hidden="true">${String(flow.chapter||flow.position+1).padStart(2,'0')}</span>`:'';
+  return `<article data-composition="${sectionComposition(card)}" data-flow="${flow.role||sectionComposition(card)}" data-flow-position="${flow.position||0}" data-flow-side="${flow.side||0}"${publicationCard(card)?' data-publication="true"':''}${compact?' data-density="compact"':textCompact?' data-density="text-compact"':''} class="card${imported?' content-'+kind+(semantic!=='generic'?' section-'+semantic:''):''}" ${card.anchor?`id="${e(card.anchor)}"`:''}>${card.gallery?.length?renderGallery(card.gallery,pic,card.title):card.image?pic(card.image,card.title):!imported?`<div class="card-placeholder" aria-hidden="true">${String(index+1).padStart(2,'0')}</div>`:''}<div class="card-meta"><div>${marker}${content}</div>${!imported?`<span class="card-number">${String(index+1).padStart(2,'0')}</span>`:''}</div></article>`;
 }
 function renderSingleDemo(raw, options = {}) {
   const p = normalizeProject(raw), e = escapeHTML;
@@ -127,7 +130,7 @@ function renderSingleDemo(raw, options = {}) {
   p.benefits = p.benefits.filter(b => b.title);
   const src = value => e(options.resolveImage ? options.resolveImage(value) : value);
   const pic = (url, alt, cls = '', lazy = true, presentation) => `<img src="${src(url)}" alt="${e(alt)}" class="${cls}" ${presentationStyle(presentation)?`style="${presentationStyle(presentation)}"`:""} ${lazy?'loading="lazy"':''} decoding="async" referrerpolicy="no-referrer">`;
-  const contact = p.email ? `mailto:${p.email}` : p.phone ? `tel:${p.phone.replace(/[^+\d]/g,'')}` : '';
+  const ending=renderSiteEnding(p,e,pic);
   const benefits = `${p.benefits.length?`<div class="benefits" style="--benefit-count:${p.benefits.length}">${p.benefits.map(b=>`<div class="benefit"><h3>${e(b.title)}</h3><i></i><p>${e(b.description)}</p></div>`).join('')}</div>`:''}`;
   const visual = `<div class="visual ${p.hero?'':'no-image'}">${p.templateId==='story'?benefits:''}${p.heroGallery?.length>1||p.heroGallery?.some(i=>i.caption)?renderGallery(p.heroGallery,pic,p.name):p.hero?`${pic(p.hero,p.name+' – verksamhetsbild','hero-image',false,p.heroGallery?.find(item=>item.url===p.hero)?.presentation)}<div class="image-label">${e(p.name)}</div>`:''}</div>`;
   // Legacy proposals include authored overview/about/benefit sections. Keep their
@@ -138,15 +141,16 @@ function renderSingleDemo(raw, options = {}) {
   const personal=imported&&personalProfile(p);
   const compact=imported?compactCardIndices(p.cards):new Set();
   const textCompact=imported?compactTextIndices(p.cards):new Set();
+  const sectionPlan=pageSectionPlan(p.cards);
   const body = `<div class="demo-note">Designförslag · Framtagen för ${e(p.name)}</div>
   <div class="shell">${renderHeader(p,imported,e,pic)}
   <main id="start">${p.templateId==='atelier'?atelierHero(p,{personal,e,visual,paragraph:paragraphContent,button:(!imported||p.ctaHref)?`<a class="button" href="${e(p.ctaHref||(p.cards.length?'#erbjudande':'#kontakt'))}" ${/^https?:/.test(p.ctaHref)?'target="_blank" rel="noopener noreferrer"':''}>${imported?e(p.cta):p.cards.length?'Utforska vårt utbud':e(p.cta)}<span aria-hidden="true">↗</span></a>`:''}):`<div class="hero-layout"${personal?' data-profile="person"':''} data-hero="${p.hero?'image':'text'}"><section class="hero-copy" data-density="${p.description.length>300?'long':'short'}">${p.eyebrow?`<div class="eyebrow">${e(p.eyebrow)}</div>`:''}${personal?`<p class="profile-name">${e(p.name)}</p>`:''}<h1 data-length="${p.headline.length>150?'extended':p.headline.length>80?'long':'short'}">${e(p.headline)}</h1>${p.description?`<p>${paragraphContent(p.description,e)}</p>`:''}${!imported||p.ctaHref?`<a class="button" href="${e(p.ctaHref||(p.cards.length?'#erbjudande':'#kontakt'))}" ${/^https?:/.test(p.ctaHref)?'target="_blank" rel="noopener noreferrer"':''}>${imported?e(p.cta):p.cards.length?'Utforska vårt utbud':e(p.cta)}<span aria-hidden="true">↗</span></a>`:''}</section>
   ${visual}</div>`}${p.templateId!=='story'?benefits:''}
-  ${p.cards.length?`<section class="section" id="erbjudande"><div class="section-top" ${imported?'hidden':''}><div><p class="section-kicker">${e(p.name)} / Utvalt</p><h2>${e(p.sectionTitle)}</h2></div>${p.sectionIntro?`<p>${e(p.sectionIntro)}</p>`:''}</div><div class="cards">${p.cards.map((c,i)=>renderContentCard(c,i,pic,imported||!!c.kind,compact.has(i),textCompact.has(i))).join('')}</div></section>`:''}
+  ${p.cards.length?`<section class="section" id="erbjudande"><div class="section-top" ${imported?'hidden':''}><div><p class="section-kicker">${e(p.name)} / Utvalt</p><h2>${e(p.sectionTitle)}</h2></div>${p.sectionIntro?`<p>${e(p.sectionIntro)}</p>`:''}</div><div class="cards">${p.cards.map((c,i)=>renderContentCard(c,i,pic,imported||!!c.kind,compact.has(i),textCompact.has(i),sectionPlan[i])).join('')}</div></section>`:''}
   ${p.about?`<section class="section about" id="om"><div><p class="section-kicker">Om ${e(p.name)}</p><h2>${e(p.aboutTitle || p.name)}</h2></div><p>${e(p.about)}</p></section>`:''}
-  <section class="contact" id="kontakt"><div><p class="section-kicker" style="color:#bcc9b8">Ta nästa steg</p><h2>${p.ctaHref?'Kontakt':e(p.cta)+'.'}</h2><div class="contact-links">${p.email?`<a href="mailto:${e(p.email)}">${e(p.email)}</a>`:''}${p.phone?`<a href="tel:${e(p.phone.replace(/[^+\d]/g,''))}">${e(p.phone)}</a>`:''}${p.address?`<span>${e(p.address)}</span>`:''}${!contact?'<span class="contact-empty">Kontaktuppgifter saknas i det här designförslaget.</span>':''}</div></div>${contact?`<a class="button accent" href="${e(contact)}">${p.email?'Skicka ett mejl':'Ring oss'}<span aria-hidden="true">↗</span></a>`:''}</section></main>
-  <footer class="footer"><span class="brand-name">${e(p.name)}</span><span class="source">Designförslag · Innehåll och bilder från ${p.source?`<a href="${e(p.source)}" rel="noopener noreferrer" target="_blank">företagets webbplats</a>`:'företaget'}.</span></footer></div>`;
-  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${p.templateId==='atelier'?navigationCSS+atelierCSS(p):`${templateCSS}${homepageCSS}${templateContentCSS}${sectionDesignCSS}${compositionCSS}${personalDesignCSS}${brandingCSS(p.branding)}${navigationCSS}${artDirectionCSS(p)}`}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}<script data-header-navigation>(${installHeaderNavigation.toString()})(document);</script></body></html>`;
+  ${ending.contact}</main>
+  ${ending.footer}</div>`;
+  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${p.templateId==='atelier'?atelierCSS(p):`${templateCSS}${homepageCSS}${templateContentCSS}${sectionDesignCSS}${compositionCSS}${personalDesignCSS}${brandingCSS(p.branding)}${artDirectionCSS(p)}`}${pageDesignCSS(p)}${siteEndingCSS(p)}${navigationCSS}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" data-page-design="${pageDesignFamily(p.templateId)}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}<script data-header-navigation>(${installHeaderNavigation.toString()})(document);</script></body></html>`;
 }
 
 export function resolveDemoRoute(href,source,pages) {
@@ -177,7 +181,7 @@ export function installDemoNavigation(doc=document,win=window,resolveRoute=resol
     doc.body.dataset.imported=String(pages[active].imported);doc.body.style.setProperty('--hero-position',pages[active].heroPosition+'%');doc.title=pages[active].title;
     for(const link of stage.querySelectorAll('a[href]')){
       if(link.closest('.footer .source'))continue;
-      const href=link.getAttribute('href'),target=link.matches('.brand')?{page:0,anchor:''}:href.startsWith('#')?{page:link.closest('.nav-links')?0:active,anchor:href.slice(1)}:resolveRoute(href,pages[active].source,pages);
+      const href=link.getAttribute('href'),target=link.matches('.brand')?{page:0,anchor:''}:href.startsWith('#')?{page:link.closest('.nav-links,.mobile-links,.ending-links')?0:active,anchor:href.slice(1)}:resolveRoute(href,pages[active].source,pages);
       if(!target)continue;
       if(target.anchor){const destination=templates.find(item=>Number(item.dataset.demoPage)===target.page);if(!destination||![...destination.content.querySelectorAll('[id]')].some(node=>node.id===target.anchor))continue;}
       link.dataset.demoTarget=String(target.page);link.dataset.demoAnchor=target.anchor;link.href=localURL(target).href;link.removeAttribute('target');link.removeAttribute('title');
