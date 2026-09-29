@@ -7,11 +7,13 @@ import { encodeProject } from './share.mjs';
 import { templates, getTemplate } from './templates.mjs';
 import { assessProject, searchProjects, restoreProject, prepareNavigation } from './project-tools.mjs';
 import { createStudioImageOptions } from './studio-images.mjs';
+import {importQualityIssues} from './import-quality.mjs';
 
 const $ = id => document.getElementById(id);
 const imageChoices = createStudioImageOptions(e);
 let project, config = {}, dirty = false, device = 'desktop', toastTimer, previewTimer, importBusy = false;
 let activePage = -1, editingSite, previewSource;
+let pendingImportQualityAction;
 const workbench=createDesignWorkbench({getProject:()=>project,getPage:()=>currentContent(),changed:()=>{markDirty();fillEditor();},navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}},editNavigation:()=>$('editNavigation').click(),notify:toast});
 function currentContent() { return project.pages?.[activePage] || project; }
 function fieldOwner(field) { return ['name','accent'].includes(field) ? project : currentContent(); }
@@ -50,7 +52,37 @@ async function api(path, body, timeout = 90000) {
 function markDirty() {
   dirty = true; $('savedState').textContent = 'OSPARAT';
   try { localStorage.setItem(draftKey, JSON.stringify(project)); } catch { $('savedState').textContent = 'SPARA MANUELLT'; }
+  renderImportQuality();
 }
+function importQualitySummary(issues) {
+  return issues.map(issue=>(issue.pageIndex<0?'Startsidan':issue.name)+' har '+issue.characters+' tecken i introduktionen men inga innehållsblock.').join(' ');
+}
+function renderImportQuality() {
+  const issues=importQualityIssues(project);
+  $('importQuality').hidden=!issues.length;
+  $('importQualityMessage').textContent=importQualitySummary(issues);
+  $('recoverImport').disabled=importBusy;
+}
+function requestImportQualityReview(action,kind) {
+  const issues=importQualityIssues(project);if(!issues.length)return false;
+  const current=project,snapshot=JSON.stringify(project);
+  pendingImportQualityAction=()=>{
+    if(project!==current||JSON.stringify(project)!==snapshot)return toast('Förslaget har ändrats. Granska den senaste versionen igen.');
+    return action();
+  };
+  $('importQualityDetails').textContent=importQualitySummary(issues);
+  $('continueImportQuality').textContent=kind==='download'?'Ladda ner ändå · ej färdiggranskad':'Skapa länk ändå · ej färdiggranskad';
+  for(const id of ['reviewDialog','shareDialog'])if($(id).open)$(id).close();
+  $('importQualityDialog').showModal();return true;
+}
+$('continueImportQuality').addEventListener('click',()=>{const action=pendingImportQualityAction;pendingImportQualityAction=null;$('importQualityDialog').close();action?.();});
+$('importQualityDialog').addEventListener('close',()=>{pendingImportQualityAction=null;});
+$('inspectImportQuality').addEventListener('click',()=>{
+  const issue=importQualityIssues(project)[0];$('importQualityDialog').close();showEditor();activePage=issue?.pageIndex??-1;fillEditor();
+  document.querySelector('[data-tab="content"]').click();$('description').scrollIntoView({block:'center'});$('description').focus({preventScroll:true});
+});
+$('recoverImport').addEventListener('click',()=>importCompany({recover:true}));
+$('recoverImportDialog').addEventListener('click',()=>{$('importQualityDialog').close();importCompany({recover:true});});
 function updateTitle() {
   $('projectTitle').textContent = project.name;
   $('breadcrumbName').textContent = project.name;
@@ -265,6 +297,7 @@ function fillEditor(keepPreview = false) {
   $('savedState').textContent = dirty ? 'OSPARAT' : 'SPARAT';
   $('importStatus').className = 'import-status';
   $('importStatus').textContent = project.id === 'vegavista' ? 'Vegavista-pilot. Granska eventuella ändringar innan du delar.' : project.importedAt ? 'Importerat innehåll. Granska text och bildval innan du delar.' : 'Klistra in en företagslänk eller fyll i innehållet själv.';
+  renderImportQuality();
   imageChoices.clear();renderNavigationSummary(); renderCards(); renderImages(); renderBenefits(); renderTypography(); renderBranding(); workbench.sync(); if(!keepPreview)updatePreview();else updateTitle();
 }
 $('pageSelect').addEventListener('change',()=>{activePage=Number($('pageSelect').value);fillEditor();});
@@ -354,7 +387,7 @@ async function openSavedProject(id, duplicate = false) {
 }
 function reviewBeforeShare() {
   $('reviewTemplate').textContent = 'Vald design: ' + getTemplate(project.templateId).name;
-  const checks = assessProject(project);
+  const checks = [...importQualityIssues(project).map(issue=>({label:'Importen behöver granskas',ok:false,field:'description',tab:'content',pageIndex:issue.pageIndex,help:importQualitySummary([issue])+' Hämta om som nytt förslag eller dela upp texten.'})),...assessProject(project)];
   $('reviewChecks').innerHTML = checks.map(c=>`<div class="review-check ${c.ok?'complete':'needs-review'}"><span role="img" aria-label="${c.ok?'Klart':'Behöver granskas'}">${c.ok?'✓':'○'}</span><div><strong>${e(c.label)}</strong>${!c.ok?`<p>${e(c.help)}</p>`:''}</div>${!c.ok?`<button class="text-button" data-review-field="${c.field}" data-review-tab="${c.tab}" data-review-page="${c.pageIndex??-1}">Rätta</button>`:''}</div>`).join('');
   const blocked = checks.some(c=>c.blocking&&!c.ok);
   $('confirmShare').disabled = blocked;
@@ -419,20 +452,23 @@ async function save(notify = true) {
     return result;
   } finally { $('saveButton').disabled = false; }
 }
-async function downloadDemo() {
+async function downloadDemo(allowIncomplete=false) {
+  if(allowIncomplete!==true&&requestImportQualityReview(()=>downloadDemo(true),'download'))return;
+  const incomplete=importQualityIssues(project).length>0;
   const button = $('downloadButton');
   button.disabled = true; button.textContent = 'Bäddar in bilder…';
   try {
     const response = await api('/api/export', project, 120000);
     const blob = await response.blob();
     const url = URL.createObjectURL(blob), a = document.createElement('a');
-    a.href = url; a.download = (project.name.toLowerCase().replace(/[^a-z0-9åäö-]/g,'-') || 'foretag') + '-designforslag.html';
+    a.href = url; a.download = (project.name.toLowerCase().replace(/[^a-z0-9åäö-]/g,'-') || 'foretag') + (incomplete?'-ogranskad':'')+'-designforslag.html';
     a.click(); setTimeout(()=>URL.revokeObjectURL(url),60000);
-    toast('Demosidan har laddats ner med bilderna inbäddade.');
+    toast(incomplete?'Ej färdiggranskad demo nedladdad. Kontrollera innehållet innan du visar den för kunden.':'Demosidan har laddats ner med bilderna inbäddade.');
   } catch(error) { toast(error.message); }
   finally { button.disabled = false; button.textContent = 'Ladda ner demosida ↓'; }
 }
-async function share() {
+async function share(allowIncomplete=false) {
+  if(allowIncomplete!==true&&requestImportQualityReview(()=>share(true),'share'))return;
   $('shareButton').disabled = true;
   try {
     const sharingProject = project;
@@ -445,7 +481,9 @@ async function share() {
     const base = publicReady ? config.publicBase : location.origin + '/viewer';
     const url = await encodeProject(shareSnapshot, base);
     $('shareUrl').value = url; $('shareUrl').dataset.companyName = shareSnapshot.name; $('visitLink').href = url;
-    $('shareIntro').textContent = publicReady ? 'Öppna länken på mobilen eller skicka den inför nästa samtal.' : 'Förhandsvisningen fungerar på den här datorn. Publik hosting är ännu inte ansluten.';
+    const incomplete=importQualityIssues(shareSnapshot).length>0;
+    $('shareReadiness').textContent=incomplete?'EJ FÄRDIGGRANSKAT':'REDO ATT VISA';
+    $('shareIntro').textContent = incomplete?'Länken innehåller en import som behöver granskas. Kontrollera text och sektioner innan du visar den för kunden.':publicReady ? 'Öppna länken på mobilen eller skicka den inför nästa samtal.' : 'Förhandsvisningen fungerar på den här datorn. Publik hosting är ännu inte ansluten.';
     $('shareWarning').hidden = publicReady;
     $('shareWarning').textContent = 'Detta är en lokal länk. Skicka den inte till kunden ännu. Ladda ner en fristående demosida eller anslut den publika visningssidan.';
     $('shareHelp').textContent = 'Länken visar den här versionen och ändras inte när du redigerar. ' + ([shareSnapshot,...(shareSnapshot.pages||[])].some(p=>[p.hero,p.logo,...p.cards.map(c=>c.image)].some(url=>/^https?:/.test(url))) ? 'Bilder från andra sajter måste vara fortsatt tillgängliga. HTML-exporten sparar egna kopior.' : 'Spara hela länken, inklusive delen efter #.');
@@ -541,27 +579,36 @@ $('newProject').addEventListener('click',()=>{
   ++projectLoadSequence;showEditor();project=normalizeProject({name:'Nytt förslag',headline:'Här börjar nästa kunds hemsida.'});dirty=true;fillEditor();markDirty();$('sourceUrl').value='';$('sourceUrl').focus();$('importStatus').textContent='Klistra in en företagslänk för att komma igång.';refreshProjects().catch(()=>{});
 });
 $('showProjects').addEventListener('click',async()=>{ $('editorView').hidden=true;$('projectsView').hidden=false;$('dashboardResume').textContent=dirty?'Fortsätt med utkastet':'Fortsätt redigera';$('showProjects').classList.add('side-active');try{await refreshProjects();}catch(error){toast(error.message);} });
-$('importButton').addEventListener('click',async()=>{
+$('importButton').addEventListener('click',()=>importCompany());
+async function importCompany({recover=false}={}) {
   if(importBusy||!project)return;
-  const url=$('sourceUrl').value.trim();if(!url){$('sourceUrl').focus();return toast('Klistra in företagets webbadress.');}
-  if(dirty&&!confirm('Importera ett nytt företag och ersätta det osparade utkastet?'))return;
+  const url=(recover?project.source:$('sourceUrl').value).trim();if(!url){$('sourceUrl').focus();return toast('Klistra in företagets webbadress.');}
+  if(!recover&&dirty&&!confirm('Importera ett nytt företag och ersätta det osparade utkastet?'))return;
   const importProject = project;
-  const importSnapshot = JSON.stringify(project);
   importBusy=true;$('importButton').disabled=true;$('importButton').textContent='Hämtar hemsidan…';
+  renderImportQuality();
   $('importStatus').className='import-status loading';$('importStatus').textContent='Läser startsidan och valda undersidor. Behåll fliken öppen; det kan ta ett par minuter.';
   try{
-    const imported=normalizeProject({...await(await api('/api/import',{url,includePages:$('includePages').checked!==false})).json(),templateId:importProject.templateId});
+    if(recover){
+      $('importStatus').textContent='Sparar din nuvarande version innan en ny import skapas…';
+      await save(false);
+      if(project!==importProject||dirty){$('importStatus').className='import-status';$('importStatus').textContent='Hämtningen avbröts eftersom du ändrade eller bytte förslag. Dina ändringar finns kvar.';return;}
+      $('importStatus').textContent='Nuvarande version är sparad i Mina förslag. Hämtar innehållet som ett nytt förslag med samma design…';
+    }
+    const importSnapshot = JSON.stringify(project);
+    const imported=normalizeProject({...await(await api('/api/import',{url,includePages:$('includePages').checked!==false})).json(),...(recover?{id:''}:{}),templateId:importProject.templateId});
     if(project !== importProject || JSON.stringify(project) !== importSnapshot){
       $('importStatus').className='import-status';
       $('importStatus').textContent='Importen lades åt sidan eftersom du ändrade eller bytte projekt. Dina senaste ändringar finns kvar.';
       return;
     }
     project=imported;workbench.captureOriginal(project);dirty=true;fillEditor();markDirty();
-    $('importStatus').className='import-status';$('importStatus').textContent=`Startsida${project.pages?.length?' + '+project.pages.length+' undersidor':''} hämtad. ${project.images.length} bildkandidater och ${project.cards.length} innehållsblock på startsidan. Granska varje sida nedan.`;
-    toast('Företagets innehåll är inlagt.');
+    const quality=importQualityIssues(project);
+    $('importStatus').className='import-status'+(quality.length?' error':'');$('importStatus').textContent=quality.length?'Importen behöver granskas: '+importQualitySummary(quality):`Startsida${project.pages?.length?' + '+project.pages.length+' undersidor':''} hämtad. ${project.images.length} bildkandidater och ${project.cards.length} innehållsblock på startsidan. Granska varje sida nedan.`+(recover?' Din valda design är kvar. Jämför rekommenderade mallar med Tre designförslag.':'');
+    toast(quality.length?'Importen verkar ha samlat sidans innehåll i introduktionen. Granska varningen.':recover?'Ny import öppnad. Din tidigare version finns i Mina förslag.':'Företagets innehåll är inlagt.');
   }catch(error){$('importStatus').className='import-status error';$('importStatus').textContent=error.name==='TimeoutError'?'Hämtningen tog för lång tid. Ditt utkast finns kvar; försök igen eller fortsätt manuellt.':error.message;}
-  finally{importBusy=false;$('importButton').disabled=false;$('importButton').innerHTML='Hämta innehåll <span>→</span>';}
-});
+  finally{importBusy=false;$('importButton').disabled=false;$('importButton').innerHTML='Hämta innehåll <span>→</span>';renderImportQuality();}
+}
 window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
 new ResizeObserver(fitPreview).observe($('previewStage'));
 

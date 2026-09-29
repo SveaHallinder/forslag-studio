@@ -65,10 +65,11 @@ async function readCompany(url,extraContact=true) {
 async function importCompany(url,includePages=true) {
   const project=await readCompany(url);project.pages=[];
   if(!includePages){delete project.sourceAnchors;return project;}
-  const root=new URL(project.source),seen=new Set([root.origin+root.pathname.replace(/\/$/,'')]),targets=[];
+  const root=new URL(project.source),pathKey=url=>url.origin+(root.pathname==='/'&&url.origin===root.origin&&url.pathname==='/index.html'?'':url.pathname.replace(/\/$/,''));
+  const seen=new Set([pathKey(root)]),targets=[];
   for(const item of project.navigation){
     let target;try{target=new URL(item.href,root);}catch{continue;}
-    const key=target.origin+target.pathname.replace(/\/$/,'');
+    const key=pathKey(target);
     if(target.origin!==root.origin||seen.has(key)||target.search||/\.(?:pdf|zip|jpe?g|png|svg|webp)$/i.test(target.pathname))continue;
     seen.add(key);target.hash='';targets.push({label:item.label,url:target.href});
   }
@@ -79,7 +80,7 @@ async function importCompany(url,includePages=true) {
       catch{console.warn('[mockup online import] Subpage unavailable',new URL(target.url).pathname);failed.push(target.label);return null;}
     }));project.pages.push(...batch.filter(Boolean));
   }
-  const content=[project,...project.pages],key=url=>url.origin+url.pathname.replace(/\/$/,'')+url.search;
+  const content=[project,...project.pages],key=url=>pathKey(url)+url.search;
   const relink=href=>{
     if(!/^https?:/.test(href||''))return href;
     try{

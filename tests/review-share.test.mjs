@@ -4,12 +4,13 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { normalizeProject } from '../public/render.mjs';
 import { assessProject } from '../public/project-tools.mjs';
+import {importQualityIssues} from '../public/import-quality.mjs';
 const source=readFileSync(new URL('../public/studio.mjs',import.meta.url),'utf8');
-const block=source.slice(source.indexOf('async function share()'),source.indexOf("document.querySelectorAll('[data-field]')",source.indexOf('async function share()')));
+const block=source.slice(source.indexOf('async function share('),source.indexOf("document.querySelectorAll('[data-field]')",source.indexOf('async function share(')));
 function harness(){
  let release,encoded;
  const pending=new Promise(r=>release=r),elements=new Map();
- const context={project:normalizeProject({name:'Acme',headline:'Godkänd rubrik'}),config:{},normalizeProject,assessProject,location:{origin:'http://localhost'},
+ const context={project:normalizeProject({name:'Acme',headline:'Godkänd rubrik'}),config:{},normalizeProject,assessProject,importQualityIssues,requestImportQualityReview:()=>false,location:{origin:'http://localhost'},
   $:id=>{if(!elements.has(id))elements.set(id,{dataset:{},showModal(){}});return elements.get(id);},save:()=>pending,
   api:async()=>({json:async()=>({publicBase:'https://demo.example',hostingStatus:'public'})}),
   encodeProject:async p=>{encoded=p;return 'https://demo.example/#d=test';},toast(){}};

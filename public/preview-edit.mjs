@@ -7,7 +7,7 @@ export function installPreviewEditing(doc,{onSelect,onExit=()=>{},cardIndexes=[]
   one('.nav .brand',{type:'logo'},'logotyp');one('.nav-links',{type:'navigation'},'menyn');one('.mobile-menu summary',{type:'navigation'},'menyn');
   for(const [selector,field,label] of [['.profile-name','name','företagsnamn'],['h1','headline','huvudrubrik'],[':scope>p:not(.profile-name)','description','introduktion'],['.eyebrow','eyebrow','liten rubrik'],['.button','cta','huvudknapp']])add(doc.querySelector('.hero-copy')?.querySelector(selector),{type:'field',field},label);
   doc.querySelectorAll('.visual img').forEach((img,index)=>add(img,{type:'image',scope:'hero',index},'huvudbild '+(index+1)));
-  doc.querySelectorAll('.cards>.card').forEach((card,renderedIndex)=>{
+  doc.querySelectorAll('.cards .card').forEach((card,renderedIndex)=>{
     const index=cardIndexes[renderedIndex]??renderedIndex;
     add(card.querySelector('h2,h3'),{type:'card',index,field:'title'},'sektionsrubrik');
     add(card.querySelector('.card-meta p,.card-meta blockquote,.faq-list'),{type:'card',index,field:'description'},'sektionstext');

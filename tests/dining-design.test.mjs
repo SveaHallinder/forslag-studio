@@ -45,3 +45,21 @@ test('automatic dining menu CTA stays on the homepage when subpages have differe
   assert.doesNotMatch(subpage,/<a class="button" href="#menu"/);
   assert.match(html,/<a class="button" href="#menu"/);
 });
+
+test('consecutive dining categories share a menu while every source section and anchor remains in order',()=>{
+ const cards=[{title:'Öppettider',description:'Måndag 07:30 - 16:00',anchor:'hours'},{title:'Meny',anchor:'menu'},{title:'Kaffe',description:'Espresso 35:-\nLatte 45:-',anchor:'coffee'},{title:'Mat',description:'Soppa 99:-\nToast 89:-',anchor:'food'},{title:'Om oss',description:'Vår ursprungliga berättelse.',anchor:'about'}];
+ const before=JSON.stringify(cards),html=renderDemo({templateId:'dining',importedAt:'today',cards});
+ assert.match(html,/class="dining-visit"/);assert.match(html,/class="dining-menu-categories"/);
+ assert.match(html,/<nav aria-label="Menykategorier"><a href="#coffee">Kaffe/);
+ assert.match(html,/<div class="dining-menu-layout" id="menu">/);
+ const rendered=[...html.matchAll(/id="(hours|menu|coffee|food|about)"/g)].map(match=>match[1]);
+ assert.deepEqual(rendered,['hours','menu','coffee','food','about']);
+ assert.equal((html.match(/<article\b/g)||[]).length,cards.length);assert.equal(JSON.stringify(cards),before);
+ assert.match(html,/Vår ursprungliga berättelse\./);
+});
+
+
+test('photo hours link targets a real box even when its article uses display contents',()=>{
+ const html=renderDemo({templateId:'dining',importedAt:'today',cards:[{title:'Öppettider',description:'Måndag 07:30 - 16:00',anchor:'hours',image:'https://example.com/cafe.jpg'}]});
+ assert.match(html,/<div class="card-meta" id="hours">/);assert.equal((html.match(/id="hours"/g)||[]).length,1);
+});

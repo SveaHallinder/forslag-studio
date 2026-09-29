@@ -22,22 +22,47 @@ export function diningCardRole(card,index) {
 export function diningMenuContent(value,escape) {
   return diningMenuLines(value).map(line=>line.price?`<span class="menu-item"><span class="menu-item-name">${escape(line.label)}</span> <span class="menu-item-price">${escape(line.price)}</span></span>`:line.text?`<span class="menu-item-detail">${escape(line.text)}</span>`:'<span class="menu-item-space" aria-hidden="true"></span>').join('\n');
 }
+// Group consecutive source sections without changing their content or persisted shape.
+export function diningSections(cards,renderCard,escape) {
+  const roles=cards.map(diningCardRole),parts=[];
+  for(let i=0;i<cards.length;){
+    const start=i;
+    if(roles[i]==='hours'){
+      while(roles[i]==='hours')i++;
+      parts.push(`<div class="dining-visit">${cards.slice(start,i).map((card,n)=>renderCard(card,start+n)).join('')}</div>`);
+      continue;
+    }
+    const chapter=roles[i]==='chapter'&&roles[i+1]==='menu';
+    if(chapter||roles[i]==='menu'){
+      if(chapter)i++;
+      const menuStart=i;
+      while(roles[i]==='menu')i++;
+      if(i-menuStart>=2){
+        const menuCards=cards.slice(menuStart,i),links=menuCards.filter(card=>card.anchor).map(card=>`<a href="#${escape(card.anchor)}">${escape(card.title)}<span aria-hidden="true">↗</span></a>`).join('');
+        parts.push(`<div class="dining-menu-layout"${chapter&&cards[start].anchor?` id="${escape(cards[start].anchor)}"`:""}><aside class="dining-menu-index">${chapter?renderCard({...cards[start],anchor:""},start):''}${links?`<nav aria-label="Menykategorier">${links}</nav>`:''}</aside><div class="dining-menu-categories">${menuCards.map((card,n)=>renderCard(card,menuStart+n)).join('')}</div></div>`);
+      }else parts.push(cards.slice(start,i).map((card,n)=>renderCard(card,start+n)).join(''));
+      continue;
+    }
+    parts.push(renderCard(cards[i],i));i++;
+  }
+  return parts.join('');
+}
 export function diningDesignCSS(p) {
   if(p.templateId!=='dining')return '';
   const b=brandPalette(p.branding),paper=b.background,ink=b.text;
   const display=p.typography?.heading&&!/^(Arial|Helvetica(?: Neue)?|Verdana|Tahoma|sans-serif|system-ui)$/i.test(p.typography.heading)?JSON.stringify(p.typography.heading):"Georgia,'Times New Roman',serif";
   const s='html body[data-template="dining"][data-imported][data-page-design]';
-  const c=`${s} .cards>.card[data-dining]`;
+  const c=`${s} .cards .card`;
   const headerInk=contrast(b.headerBackground,b.headerText)>=4.5?b.headerText:ink;
   return `
 /* Dining: a photographic front, practical visit details and a typeset menu. */
 ${s}{background:${paper};color:${ink};--dining-paper:${paper};--dining-ink:${ink};--dining-soft:color-mix(in srgb,${ink} 4%,${paper});--dining-rule:color-mix(in srgb,${ink} 22%,transparent)}
 ${s} .shell{max-width:1600px;padding:0 clamp(24px,5vw,88px)}
 ${s} .demo-note{font-size:9px;letter-spacing:.15em;padding:8px 16px}
-${s} .nav[data-header]{min-height:108px;padding:12px 28px;margin:0;border:0;background:${b.headerBackground};color:${headerInk}}
+${s} .nav[data-header]{min-height:100px;padding:12px 36px;margin:0;border:0;background:${b.headerBackground};color:${headerInk}}
 ${s} .nav[data-header] .brand-mark img{max-height:76px;max-width:200px}
 ${s} .nav[data-header] .nav-links{font-size:12px;letter-spacing:.08em;text-transform:uppercase;gap:32px}
-${s} .nav[data-header] .nav-links .nav-action{border:1px solid currentColor;padding:12px 20px}
+${s} .nav[data-header] .nav-links .nav-action{border:1px solid currentColor;padding:14px 22px;white-space:nowrap;max-width:none}
 ${s} .hero-layout[data-hero]{display:grid!important;grid-template-columns:minmax(0,1fr);position:relative;min-height:610px;gap:0;padding:0;margin:0;background:${ink};color:${paper};isolation:isolate}
 ${s} .hero-layout[data-hero=image]{color:#fffaf1}
 ${s} .hero-layout[data-hero=image] .visual{position:absolute;inset:0;z-index:-2;margin:0;min-height:0;overflow:hidden;background:${ink}}
@@ -48,7 +73,7 @@ ${s} .hero-layout .image-label{display:none}
 ${s} .hero-layout .visual .section-gallery figure{position:relative}
 ${s} .hero-layout .visual figcaption{display:block;position:absolute;right:16px;bottom:12px;max-width:40%;padding:5px 9px;background:#000b;color:white;font-size:10px;line-height:1.4}
 ${s} .hero-layout .hero-copy{position:relative;align-self:end;display:block;max-width:940px;width:100%;padding:clamp(32px,5vw,80px)!important;margin:0;text-align:left;background:none;color:inherit}
-${s} .hero-layout .hero-copy h1{font-family:${display};font-weight:400;font-style:normal;font-size:clamp(60px,7.8vw,118px);line-height:.97;letter-spacing:-.05em;max-width:13ch;color:inherit;margin:0 0 28px;text-wrap:balance}
+${s} .hero-layout .hero-copy h1{font-family:${display};font-weight:400;font-style:italic;font-size:clamp(60px,8.5vw,128px);line-height:.97;letter-spacing:-.05em;max-width:13ch;color:inherit;margin:0 0 28px;text-wrap:balance}
 ${s} .hero-layout .hero-copy h1[data-length=long],${s} .hero-layout .hero-copy h1[data-length=extended]{font-size:clamp(42px,5vw,72px);max-width:23ch}
 ${s} .hero-layout .hero-copy>p{font-size:17px;line-height:1.7;max-width:52ch;color:inherit;margin:0 0 24px;text-align:left}
 ${s} .hero-layout .eyebrow{justify-content:start;color:inherit;font-size:11px;letter-spacing:.14em;margin-bottom:24px}
@@ -106,6 +131,60 @@ ${s} .footer.site-footer{background:${ink};color:${paper};padding-inline:64px;bo
 ${s} .footer.site-footer .ending-logo{background:${b.headerBackground};padding:0;max-width:120px}
 ${s} .footer.site-footer .ending-logo img{max-height:90px}
 ${s} .footer.site-footer .ending-wordmark{font-size:clamp(48px,9vw,140px);font-family:${display}}
+/* A complete hospitality page: visit panel, menu index, stories and a calm close. */
+${s} .cards .card[data-dining][data-flow]>.section-gallery{padding:0;background:transparent}
+${s} .dining-address{display:block;margin-bottom:20px;font-size:10px;letter-spacing:.2em;text-transform:uppercase}
+${s} .dining-visit{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:0 48px;background:var(--dining-soft);padding:42px 48px;margin-top:32px}
+${s} .dining-visit .card[data-dining=hours]{grid-column:span 1;padding:24px 0!important;background:none;border:0;gap:12px}
+${s} .dining-visit .card[data-dining=hours]:has(img){grid-column:1/-1;grid-template-columns:1.45fr 1fr;gap:64px;padding:0 0 28px!important;border-bottom:1px solid var(--dining-rule)}
+${s} .dining-visit .card[data-dining=hours] img{height:260px}
+${s} .dining-visit .card[data-dining=hours] h2{font-size:11px;font-weight:600;letter-spacing:.18em}
+${s} .dining-visit:has(>.card:first-child img){grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:24px 64px}
+${s} .dining-visit>.card[data-dining=hours]:first-child:has(img){display:contents}
+${s} .dining-visit>.card[data-dining=hours]:first-child:has(img)>.section-gallery,${s} .dining-visit>.card[data-dining=hours]:first-child>img{grid-column:1;grid-row:1/span 3;margin:0;height:100%}
+${s} .dining-visit>.card[data-dining=hours]:first-child:has(img)>.section-gallery{grid-template-columns:1fr;gap:12px}
+${s} .dining-visit>.card[data-dining=hours]:first-child:has(img)>.section-gallery figure{height:100%;min-height:0}
+${s} .dining-visit>.card[data-dining=hours]:first-child:has(img)>.section-gallery img{height:100%;min-height:130px;max-height:260px;object-fit:cover}
+${s} .dining-visit>.card[data-dining=hours]:first-child:has(img)>.card-meta{grid-column:2;align-self:center}
+${s} .dining-visit:has(>.card:first-child img)>.card[data-dining=hours]:not(:first-child){grid-column:2;padding:0!important;border-top:1px solid var(--dining-rule);padding-top:20px!important}
+${s} .dining-menu-layout{grid-column:1/-1;display:grid;grid-template-columns:minmax(180px,.7fr) minmax(0,2fr);gap:64px;padding:56px 0 24px;border-top:1px solid var(--dining-rule);align-items:start}
+${s} .dining-menu-index{position:sticky;top:36px;padding-right:12px}
+${s} .dining-menu-index .card[data-dining=chapter]{text-align:left;padding:0!important;background:none}
+${s} .dining-menu-index .card[data-dining=chapter] h2{font-size:clamp(50px,6vw,84px);margin:0 0 36px;font-style:italic;overflow-wrap:normal}
+${s} .dining-menu-index nav{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--dining-rule)}
+${s} .dining-menu-index nav a{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:49px;padding:12px 0;border-bottom:1px solid var(--dining-rule);font-size:10px;line-height:1.5;letter-spacing:.1em}
+${s} .dining-menu-index nav a:hover{opacity:.65}
+${s} .dining-menu-index nav a span{font-size:18px;flex:none}
+${s} .dining-menu-categories{columns:2;column-gap:40px;min-width:0}
+${s} .dining-menu-categories .card[data-dining=menu]{display:block;break-inside:avoid;page-break-inside:avoid;padding:0 0 36px!important;margin:0 0 36px!important;border:0;border-bottom:1px solid var(--dining-rule);background:none;scroll-margin-top:32px}
+${s} .dining-menu-categories .card[data-dining=menu] h2{font-size:26px;font-style:italic;line-height:1.2;letter-spacing:-.025em;margin-bottom:24px}
+${s} .dining-menu-categories .card[data-dining=menu] .menu-item{gap:16px;padding:7px 0}
+${s} .dining-menu-categories .menu-item-name{font-weight:500;font-size:12px;line-height:1.55}
+${s} .dining-menu-categories .menu-item-price{font-size:13px}
+${s} .dining-menu-categories .menu-item-detail{font-size:12px;opacity:.8;line-height:1.75}
+${c}[data-dining=story]{padding:64px 0!important}
+${c}[data-dining=story]>.section-gallery img{width:100%;min-height:0;object-fit:cover}
+${c}[data-dining=story]>.section-gallery figure:has(img[style*="contain"]){width:100px;justify-self:start;margin:0}
+${c}[data-dining=story]>.section-gallery figure:has(img[style*="contain"]) img{width:100%;height:auto;max-height:120px;object-fit:contain;background:none}
+${c}[data-dining=story]:has(>.section-gallery>figure:only-child img[style*="contain"]){grid-template-columns:160px minmax(0,1fr);background:var(--dining-soft);gap:64px;padding:56px 64px!important;border:0}
+${c}[data-dining=story]:has(>.section-gallery>figure:only-child img[style*="contain"])>.card-meta{order:0!important}
+${c}[data-dining=story]:has(>.section-gallery>figure:only-child img[style*="contain"]) .section-gallery figure{width:140px}
+${c}[data-dining=story][data-dining-copy=long]>.section-gallery img{height:420px;max-height:none;object-fit:cover}
+${c}[data-dining=story][data-dining-copy=long] .section-copy{columns:2;column-gap:28px;max-width:none;font-size:14px;line-height:1.85}
+${c}[data-dining=story][data-dining-copy=long] .copy-part{break-inside:avoid}
+${s} .contact.site-contact{margin-bottom:0;border-radius:0;padding:64px 56px 48px}
+${s} .footer.site-footer{padding:32px 56px;margin-bottom:32px;border-top:1px solid color-mix(in srgb,${paper} 22%,transparent)}
+${s} #erbjudande:has(.card[data-dining=contact]:last-child)+.site-contact{margin-top:0;padding-top:40px}
+${s} #erbjudande:has(.card[data-dining=contact]:last-child)+.site-contact h2{font-size:32px;letter-spacing:-.03em}
+${c}[data-dining=contact]:last-child{background:${ink};color:${paper};padding:0!important;border:0;gap:40px}
+${c}[data-dining=contact]:last-child .card-meta{padding:36px 48px}
+${c}[data-dining=contact]:last-child .section-gallery{margin:0}
+${s} #erbjudande:has(.card[data-dining=contact]:last-child)+.site-contact[data-contact=available]{display:block;padding-top:32px}
+${s} #erbjudande:has(.card[data-dining=contact]:last-child)+.site-contact[data-contact=available] .ending-invitation{display:none}
+${s} #erbjudande:has(.card[data-dining=contact]:last-child)+.site-contact[data-contact=available] .contact-links{grid-template-columns:repeat(3,minmax(0,1fr));gap:32px}
+${s} #erbjudande:has(.card[data-dining=contact]:last-child)+.site-contact[data-contact=available] .ending-detail{margin:0;border:0}
+${s} #erbjudande:has(.card[data-dining=contact]:last-child)+.site-contact[data-contact=available] .ending-detail>a{font-size:20px}
+
 @media(max-width:900px){
 ${s} .shell{padding:0 24px}
 ${s} .nav[data-header]{padding:12px 20px;min-height:88px}
@@ -115,6 +194,16 @@ ${s} .cards{gap:44px 28px}
 ${c}[data-dining=story]{gap:32px}
 ${c}[data-dining=story]>img{height:420px}
 ${s} .contact.site-contact,${s} .footer.site-footer{padding-inline:32px}
+}
+@media(max-width:1000px){
+${s} .dining-menu-layout{grid-template-columns:1fr;gap:32px;padding-top:36px}
+${s} .dining-menu-index{position:static;padding:0}
+${s} .dining-menu-index .card[data-dining=chapter] h2{font-size:64px;margin-bottom:28px}
+${s} .dining-menu-index nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:24px}
+${s} .dining-menu-categories{column-gap:32px}
+${s} .dining-visit{padding:28px}
+${s} .dining-visit .card[data-dining=hours]:has(img){gap:32px}
+${c}[data-dining=story][data-dining-copy=long] .section-copy{columns:1}
 }
 @media(max-width:620px){
 ${s} .shell{padding:0 18px}
@@ -142,6 +231,28 @@ ${c}[data-dining=story]>img{height:360px;object-fit:cover}
 ${c}[data-dining=story] h2,${c}[data-dining=note] h2{font-size:38px}
 ${s} .contact.site-contact{margin-top:40px;padding:36px 24px}
 ${s} .footer.site-footer{padding-inline:24px}
+${s} .dining-visit{display:block;padding:20px 24px;margin-top:20px}
+${s} .dining-visit .card[data-dining=hours]:has(img){display:flex;gap:24px;padding:0 0 24px!important}
+${s} .dining-visit .card[data-dining=hours]{padding:22px 0 0!important;margin:0!important}
+${s} .dining-visit .card[data-dining=hours] img{height:170px}
+${s} .dining-menu-layout{padding-top:28px}
+${s} .dining-menu-index nav{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px}
+${s} .dining-menu-index nav a{font-size:9px;letter-spacing:.06em;min-height:48px}
+${s} .dining-menu-categories{columns:1}
+${s} .dining-menu-categories .card[data-dining=menu]{padding-bottom:28px!important;margin-bottom:28px!important}
+${s} .dining-menu-categories .card[data-dining=menu] h2{font-size:30px}
+${s} .dining-menu-categories .menu-item-name,${s} .dining-menu-categories .menu-item-price{font-size:14px}
+${s} .dining-menu-categories .menu-item-detail{font-size:13px}
+${c}[data-dining=story]:has(>.section-gallery>figure:only-child img[style*="contain"]){display:flex;padding:32px 24px!important;gap:28px}
+${c}[data-dining=story]:has(>.section-gallery>figure:only-child img[style*="contain"]) .section-gallery figure{width:90px}
+${c}[data-dining=story][data-dining-copy=long]>.section-gallery img{height:240px}
+${s} .footer.site-footer{margin-bottom:18px}
+${s} .dining-visit>.card[data-dining=hours]:first-child:has(img){display:flex}
+${s} .dining-visit>.card[data-dining=hours]:first-child:has(img)>.section-gallery{grid-template-columns:1fr 1fr;height:auto;width:100%;gap:12px}
+${s} .dining-visit>.card[data-dining=hours]:first-child:has(img)>.section-gallery img{height:170px}
+${s} .dining-visit:has(>.card:first-child img)>.card[data-dining=hours]:not(:first-child){margin-top:20px!important}
+${c}[data-dining=contact]:last-child .card-meta{padding:24px 24px 0}
+${s} #erbjudande:has(.card[data-dining=contact]:last-child)+.site-contact[data-contact=available] .contact-links{grid-template-columns:1fr;gap:24px}
 }
 `;
 }

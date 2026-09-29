@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { normalizeProject } from '../public/render.mjs';
+import {importQualityIssues} from '../public/import-quality.mjs';
 
 const source = readFileSync(new URL('../public/studio.mjs', import.meta.url), 'utf8');
 const saveSource = source.slice(source.indexOf('async function save('), source.indexOf('async function downloadDemo('));
@@ -26,6 +27,7 @@ function harness() {
     },
     api: () => pending,
     normalizeProject,
+    importQualityIssues,importQualitySummary:()=>'',renderImportQuality(){},
     workbench:{captureOriginal(){}},
     confirm: () => true,
     refreshProjects: async () => {},
@@ -130,4 +132,36 @@ test('import cannot start before the initial project has loaded',async()=>{
   await h.startImport();
   assert.equal(calls,0);
   assert.equal(h.context.project,undefined);
+});
+
+test('recovery saves authored content before importing a separate project with the chosen design',async()=>{
+  const h=harness(),calls=[];h.context.project.source='https://example.com';h.context.project.templateId='studio';h.context.project.headline='My authored headline';h.context.markDirty();
+  const original=h.context.project,before=JSON.stringify(original);let saved;
+  h.context.api=async(path,body)=>{calls.push(path);if(path==='/api/save'){saved=JSON.stringify(body);return {json:async()=>({id:'company-a'})};}return {json:async()=>({id:'must-not-reuse',name:'Fresh company',headline:'Fresh source',cards:[{title:'Section'}]})};};
+  await h.context.importCompany({recover:true});
+  assert.deepEqual(calls,['/api/save','/api/import']);assert.equal(saved,before);assert.equal(original.headline,'My authored headline');
+  assert.equal(h.context.project.id,'');assert.equal(h.context.project.templateId,'studio');assert.equal(h.context.project.headline,'Fresh source');
+  assert.equal(JSON.parse(h.drafts.get('draft')).headline,'Fresh source');
+});
+test('recovery does not request an import when the current draft cannot be saved',async()=>{
+  const h=harness(),calls=[];h.context.project.source='https://example.com';h.context.markDirty();
+  const original=h.context.project,draft=h.drafts.get('draft');
+  h.context.api=async path=>{calls.push(path);throw new Error('Webbläsarens lagring är full.');};
+  await h.context.importCompany({recover:true});
+  assert.deepEqual(calls,['/api/save']);assert.equal(h.context.project,original);assert.equal(h.drafts.get('draft'),draft);assert.equal(h.context.dirty,true);
+});
+test('recovery keeps new edits made while the backup save is pending',async()=>{
+  const h=harness();h.context.project.source='https://example.com';let calls=0;
+  const api=h.context.api;h.context.api=(...args)=>{calls++;return api(...args);};
+  const pending=h.context.importCompany({recover:true});h.context.project.headline='Latest edit';h.context.markDirty();
+  const draft=h.drafts.get('draft');h.complete({id:'company-a'});await pending;
+  assert.equal(calls,1);assert.equal(h.context.project.headline,'Latest edit');assert.equal(h.drafts.get('draft'),draft);assert.equal(h.context.dirty,true);
+});
+test('a failed recovery fetch leaves the authored version open and saved',async()=>{
+  const h=harness();h.context.project.source='https://example.com';h.context.project.headline='My saved edits';h.context.markDirty();
+  const original=h.context.project;let saved;
+  h.context.api=async(path,body)=>{if(path==='/api/save'){saved=JSON.parse(JSON.stringify(body));return {json:async()=>({id:'company-a'})};}throw new Error('Hemsidan kunde inte hämtas.');};
+  await h.context.importCompany({recover:true});
+  assert.equal(h.context.project,original);assert.equal(saved.headline,'My saved edits');assert.equal(h.context.project.headline,'My saved edits');assert.equal(h.context.project.id,saved.id);
+  assert.equal(h.context.importBusy,false);assert.match(h.context.$('importStatus').textContent,/kunde inte hämtas/);
 });
