@@ -36,5 +36,5 @@ test('font proxy refuses private addresses with useful errors',async()=>{
 });
 test('a known serif source family keeps serif character when the font file is unavailable',()=>{
  const html=renderDemo({name:'Anna Lind',headline:'Journalist och författare',description:'Anna skriver böcker.',importedAt:'today',typography:{heading:'Playfair Display',body:'Arial'}});
- assert.ok(html.includes('"Playfair Display",serif'),'serif fallback');assert.ok(html.includes('.profile-name){font-family:"Playfair Display",serif}'),'name follows source heading font');
+ assert.ok(html.includes('"Playfair Display",serif'),'serif fallback');assert.ok(html.includes('.profile-name){font-family:"Playfair Display",serif!important}'),'name follows source heading font');
 });

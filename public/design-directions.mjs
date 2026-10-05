@@ -4,11 +4,11 @@ const profiles = [
   {cues:/^(journalist|forfattare|author$|novelist|poet$|dramatiker|fotograf|photographer|konstnar|artist$)/,ids:['editorial','story','atelier']},
   {cues:/^(webblosning|webbplats|hemsidor|mjukvara|software|webbutveckl|digitalbyra)/,ids:['precision','consulting','studio']},
   {cues:/^(annons|annonser|annonsera|dooh$|utomhusreklam|storbildsskarm)/,ids:['editorial','story','studio']},
-  {cues:/^(butik|sortiment|produkt|retail|shop$)/,ids:['atelier','retail','pop']},
-  {cues:/^(restaurang|cafe|bageri|lunch|restaurant|bakery|dining)/,ids:['cinema','dining','pop']},
+  {cues:/^(butik|sortiment|produkt|retail|shop$)/,ids:['retail','atelier','pop']},
+  {cues:/^(restaurang|cafe|bageri|lunch|restaurant|bakery|dining)/,ids:['dining','cinema','pop']},
   {cues:/^(salong|behandling|klinik|traning|frisor|halsa|wellness|yoga|spa$)/,ids:['wellness','story','studio']},
-  {cues:/^(bygg$|byggforetag|byggfirma|byggbolag|byggtjanst|hantverk|verkstad|snickeri|renover|construction)/,ids:['services','construction','studio']},
-  {cues:/^(hotell|hotel|boende|resa$|resor|upplevelse|hospitality)/,ids:['story','hospitality','cinema']},
+  {cues:/^(bygg$|byggforetag|byggfirma|byggbolag|byggtjanst|hantverk|verkstad|snickeri|renover|construction)/,ids:['construction','services','studio']},
+  {cues:/^(hotell|hotel|boende|resa$|resor|upplevelse|hospitality)/,ids:['hospitality','story','cinema']},
   {cues:/^(radgiv|jurid|jurist|advokat|konsult|redovis|consult|law$|accounting)/,ids:['consulting','story','services']},
   {cues:/^(arkitekt|architect|inred|kultur|magasin|editorial|design)/,ids:['story','editorial','atelier']},
 ];
@@ -25,9 +25,9 @@ const reasons = {
   wellness:'Ger innehållet en lugn rytm med luftig typografi och mjuka bildformer.',
   editorial:'Ger innehållet en redaktionell rytm med stora rubriker och asymmetriska bildpar.',
   construction:'Ger projektsektioner tyngd med kraftiga linjer och bilden först.',
-  hospitality:'Ger bilderna stort utrymme med panorama och en inramad introduktion.',
+  hospitality:'Ger vistelsen en panoramisk entré, stora bildberättelser och ett kompakt bokningsavslut.',
   consulting:'Ger texten fokus med en kompakt huvudbild och tydligt uppdelade sektioner.',
-  retail:'Ger bilderna tydliga ytor i ett luftigt galleri.',
+  retail:'Ger sortimentet redaktionella uppslag, tydliga produkthyllor och ett sammanhållet avslut.',
 };
 
 const list = value=>Array.isArray(value)?value:[];

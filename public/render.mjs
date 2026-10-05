@@ -1,3 +1,6 @@
+import {careTravelDesignCSS} from './care-travel-design.mjs';
+import {tradeAdviceDesignCSS} from './trade-advice-design.mjs';
+import {commerceTechDesignCSS} from './commerce-tech-design.mjs';
 import {diningCardRole,diningMenuContent,diningDesignCSS,diningSections} from './dining-design.mjs';
 import {personalProfile,publicationCard,personalDesignCSS} from './personal-design.mjs';
 import {atelierHero,atelierCSS} from './atelier.mjs';
@@ -159,7 +162,7 @@ function renderSingleDemo(raw, options = {}) {
   ${p.about?`<section class="section about" id="om"><div><p class="section-kicker">Om ${e(p.name)}</p><h2>${e(p.aboutTitle || p.name)}</h2></div><p>${e(p.about)}</p></section>`:''}
   ${ending.contact}</main>
   ${ending.footer}</div>`;
-  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${p.templateId==='atelier'?atelierCSS(p):`${templateCSS}${homepageCSS}${templateContentCSS}${sectionDesignCSS}${compositionCSS}${personalDesignCSS}${brandingCSS(p.branding)}${artDirectionCSS(p)}`}${p.templateId==='dining'?'':pageDesignCSS(p)}${siteEndingCSS(p)}${navigationCSS}${diningDesignCSS(p)}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" data-page-design="${pageDesignFamily(p.templateId)}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}<script data-header-navigation>(${installHeaderNavigation.toString()})(document);</script></body></html>`;
+  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${p.templateId==='atelier'?atelierCSS(p):`${templateCSS}${homepageCSS}${templateContentCSS}${sectionDesignCSS}${compositionCSS}${personalDesignCSS}${brandingCSS(p.branding)}${artDirectionCSS(p)}`}${p.templateId==='dining'?'':pageDesignCSS(p)}${siteEndingCSS(p)}${navigationCSS}${diningDesignCSS(p)}${careTravelDesignCSS(p)}${tradeAdviceDesignCSS(p)}${commerceTechDesignCSS(p)}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" data-page-design="${pageDesignFamily(p.templateId)}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}<script data-header-navigation>(${installHeaderNavigation.toString()})(document);</script></body></html>`;
 }
 
 export function resolveDemoRoute(href,source,pages) {

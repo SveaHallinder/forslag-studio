@@ -39,7 +39,7 @@ test('book treatment requires book artwork evidence and does not capture similar
   assert.equal(pageSectionPlan(cards)[1].role,'feature');
 });
 
-for(const templateId of ['atelier','cinema','pop','precision','story']) {
+for(const templateId of ['atelier','cinema','pop','precision','story','wellness','hospitality','construction','consulting','retail']) {
   test(`${templateId} keeps source card order, copy, destinations and image associations`,()=>{
     const p=normalizeProject({...original,templateId}),before=JSON.stringify(p),html=renderDemo(p),rendered=articles(html);
     assert.equal(rendered.length,p.cards.length);
@@ -59,7 +59,7 @@ for(const templateId of ['atelier','cinema','pop','precision','story']) {
 }
 
 test('manual image framing is retained in every full-page family',()=>{
-  for(const templateId of ['atelier','cinema','pop','precision','story']) {
+  for(const templateId of ['atelier','cinema','pop','precision','story','wellness','hospitality','construction','consulting','retail']) {
     const article=articles(renderDemo({...original,templateId}))[12];
     assert.match(article,/object-fit:contain!important;object-position:23% 71%!important;/);
     assert.match(article,/aspect-ratio:3\/4!important/);
@@ -77,7 +77,7 @@ test('four art directions have independent body families while classic story rem
 
 test('empty content introduces no article or fake image',()=>{
   assert.deepEqual(pageSectionPlan([]),[]);
-  for(const templateId of ['atelier','cinema','pop','precision','story']) {
+  for(const templateId of ['atelier','cinema','pop','precision','story','wellness','hospitality','construction','consulting','retail']) {
     const html=renderDemo({name:'Tomt exempel',templateId,importedAt:'today',cards:[]});
     assert.equal(articles(html).length,0);
     assert.doesNotMatch(html,/<img\b/);

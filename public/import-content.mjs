@@ -101,6 +101,8 @@ export function extractContent(html, source, styles='') {
   let inlineLogo='';if(inlineMark){const clone=inlineMark.cloneNode(true);clone.setAttribute('xmlns','http://www.w3.org/2000/svg');const box=(clone.getAttribute('viewBox')||'').trim().split(/[\s,]+/).map(Number);if(box.length===4&&box[2]>0&&box[3]>0&&!clone.hasAttribute('width')&&!clone.hasAttribute('height')){clone.setAttribute('width',String(box[2]));clone.setAttribute('height',String(box[3]));}inlineLogo=new XMLSerializer().serializeToString(clone);if(inlineLogo.length>200000)inlineLogo='';}
 
   doc.querySelectorAll('form,dialog:not([open]),[inert],[data-state="closed"],script,style,noscript,svg,template,iframe,object,embed,[hidden],[class~="hide-lg"],[class~="hidden-lg"],[class~="d-lg-none"],[style*="display:none"],[style*="display: none"],#cookie-banner,#cookie-consent,#onetrust-banner-sdk,[class*="cookie-banner"],[class*="cookie-consent"],[id*="CookieConsent"]').forEach(el=>el.remove());
+  // Media fallback copy is browser UI, while poster/source attributes remain available.
+  for(const media of doc.querySelectorAll('video,audio'))for(const child of [...media.childNodes])if(child.nodeType===3||child.nodeType===1&&!child.matches('source,track'))child.remove();
   doc.querySelectorAll('br').forEach(el=>el.replaceWith('\n'));
   legacy?.structure();
   const navScore=el=>/^(?:huvudmeny|huvudnavigation|main(?: navigation| menu)?|primary(?: navigation| menu)?)$/i.test(el.getAttribute('aria-label')||'')?100:el.matches('.max-mega-menu')?80:/(?:^|[\s_-])primary(?:$|[\s_-])/i.test(el.className+' '+el.id)?60:/footer|social|breadcrumb|utility/i.test(el.className+' '+el.id+' '+el.getAttribute('aria-label'))?-50:el.closest('header,[data-elementor-type="header"]')?10:0;
@@ -167,6 +169,10 @@ export function extractContent(html, source, styles='') {
   const logo=headerImage?.url||'';
   const pictures=imageNodes.filter(i=>i.url!==logo&&!excluded(i.el)&&!legacy?.decoration(i.el)&&!(/(?:^|[\/_-])(?:decoration|ornament|spacer|tracking)(?:[\/_.-]|$)/i.test(new URL(i.url).pathname))&&!(/logo|icon|favicon|sprite/i.test(i.label+' '+i.url))&&(!i.width||i.width>=64)&&(!i.height||i.height>=64)).sort((a,b)=>Number(a.el.hasAttribute('data-import-background'))-Number(b.el.hasAttribute('data-import-background')));
   const photos=pictures.filter(i=>(!i.width||i.width>=300)&&(!i.height||i.height>=180));
+  // Explicit certification marks remain available as assets and section images,
+  // but their dimensions alone do not make them suitable homepage photography.
+  const supportImages=new Set(pictures.filter(i=>/certificat(?:e|ion)|certifiering|certifikat|standard[\s_-]+developer|(?:^|[\s/_-])iso[\s_-]*(?:9001|14001|27001)(?:[\s/_.-]|$)/i.test(i.label+' '+new URL(i.url).pathname)).map(i=>i.url));
+  const heroPhotos=photos.filter(i=>!supportImages.has(i.url));
   const scope=heroHeading?scopeFor(heroHeading):main;
   const textIn=node=>{
     const listText=element=>{
@@ -201,11 +207,11 @@ export function extractContent(html, source, styles='') {
   };
   const headline=clean(heroHeading?.textContent);
   const description=textIn(scope)||(!headline?(meta('og:description')||meta('description')):'');
-  const leadingSlide=heroHeading&&photos.find(i=>main.contains(i.el)&&i.el.closest('.carousel .active')&&(i.el.compareDocumentPosition(heroHeading)&4));
-  const videoBackground=photos.find(i=>scope.contains(i.el)&&i.backgroundMode==='video');
-  const videoPoster=videoBackground&&photos.find(i=>i.el.matches('video[poster]')&&videoBackground.el.contains(i.el));
-  const hero=videoPoster?.url||photos.find(i=>scope.contains(i.el))?.url||leadingSlide?.url||'';
-  const heroGallery=galleryFor(scope,hero);
+  const leadingSlide=heroHeading&&heroPhotos.find(i=>main.contains(i.el)&&i.el.closest('.carousel .active')&&(i.el.compareDocumentPosition(heroHeading)&4));
+  const videoBackground=heroPhotos.find(i=>scope.contains(i.el)&&i.backgroundMode==='video');
+  const videoPoster=videoBackground&&heroPhotos.find(i=>i.el.matches('video[poster]')&&videoBackground.el.contains(i.el));
+  const hero=videoPoster?.url||heroPhotos.find(i=>scope.contains(i.el))?.url||leadingSlide?.url||'';
+  const heroGallery=galleryFor(scope,hero).filter(i=>!supportImages.has(i.url));
   const titleName=doc.title.split(/\s+[|–—-]\s+/)[0];
   const hostname=new URL(source).hostname.replace(/^www\./,''),fold=value=>clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
   // Shorten an SEO label only with corroboration from the company's own hostname.

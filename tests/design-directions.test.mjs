@@ -98,3 +98,8 @@ test('new visual families are recommended for relevant businesses without changi
   assert.ok(recommendDirections(project).some(d=>d.templateId===expected));
  }
 });
+
+
+test('specialist industry compositions lead the recommendation',()=>{
+ for(const [name,id] of [['Butik med produkter','retail'],['Café och restaurang','dining'],['Salong med behandlingar','wellness'],['Bygg och hantverk','construction'],['Hotell och boende','hospitality'],['Juridisk rådgivning','consulting'],['Skräddarsydda webblösningar','precision']])assert.equal(recommendDirections({name,hero:'/original.jpg'})[0].templateId,id);
+});

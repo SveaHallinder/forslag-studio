@@ -10,9 +10,9 @@ export const templates = Object.freeze([
   {id:'wellness',name:'Hälsa & skönhet',description:'Lugn, ljus design med mjuka bildformer. För salonger, träning, kliniker och behandlingar.',reference:'Hälsa & välmående'},
   {id:'editorial',name:'Magasin & arkitektur',description:'Stor typografi, asymmetriska bildpar och en tydlig redaktionell rytm. För arkitekter, inredare och kultur.',reference:'Redaktionellt'},
   {id:'construction',name:'Bygg & hantverk',description:'Bilden först, kraftiga linjer och tydliga projektsektioner. För byggföretag, verkstäder och hantverkare.',reference:'Bygg & industri'},
-  {id:'hospitality',name:'Hotell & upplevelser',description:'Panoramabild följd av en inramad introduktion och stora bildberättelser. För boenden, resor och upplevelser.',reference:'Resor & boende'},
+  {id:'hospitality',name:'Hotell & upplevelser',description:'Panoramabild, delad introduktion och stora bildberättelser. För boenden, resor och upplevelser.',reference:'Resor & boende'},
   {id:'consulting',name:'Rådgivning & juridik',description:'Texten i fokus, en kompakt huvudbild och tydligt uppdelade innehållssektioner. För konsulter, jurister och redovisning.',reference:'Professionella tjänster'},
-  {id:'retail',name:'Butik & sortiment',description:'Tydliga bildytor och ett luftigt sortimentsgalleri. För butiker, inredning och produkter.',reference:'Handel & produkter'},
+  {id:'retail',name:'Butik & sortiment',description:'Redaktionell entré, asymmetriska uppslag och tydliga produkthyllor. För butiker, inredning och produkter.',reference:'Handel & produkter'},
 ]);
 
 export function getTemplate(id) {
