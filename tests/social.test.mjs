@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomBytes} from 'node:crypto';
+import {readFile} from 'node:fs/promises';
 import {socialProfileURL,extractSocialProfile,socialProfileDetails} from '../public/social-content.mjs';
-import {createSocialProject} from '../public/social-project.mjs';
+import {createSocialProject,socialPalettes} from '../public/social-project.mjs';
 import {normalizeProject,renderDemo} from '../public/render.mjs';
 import {readSocialProfile,createWorker} from '../worker.mjs';
 import {encodeProject,decodeProject} from '../public/share.mjs';
@@ -53,6 +54,23 @@ test('a new website preserves chosen photo roles and real facts, and does not gu
 test('social drafts survive normal project copies and customer links without a new schema',async()=>{
   const project=createSocialProject(draft),restored=restoreProject(JSON.stringify(project));assert.deepEqual(normalizeProject(restored),project);
   const url=await encodeProject(project,'https://studio.example/demo.html'),customer=await decodeProject(new URL(url).hash);assert.equal(customer.hero,project.hero);assert.deepEqual(customer.cards,project.cards);assert.deepEqual(customer.navigation,project.navigation);assert.equal(customer.templateId,'cafe');assert.equal(customer.address,project.address);
+});
+test('social palettes preserve all existing brand roles through customer links',async()=>{
+  for(const palette of Object.values(socialPalettes)){
+    const project=createSocialProject({...draft,branding:palette.branding,accent:palette.accent});
+    const customer=await decodeProject(new URL(await encodeProject(project,'https://studio.example/demo.html')).hash);
+    assert.deepEqual(customer.branding,palette.branding);assert.equal(customer.accent,palette.accent);
+  }
+  const custom=createSocialProject({...draft,branding:{background:'#e8e2da',headerBackground:'#1f2a30',text:'invalid'}});
+  assert.equal(custom.branding.background,'#e8e2da');assert.equal(custom.branding.headerBackground,'#1f2a30');assert.equal(custom.branding.text,socialPalettes.warm.branding.text);
+});
+test('the approved pilot has a practical customer link and keeps the original public image quality',async()=>{
+  const pilot=JSON.parse(await readFile(new URL('../public/pebble-social-pilot.json',import.meta.url),'utf8'));
+  const project=createSocialProject(pilot),url=await encodeProject(project,'https://studio.example/demo.html');
+  assert.ok(url.length<15000,`Pilot link has ${url.length} characters`);
+  const customer=await decodeProject(new URL(url).hash);
+  assert.equal(customer.hero,pilot.photos[0].url);assert.deepEqual(customer.cards,project.cards);
+  assert.equal(new URL(customer.hero).origin,'https://pebble-bucharest-concept.sveaha.chatgpt.site');
 });
 test('customer links store uploaded gallery primaries once and restore their roles and captions',async()=>{
   const hero='data:image/webp;base64,'+randomBytes(80000).toString('base64'),gallery='data:image/webp;base64,'+randomBytes(80000).toString('base64');

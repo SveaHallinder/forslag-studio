@@ -84,6 +84,12 @@
 :root .social-logo-row [hidden]{display:none!important}
 :root .social-details{margin-top:26px;border-top:1px solid #dce2d3;padding-top:17px}
 :root .social-details summary{font-size:12px;font-weight:600;cursor:pointer;min-height:36px}
+:root .social-palette-options{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 6px}
+:root .social-palette-options button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:9px 12px;border:1px solid #dce2d3;border-radius:7px;background:white;color:inherit;font:inherit;font-size:11px;font-weight:500;line-height:1.4}
+:root .social-palette-options button[aria-pressed=true]{border-color:#536b45;box-shadow:inset 0 0 0 1px #536b45}
+:root .social-palette-options i{width:16px;height:16px;border:1px solid;border-radius:50%}
+:root .social-reset-headline{display:block;min-height:36px;margin-top:4px;font-size:11px}
+:root .social-dialog .upload-button[aria-disabled=true]{opacity:.55;cursor:wait;pointer-events:none}
 :root .social-finish{position:sticky;bottom:0;z-index:1;display:flex;justify-content:space-between;align-items:center;gap:30px;background:#fbfcf8;padding:20px 0;border-top:1px solid #dce2d3}
 :root .social-finish .field-help{max-width:55%;margin:0}
 @media(max-width:760px){:root .social-dialog{padding:26px 20px 0;max-height:94dvh;border-radius:15px}:root .social-builder{grid-template-columns:minmax(0,1fr);gap:24px}:root .social-preview{position:static}:root .social-preview-stage{height:370px}:root .social-field-row{gap:10px}:root .social-finish{display:block;padding:14px 0}:root .social-finish .field-help{max-width:none;margin-bottom:12px}:root .social-finish .button{width:100%;justify-content:space-between}}

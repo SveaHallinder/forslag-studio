@@ -1,0 +1,62 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><title>Social intake regression</title><link rel="stylesheet" href="../public/studio.css"><body>
+<main style="padding:30px"><h1>Social intake regression</h1><button id="run">Run regression checks</button><p id="result" role="status">Ready</p><ol id="checks"></ol></main>
+<script type="module">
+import {createSocialStudio} from '../public/social-studio.mjs';
+const pixel='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=';
+const originalFetch=window.fetch,assert=(value,message)=>{if(!value)throw new Error(message);},deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
+const settle=()=>new Promise(resolve=>setTimeout(resolve,0));
+async function until(check){for(let i=0;i<100;i++){if(check())return;await new Promise(resolve=>setTimeout(resolve,10));}throw new Error('The expected UI state did not appear');}
+async function fixture(run){
+  const created=[],current={name:'Existing draft'},studio=createSocialStudio({getProject:()=>current,onCreate:async next=>created.push(next),readImage:async()=>pixel,notify:()=>{}});
+  studio.open();const dialog=document.querySelector('#socialDialog'),get=id=>dialog.querySelector('#'+id);
+  const fill=(id,value)=>{get(id).value=value;get(id).dispatchEvent(new Event('input',{bubbles:true}));};
+  const company=()=>{fill('socialLinks','https://instagram.com/little.beans/');fill('socialName','Little Beans');fill('socialBio','Our own coffee and conversation.');};
+  const upload=(id,count=1)=>{const transfer=new DataTransfer();for(let i=0;i<count;i++)transfer.items.add(new File(['image'],'coffee-'+i+'.jpg',{type:'image/jpeg'}));get(id).files=transfer.files;get(id).dispatchEvent(new Event('change',{bubbles:true}));};
+  try{await run({studio,dialog,get,fill,company,upload,created});}finally{window.fetch=originalFetch;dialog.close();dialog.remove();}
+}
+const cases=[
+  ['Pilot preparation blocks premature creation',()=>fixture(async({get,created})=>{
+    const wait=deferred();window.fetch=()=>wait.promise;
+    get('socialPilot').click();assert(get('socialCreate').disabled,'Create must wait for the pilot');get('socialCreate').click();assert(created.length===0,'No half-loaded project may be created');
+    wait.resolve(new Response(JSON.stringify({name:'Pilot café',links:'https://instagram.com/pilot.cafe/',bio:'Real pilot bio',photos:[{url:pixel,role:'hero'}]})));await until(()=>!get('socialCreate').disabled);
+    assert(!get('socialCreate').disabled,'Create must become available');get('socialCreate').click();await settle();assert(created[0]?.name==='Pilot café'&&created[0]?.hero===pixel,'The complete pilot must be created');
+  })],
+  ['Manual corrections survive a late pilot response',()=>fixture(async({get,fill})=>{
+    const wait=deferred();window.fetch=()=>wait.promise;get('socialPilot').click();fill('socialName','My corrected company');
+    wait.resolve(new Response(JSON.stringify({name:'Pilot café',links:'https://instagram.com/pilot.cafe/',bio:'Pilot bio'})));await until(()=>!get('socialCreate').disabled);
+    assert(get('socialName').value==='My corrected company','The pilot overwrote a manual correction');assert(get('socialStatus').textContent.includes('åt sidan'),'The ignored reply needs a visible explanation');
+  })],
+  ['Photo and logo uploads finish before creation',()=>fixture(async({get,company,upload,created})=>{
+    company();upload('socialPhotoUpload',2);assert(get('socialCreate').disabled,'Create must wait for photos');assert(get('socialLogoUpload').disabled,'Concurrent uploads must be bounded');get('socialCreate').click();assert(created.length===0,'Pending photos were dropped');await settle();
+    upload('socialLogoUpload');assert(get('socialCreate').disabled,'Create must also wait for a logo');await settle();get('socialCreate').click();await settle();assert(created[0]?.hero===pixel&&created[0]?.logo===pixel,'The chosen photo and logo must reach the project');
+  })],
+  ['An oversized batch leaves the existing images intact',()=>fixture(async({get,company,upload,dialog})=>{
+    company();upload('socialPhotoUpload',8);await settle();assert(dialog.querySelectorAll('.social-photo').length===8,'Eight images should be accepted');
+    upload('socialPhotoUpload');await settle();assert(dialog.querySelectorAll('.social-photo').length===8,'A rejected batch must not change accepted images');assert(get('socialPhotoStatus').textContent.includes('åtta'),'The photo limit needs an actionable error');assert(!get('socialCreate').disabled,'The rejected upload must not block the project');
+  })],
+  ['Closing a pending pilot cannot affect a new intake',()=>fixture(async({studio,dialog,get,fill})=>{
+    const wait=deferred();window.fetch=()=>wait.promise;get('socialPilot').click();dialog.close();studio.open();fill('socialName','New intake');
+    const response=new Response(JSON.stringify({name:'Stale pilot',links:'https://instagram.com/pilot.cafe/',bio:'Old bio'}));wait.resolve(response);await until(()=>response.bodyUsed);await settle();
+    assert(get('socialName').value==='New intake','A closed intake leaked into the new session');assert(!get('socialCreate').disabled,'A stale operation left the new intake blocked');
+  })],
+  ['Language and industry changes preserve custom headlines',()=>fixture(async({get,fill,dialog})=>{
+    fill('socialHeadline','Our own headline.');get('socialLanguage').value='sv';get('socialLanguage').dispatchEvent(new Event('change'));get('socialIndustry').value='restaurant';get('socialIndustry').dispatchEvent(new Event('change'));
+    assert(get('socialHeadline').value==='Our own headline.','Custom copy was replaced');dialog.querySelector('.social-reset-headline').click();assert(get('socialHeadline').value.includes('God mat.'),'The explicit reset should use the selected language and industry');
+    get('socialLanguage').value='en';get('socialLanguage').dispatchEvent(new Event('change'));assert(get('socialHeadline').value.includes('Good food.'),'Unedited proposed copy should follow the selected language');
+  })],
+  ['Whole-page palette controls reach the created project',()=>fixture(async({get,company,dialog,created,fill})=>{
+    company();dialog.querySelector('[data-palette="dark"]').click();assert(get('socialColor-headerText').value==='#f5eee4','Menu text must change with the palette');fill('socialColor-background','#292723');assert(dialog.querySelector('[data-palette="dark"]').getAttribute('aria-pressed')==='false','A custom palette must not be marked as the preset');
+    get('socialCreate').click();await settle();assert(created[0]?.branding.background==='#292723'&&created[0]?.branding.headerText==='#f5eee4','The entire palette must survive creation');
+  })],
+  ['Reading a profile preserves accepted images and corrected facts',()=>fixture(async({get,company,dialog,fill,upload})=>{
+    company();fill('socialAddress','Our confirmed address');fill('socialHours','Our confirmed hours');upload('socialPhotoUpload',2);await settle();
+    window.fetch=async()=>new Response(JSON.stringify({status:'read',name:'Source profile name',bio:'Source profile bio',photos:[],warning:'Public source read'}));get('socialRead').click();await until(()=>!get('socialRead').disabled);
+    assert(get('socialName').value==='Little Beans'&&get('socialBio').value==='Our own coffee and conversation.','Existing company copy was replaced');assert(get('socialAddress').value==='Our confirmed address'&&get('socialHours').value==='Our confirmed hours','Corrected facts were replaced');assert(dialog.querySelectorAll('.social-photo').length===2,'A profile without photos erased the selected images');
+  })],
+];
+document.querySelector('#run').addEventListener('click',async()=>{
+  const button=document.querySelector('#run'),results=document.querySelector('#checks');button.disabled=true;results.innerHTML='';let failed=0;
+  for(const [name,run]of cases){const row=document.createElement('li');try{await run();row.textContent='PASS '+name;}catch(error){failed++;row.textContent='FAIL '+name+': '+error.message;}results.append(row);}
+  document.querySelector('#result').textContent=`${cases.length-failed}/${cases.length} passed; ${failed} failed`;button.disabled=false;
+});
+</script></body></html>

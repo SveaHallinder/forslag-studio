@@ -1,5 +1,6 @@
 import {socialProfileURL,socialProfileDetails} from './social-content.mjs';
-import {createSocialProject,socialIndustries,socialCopy} from './social-project.mjs';
+import {createSocialProject,socialIndustries,socialCopy,socialPalettes} from './social-project.mjs';
+import {brandRoles} from './branding.mjs';
 import {renderDemo,escapeHTML as e} from './render.mjs';
 
 export function createSocialStudio({getProject,onCreate,readImage,notify}) {
@@ -13,9 +14,23 @@ export function createSocialStudio({getProject,onCreate,readImage,notify}) {
   <div class="social-finish"><p id="socialCreateStatus" class="field-help" role="status">Skapar ett nytt utkast. Ditt öppna förslag sparas innan du byter.</p><button type="button" class="button primary" id="socialCreate">Skapa hemsideförslag <span>↗</span></button></div>`;
   document.body.append(dialog);
   const $=id=>dialog.querySelector('#'+id),fields={name:'socialName',industry:'socialIndustry',language:'socialLanguage',bio:'socialBio',headline:'socialHeadline',about:'socialAbout',offer:'socialOffer',address:'socialAddress',hours:'socialHours',email:'socialEmail',phone:'socialPhone',accent:'socialAccent'};
-  let photos=[],logo='',avatar='',expected,snapshot,sequence=0,timer,photoSequence=0,logoSequence=0,reading=false,creating=false;
+  const palette=document.createElement('details');palette.className='social-details social-palette';
+  palette.innerHTML=`<summary>Färgpalett för hela hemsidan</summary><p class="field-help">Välj en riktning eller ange företagets färger. Paletterna är designförslag.</p><div class="social-palette-options">${Object.entries(socialPalettes).map(([key,value])=>`<button type="button" data-palette="${key}" aria-pressed="${key==='warm'}"><i aria-hidden="true" style="background:${value.branding.background};border-color:${value.branding.text}"></i>${e(value.label)}</button>`).join('')}</div><div class="social-field-row">${Object.entries(brandRoles).map(([key,label])=>`<div><label for="socialColor-${key}">${e(label)}</label><input type="color" id="socialColor-${key}" value="${socialPalettes.warm.branding[key]}"></div>`).join('')}</div>`;
+  $('socialAccent').closest('.social-field-row').after(palette);
+  const resetHeadline=document.createElement('button');resetHeadline.type='button';resetHeadline.className='text-button social-reset-headline';resetHeadline.textContent='Använd föreslagen rubrik';$('socialHeadline').after(resetHeadline);
+  let photos=[],logo='',avatar='',expected,snapshot,sequence=0,timer,photoSequence=0,logoSequence=0,reading=false,creating=false,proposedHeadline='',wasBusy=false;
+  const pending=new Map();
   const status=(id,message,error=false)=>{$(id).textContent=message;$(id).classList.toggle('error',error);};
-  function data(){return {...Object.fromEntries(Object.entries(fields).map(([key,id])=>[key,$(id).value])),links:$('socialLinks').value,photos,logo};}
+  function data(){return {...Object.fromEntries(Object.entries(fields).map(([key,id])=>[key,$(id).value])),branding:Object.fromEntries(Object.keys(brandRoles).map(key=>[key,$('socialColor-'+key).value])),links:$('socialLinks').value,photos,logo};}
+  function updateBusy(){
+    const busy=pending.size>0;
+    $('socialCreate').disabled=creating||busy;$('socialRead').disabled=creating||reading||busy;$('socialPilot').disabled=creating||reading||busy;$('socialUseAvatar').disabled=creating||busy;
+    for(const id of ['socialPhotoUpload','socialLogoUpload']){$(id).disabled=creating||busy;dialog.querySelector(`label[for="${id}"]`).setAttribute('aria-disabled',String(creating||busy));}
+    if(busy)status('socialCreateStatus',[...pending.values()].join(' ')+' Vänta tills bilderna är färdiga innan du skapar förslaget.');
+    else if(wasBusy&&!creating)status('socialCreateStatus','Bilderna är klara. Kontrollera rollerna och skapa ditt förslag.');
+    wasBusy=busy;
+  }
+  function preparing(message){const key=Symbol();pending.set(key,message);updateBusy();return ()=>{pending.delete(key);updateBusy();};}
   function updatePreview(){
     clearTimeout(timer);timer=setTimeout(()=>{
       let draft;try{draft=createSocialProject({...data(),links:$('socialLinks').value||'https://www.instagram.com/your.cafe/',name:$('socialName').value||'Your little place',bio:$('socialBio').value||'En plats för företagets egna ord, bilder och berättelse.'});}catch{return;}
@@ -31,60 +46,71 @@ export function createSocialStudio({getProject,onCreate,readImage,notify}) {
   }
   function apply(values){
     for(const [key,id] of Object.entries(fields))$(id).value=values[key]??(key==='industry'?'cafe':key==='language'?'en':key==='accent'?'#95382a':'');
-    $('socialLinks').value=values.links||values.url||'';photos=values.photos||[];logo=values.logo||'';avatar=values.avatar||'';renderPhotos();
+    for(const key of Object.keys(brandRoles))$('socialColor-'+key).value=values.branding?.[key]||socialPalettes.warm.branding[key];
+    $('socialLinks').value=values.links||values.url||'';photos=values.photos||[];logo=values.logo||'';avatar=values.avatar||'';renderPhotos();updatePalette();
   }
-  function headline(){const c=socialCopy[$('socialLanguage').value];$('socialHeadline').value=$('socialIndustry').value==='cafe'?c.headline:$('socialIndustry').value==='restaurant'?c.restaurant:c.other;updatePreview();}
+  function updatePalette(){for(const button of palette.querySelectorAll('[data-palette]')){const value=socialPalettes[button.dataset.palette];button.setAttribute('aria-pressed',String($('socialAccent').value===value.accent&&Object.keys(brandRoles).every(key=>$('socialColor-'+key).value===value.branding[key])));}}
+  palette.addEventListener('click',event=>{const button=event.target.closest('[data-palette]');if(!button)return;const value=socialPalettes[button.dataset.palette];for(const key of Object.keys(brandRoles))$('socialColor-'+key).value=value.branding[key];$('socialAccent').value=value.accent;updatePalette();updatePreview();});
+  function headline(force=false){const c=socialCopy[$('socialLanguage').value],value=$('socialIndustry').value==='cafe'?c.headline:$('socialIndustry').value==='restaurant'?c.restaurant:c.other;if(force||!$('socialHeadline').value.trim()||$('socialHeadline').value===proposedHeadline)$('socialHeadline').value=value;proposedHeadline=value;updatePreview();}
+  resetHeadline.addEventListener('click',()=>headline(true));
   async function freezePhoto(url,isLogo=false){const response=await fetch('/api/image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url}),signal:AbortSignal.timeout(25000)});if(!response.ok)throw new Error('Bilden kunde inte hämtas.');return readImage(await response.blob(),isLogo);}
   async function read(){
-    if(reading||creating)return;
+    if(reading||creating||pending.size)return;
     let profiles;try{const links=$('socialLinks').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);if(!links.length||links.length>3)throw new Error('Lägg till en till tre profillänkar, en per rad.');profiles=links.map(socialProfileURL);}catch(error){status('socialStatus',error.message,true);$('socialLinks').focus();return;}
     // Never overwrite a user's corrected intake while a slow platform responds.
-    const before=JSON.stringify(data()),token=++sequence;reading=true;$('socialRead').disabled=true;status('socialStatus','Läser den första offentliga profilen… Du kan fortsätta manuellt medan plattformen svarar.');
+    const before=JSON.stringify(data()),token=++sequence;reading=true;updateBusy();status('socialStatus','Läser den första offentliga profilen… Du kan fortsätta manuellt medan plattformen svarar.');
     try{
       const response=await fetch('/api/social',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:profiles[0].url}),signal:AbortSignal.timeout(30000)}),result=await response.json();
       if(!response.ok)throw new Error(result.error||'Profilen kunde inte läsas.');
       if(token!==sequence||!dialog.open)return;
       if(JSON.stringify(data())!==before){status('socialStatus','Profilens svar lades åt sidan eftersom du ändrade uppgifterna. Dina senaste ändringar är kvar.');return;}
       if(result.status!=='read'){status('socialStatus',result.warning,true);$('socialBio').focus();return;}
-      $('socialName').value=result.name;$('socialBio').value=result.bio;const details=socialProfileDetails(result.bio);$('socialAddress').value=details.address;$('socialHours').value=details.hours;avatar=result.avatar||'';renderPhotos();status('socialStatus',result.warning);status('socialPhotoStatus','Sparar profilens verksamhetsbilder i utkastet så att tillfälliga bildlänkar inte löper ut…');
-      const photoToken=photoSequence,converted=await Promise.all((result.photos||[]).slice(0,6).map(async(p,i)=>{try{return {...p,url:await freezePhoto(p.url),role:i===0?'hero':i===1?'offer':'gallery'};}catch{return null;}}));
+      if(!$('socialName').value.trim())$('socialName').value=result.name;if(!$('socialBio').value.trim())$('socialBio').value=result.bio;const details=socialProfileDetails(result.bio);if(!$('socialAddress').value.trim())$('socialAddress').value=details.address;if(!$('socialHours').value.trim())$('socialHours').value=details.hours;avatar=result.avatar||'';renderPhotos();status('socialStatus',result.warning);
+      if(photos.length){status('socialPhotoStatus','Dina valda verksamhetsbilder behålls. Ta bort dem om du vill hämta nya bilder från profilen.');return;}
+      status('socialPhotoStatus','Sparar profilens verksamhetsbilder i utkastet så att tillfälliga bildlänkar inte löper ut…');
+      const photoToken=photoSequence,done=preparing('Profilens bilder förbereds.');let converted;
+      try{converted=await Promise.all((result.photos||[]).slice(0,6).map(async(p,i)=>{try{return {...p,url:await freezePhoto(p.url),role:i===0?'hero':i===1?'offer':'gallery'};}catch{return null;}}));}finally{done();}
       if(token!==sequence||!dialog.open||photoToken!==photoSequence)return;
       photos=converted.filter(Boolean);renderPhotos();status('socialPhotoStatus',photos.length?`${photos.length} bilder är inlagda. Kontrollera placeringen innan du skapar förslaget.`:'Inga verksamhetsbilder kunde hämtas. Lägg till företagets bilder här. Profilbilden är separat.');
     }catch(error){if(token===sequence&&dialog.open)status('socialStatus','Profilen kunde inte läsas. Klistra in profiltexten och lägg till bilder nedan. Ditt öppna förslag är kvar.',true);console.warn('[social import]',error.name);}
-    finally{if(token===sequence){reading=false;$('socialRead').disabled=false;}}
+    finally{if(token===sequence){reading=false;updateBusy();}}
   }
   $('socialRead').addEventListener('click',read);
   $('socialPilot').addEventListener('click',async()=>{
-    const token=++sequence;photoSequence++;reading=false;$('socialRead').disabled=false;status('socialStatus','Öppnar vår sparade Pebble-pilot…');
-    try{const response=await fetch('/pebble-social-pilot.json');if(!response.ok)throw new Error('Piloten kunde inte öppnas.');const values=await response.json();values.photos=await Promise.all(values.photos.map(async p=>({...p,url:await readImage(await(await fetch(p.url)).blob(),false)})));if(token!==sequence||!dialog.open)return;apply(values);status('socialStatus','Sparad Pebble-pilot från 7 oktober. Bilder och uppgifter är hämtade från pilotunderlaget; text, färger och typografi är ett designförslag.');status('socialPhotoStatus','Fyra pilotbilder med olika roller. Ändra rollerna eller skapa förslaget.');}catch(error){status('socialStatus',error.message,true);}
+    if(creating||reading||pending.size)return;
+    const before=JSON.stringify(data()),token=++sequence;photoSequence++;reading=false;const done=preparing('Pebble-piloten förbereds.');status('socialStatus','Öppnar vår sparade Pebble-pilot…');
+    try{const response=await fetch('/pebble-social-pilot.json',{signal:AbortSignal.timeout(15000)});if(!response.ok)throw new Error('Piloten kunde inte öppnas.');const values=await response.json();if(token!==sequence||!dialog.open)return;if(JSON.stringify(data())!==before){status('socialStatus','Piloten lades åt sidan eftersom du ändrade uppgifterna. Dina senaste ändringar är kvar.');return;}apply(values);status('socialStatus','Sparad Pebble-pilot från 7 oktober. Bilder och uppgifter är hämtade från pilotunderlaget; text, färger och typografi är ett designförslag.');status('socialPhotoStatus','Fyra pilotbilder med olika roller. Ändra rollerna eller skapa förslaget.');}catch(error){if(token===sequence&&dialog.open)status('socialStatus',error.name==='TimeoutError'?'Piloten laddade för långsamt. Försök igen eller fyll i uppgifterna manuellt.':error.message,true);}finally{done();}
   });
   $('socialPhotos').addEventListener('change',event=>{const index=Number(event.target.dataset.photo);if(!photos[index])return;photoSequence++;const role=event.target.value;if(['hero','offer'].includes(role))photos.forEach(p=>{if(p.role===role)p.role='gallery';});photos[index].role=role;renderPhotos();});
   $('socialPhotos').addEventListener('input',event=>{if(event.target.dataset.caption===undefined)return;photoSequence++;photos[Number(event.target.dataset.caption)].caption=event.target.value;updatePreview();});
   $('socialPhotos').addEventListener('click',event=>{const button=event.target.closest('[data-remove-photo]');if(!button)return;photoSequence++;photos.splice(Number(button.dataset.removePhoto),1);renderPhotos();});
   for(const [id,isLogo] of [['socialPhotoUpload',false],['socialLogoUpload',true]])$(id).addEventListener('change',async event=>{
-    const files=[...event.target.files],token=sequence,logoToken=isLogo?++logoSequence:logoSequence;photoSequence++;
+    if(creating||pending.size)return;
+    const files=[...event.target.files];if(!files.length)return;
+    const token=sequence,logoToken=isLogo?++logoSequence:logoSequence;if(!isLogo)photoSequence++;
+    const done=preparing(isLogo?'Logotypen förbereds.':`${files.length} verksamhetsbilder förbereds.`);
     try{
       if(!isLogo&&photos.length+files.length>8)throw new Error('Välj högst åtta verksamhetsbilder. Ta bort en bild om du vill byta.');
       const results=await Promise.all(files.map(async file=>({url:await readImage(file,isLogo),label:file.name})));
       if(token!==sequence||!dialog.open)return;
       if(isLogo){if(logoToken!==logoSequence)return;logo=results[0]?.url||logo;}else for(const p of results)photos.push({...p,role:!photos.some(item=>item.role==='hero')?'hero':!photos.some(item=>item.role==='offer')?'offer':'gallery'});
       renderPhotos();status('socialPhotoStatus',`${photos.length} verksamhetsbilder. Dina uppladdade bilder sparas med projektet.`);
-    }catch(error){status('socialPhotoStatus',error.message,true);}finally{event.target.value='';}
+    }catch(error){if(token===sequence&&dialog.open)status('socialPhotoStatus',error.message,true);}finally{if(token===sequence)event.target.value='';done();}
   });
-  $('socialUseAvatar').addEventListener('click',async()=>{const token=sequence,original=avatar,logoToken=++logoSequence;$('socialUseAvatar').disabled=true;try{const value=await freezePhoto(original,true);if(token===sequence&&original===avatar&&logoToken===logoSequence&&dialog.open){logo=value;renderPhotos();}}catch{status('socialPhotoStatus','Profilbilden kunde inte hämtas. Ladda upp logotypen i stället.',true);}finally{$('socialUseAvatar').disabled=false;}});
+  $('socialUseAvatar').addEventListener('click',async()=>{if(creating||pending.size)return;const token=sequence,original=avatar,logoToken=++logoSequence,done=preparing('Profilbilden förbereds som logotyp.');try{const value=await freezePhoto(original,true);if(token===sequence&&original===avatar&&logoToken===logoSequence&&dialog.open){logo=value;renderPhotos();}}catch{if(token===sequence&&dialog.open)status('socialPhotoStatus','Profilbilden kunde inte hämtas. Ladda upp logotypen i stället.',true);}finally{done();}});
   $('socialClearLogo').addEventListener('click',()=>{logoSequence++;logo='';renderPhotos();});
-  dialog.addEventListener('input',event=>{if(Object.values(fields).some(id=>id===event.target.id)||event.target.id==='socialLinks')updatePreview();});
-  for(const id of ['socialIndustry','socialLanguage'])$(id).addEventListener('change',headline);
+  dialog.addEventListener('input',event=>{if(Object.values(fields).some(id=>id===event.target.id)||event.target.id==='socialLinks'||event.target.id.startsWith('socialColor-')){updatePalette();updatePreview();if(!pending.size&&!creating)status('socialCreateStatus','Ditt öppna förslag sparas innan det nya utkastet öppnas.');}});
+  for(const id of ['socialIndustry','socialLanguage'])$(id).addEventListener('change',()=>headline());
   $('socialCreate').addEventListener('click',async()=>{
-    if(creating)return;
+    if(creating||pending.size)return;
     let next;try{next=createSocialProject(data());}catch(error){status('socialCreateStatus',error.message,true);return;}
-    creating=true;$('socialCreate').disabled=true;sequence++;reading=false;$('socialRead').disabled=false;status('socialCreateStatus','Sparar ditt öppna förslag och öppnar den nya hemsidan…');
-    try{await onCreate(next,expected,snapshot);dialog.close();notify('Hemsidan är skapad. Redigera, granska och dela när du är nöjd.');}catch(error){status('socialCreateStatus',error.message,true);}finally{creating=false;$('socialCreate').disabled=false;}
+    creating=true;sequence++;reading=false;updateBusy();for(const field of dialog.querySelectorAll('input,textarea,select,[data-palette],.social-reset-headline'))field.disabled=true;status('socialCreateStatus','Sparar ditt öppna förslag och öppnar den nya hemsidan…');
+    try{await onCreate(next,expected,snapshot);dialog.close();notify('Hemsidan är skapad. Redigera, granska och dela när du är nöjd.');}catch(error){status('socialCreateStatus',error.message,true);}finally{creating=false;for(const field of dialog.querySelectorAll('input,textarea,select,[data-palette],.social-reset-headline'))field.disabled=false;updateBusy();}
   });
-  dialog.addEventListener('close',()=>{sequence++;photoSequence++;reading=false;$('socialRead').disabled=false;clearTimeout(timer);});
+  dialog.addEventListener('close',()=>{sequence++;photoSequence++;logoSequence++;pending.clear();reading=false;updateBusy();clearTimeout(timer);});
   new ResizeObserver(updatePreview).observe($('socialPreview').parentElement);
   return {open(url=''){
-    if(dialog.open)return;
-    expected=getProject();snapshot=JSON.stringify(expected);sequence++;photoSequence++;apply({links:url});headline();status('socialStatus','Offentligt innehåll hämtas när plattformen tillåter det. Du kan också fylla i uppgifterna manuellt.');status('socialPhotoStatus','Inga verksamhetsbilder ännu. Profilbilden väljs separat.');status('socialCreateStatus','Ditt öppna förslag sparas innan det nya utkastet öppnas.');dialog.showModal();updatePreview();if(url)read();else $('socialLinks').focus();
+    if(dialog.open||creating)return;
+    expected=getProject();snapshot=JSON.stringify(expected);sequence++;photoSequence++;apply({links:url});headline(true);updateBusy();status('socialStatus','Offentligt innehåll hämtas när plattformen tillåter det. Du kan också fylla i uppgifterna manuellt.');status('socialPhotoStatus','Inga verksamhetsbilder ännu. Profilbilden väljs separat.');status('socialCreateStatus','Ditt öppna förslag sparas innan det nya utkastet öppnas.');dialog.showModal();updatePreview();if(url)read();else $('socialLinks').focus();
   }};
 }
