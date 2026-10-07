@@ -41,3 +41,49 @@
 .branding-fields{border:1px solid var(--line);border-radius:10px;padding:16px;margin:20px 0;min-width:0}.branding-fields legend{font-weight:600;padding:0 6px}.brand-color{display:grid;grid-template-columns:minmax(0,1fr) 44px 44px;gap:8px;align-items:center;margin:16px 0}.brand-color label{margin:0 0 4px}.brand-color .field-help{font-size:11px;display:block;overflow-wrap:anywhere}.brand-color input{width:44px;min-width:0;height:44px;padding:4px}.brand-color button{width:44px;height:44px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);cursor:pointer}#logoVariants select{width:100%;min-height:44px;margin-bottom:14px}
 
 .import-quality{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0 34px 24px;padding:22px;border:1px solid #d9b774;border-radius:10px;background:#fff8e8;color:#624817}.import-quality strong{font-size:16px}.import-quality p{font-size:13px;line-height:1.6;margin:8px 0 0;max-width:68ch}.import-quality>div:last-child{flex:0 0 260px}.import-quality .button{white-space:normal;min-height:44px}.import-quality>div:last-child p{font-size:12px}#importQualityDialog .dialog-intro{color:#5e6756}#importQualityDialog .dialog-actions{flex-wrap:wrap;gap:12px}#importQualityDialog .text-button{min-height:44px;white-space:normal;text-align:left}#importQualityDialog .dialog-close{min-width:44px;min-height:44px}@media(max-width:850px){.import-quality{margin:0 20px 20px;display:block}.import-quality>div:last-child{margin-top:16px}}@media(max-width:680px){.import-quality{margin:0 16px 20px;padding:18px}}
+:root .social-entry{padding:18px;margin:0 0 24px;border:1px solid #d9dfd0;background:#f0f3e9;border-radius:12px}
+:root .social-entry>span{display:block;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#697760;margin-bottom:7px}
+:root .social-entry button{width:100%;padding:0;background:none;border:0;display:flex;align-items:center;justify-content:space-between;text-align:left;font-family:inherit;font-size:15px;font-weight:600;line-height:1.5;color:#26352a;cursor:pointer}
+:root .social-entry p{font-size:11px;line-height:1.6;color:#64715d;margin:8px 0 0}
+:root .social-dialog{width:min(1180px,calc(100vw - 32px));max-width:none;max-height:92dvh;padding:36px 38px 0;border:1px solid #dce2d3;border-radius:22px;background:#fbfcf8;color:#26352a}
+:root .social-dialog h2{font-size:clamp(30px,4vw,43px);line-height:1.1;letter-spacing:-.04em;margin:14px 0 15px}
+:root .social-dialog .dialog-intro{max-width:650px;font-size:14px;line-height:1.7;margin-bottom:24px}
+:root .social-dialog label{display:block;font-size:12px;font-weight:600;line-height:1.6;margin:16px 0 7px}
+:root .social-dialog label span{font-size:10px;font-weight:400;color:#6c7666}
+:root .social-dialog :is(input:not([type=file]),textarea,select){width:100%;font-family:inherit;font-size:13px;line-height:1.6;border:1px solid #dce2d3;border-radius:7px;background:#fff;padding:11px 13px;color:#26352a;min-height:43px}
+:root .social-dialog textarea{resize:vertical;min-height:unset}
+:root .social-dialog input[type=color]{width:100%;height:44px;padding:4px;cursor:pointer}
+:root .social-dialog .field-help{font-size:11px;line-height:1.7;color:#697660;margin:10px 0 0}
+:root .social-dialog .field-help.error{color:#a5422c}
+:root .social-dialog :is(button,a,input,textarea,select,summary):focus-visible{outline:2px solid #537b3e;outline-offset:3px}
+:root .social-intake{background:#eef2e6;padding:12px 20px 18px;border-radius:12px;border:1px solid #dce2d3}
+:root .social-intake label{margin-top:0}
+:root .social-intake-actions{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:14px;flex-wrap:wrap}
+:root .social-intake-actions .button{padding:12px 20px;font-size:12px}
+:root .social-builder{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:34px;padding:27px 0}
+:root .social-step{display:flex;align-items:center;gap:11px;margin:6px 0 9px}
+:root .social-step:not(:first-child){margin-top:30px}
+:root .social-step>span{padding:4px 6px;border:1px solid #dce2d3;border-radius:4px;font-size:10px;color:#698056}
+:root .social-step h3{font-size:15px;font-weight:600;letter-spacing:-.02em;margin:0}
+:root .social-field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+:root .social-preview{position:sticky;top:0;align-self:start;background:#f0f1e9;padding:18px;border-radius:12px}
+:root .social-preview>div:first-child{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:11px;margin-bottom:14px}
+:root .social-preview>div:first-child p{margin:0;max-width:60%}
+:root .social-preview-stage{height:455px;background:#fff;border:1px solid #e2e4d9;border-radius:5px;overflow:hidden}
+:root #socialPreview{width:1100px;height:1500px;border:0;transform-origin:top left;pointer-events:none}
+:root .social-upload{margin-top:16px}
+:root .social-photos{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:17px}
+:root .social-photo{background:white;border:1px solid #dce2d3;padding:9px;border-radius:9px;min-width:0}
+:root .social-photo img{width:100%;height:140px;object-fit:cover;border-radius:5px}
+:root .social-photo label{font-size:10px;margin:9px 0 4px}
+:root .social-photo :is(select,input){font-size:11px;padding:6px 7px;min-height:34px}
+:root .social-photo .text-button{font-size:10px;margin:8px 0 0}
+:root .social-logo-row{display:flex;align-items:center;gap:15px;margin-top:22px}
+:root .social-logo-row img{width:auto;height:auto;max-width:90px;max-height:70px;object-fit:contain;border-radius:0}
+:root .social-logo-row .text-button{display:block;font-size:11px;margin-top:9px}
+:root .social-logo-row [hidden]{display:none!important}
+:root .social-details{margin-top:26px;border-top:1px solid #dce2d3;padding-top:17px}
+:root .social-details summary{font-size:12px;font-weight:600;cursor:pointer;min-height:36px}
+:root .social-finish{position:sticky;bottom:0;z-index:1;display:flex;justify-content:space-between;align-items:center;gap:30px;background:#fbfcf8;padding:20px 0;border-top:1px solid #dce2d3}
+:root .social-finish .field-help{max-width:55%;margin:0}
+@media(max-width:760px){:root .social-dialog{padding:26px 20px 0;max-height:94dvh;border-radius:15px}:root .social-builder{grid-template-columns:minmax(0,1fr);gap:24px}:root .social-preview{position:static}:root .social-preview-stage{height:370px}:root .social-field-row{gap:10px}:root .social-finish{display:block;padding:14px 0}:root .social-finish .field-help{max-width:none;margin-bottom:12px}:root .social-finish .button{width:100%;justify-content:space-between}}

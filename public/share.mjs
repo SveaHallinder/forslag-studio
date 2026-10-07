@@ -11,6 +11,10 @@ export async function encodeProject(raw, publicBase) {
     for(const key of ['logoLight','logoDark'])if(page.branding?.[key])page.branding[key]=absolute(page.branding[key]);
     page.heroGallery?.forEach(item=>item.url=absolute(item.url));
     page.cards.forEach(card=>{card.image=absolute(card.image);card.gallery?.forEach(item=>item.url=absolute(item.url));});
+    // The normalizer restores primary images from galleries. Avoid carrying
+    // the same large upload twice; gzip cannot deduplicate beyond its window.
+    if(page.heroGallery?.[0]?.url===page.hero)page.hero='';
+    for(const card of page.cards)if(card.gallery?.[0]?.url===card.image)card.image='';
   }
   const content = new Blob([JSON.stringify(project)]);
   if(content.size > 1500000) throw new Error('Förslaget innehåller för mycket bilddata för en kundlänk. Välj färre uppladdade bilder eller ladda ner demosidan som HTML.');

@@ -1,3 +1,4 @@
+import {socialProfileURL,extractSocialProfile} from './public/social-content.mjs';
 const MAX_HTML = 2_000_000, MAX_IMAGE = 5_000_000;
 function scriptRedirect(html, source) {
   // Recognize simple redirect shells; never execute third-party JavaScript.
@@ -99,6 +100,20 @@ export async function renderPublic(value,env={},requestFetch=fetch) {
   }finally{rendering--;}
 }
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
+export async function readSocialProfile(value,requestFetch=fetch) {
+  const profile=socialProfileURL(value);
+  try{
+    const data=await readPublic(profile.url,false,requestFetch);
+    let destination;try{destination=socialProfileURL(data.url);}catch{}
+    if(!destination||destination.url!==profile.url)throw new Error('Plattformen omdirigerade till en annan profil eller en inloggningssida.');
+    const result=extractSocialProfile(new TextDecoder().decode(data.body),profile.url);
+    console.info('[social import] Profile',profile.platform,result.status,result.photos.length);
+    return result;
+  }catch(error){
+    console.warn('[social import] Public profile unavailable',profile.platform,error.name);
+    return {...profile,status:'limited',name:'',bio:'',avatar:'',photos:[],warning:'Profilen kunde inte läsas offentligt. '+(error.name==='TimeoutError'?'Plattformen svarade för långsamt. ':'')+'Klistra in profiltexten och lägg till företagets bilder. Ingen inloggning behövs och ditt utkast finns kvar.'};
+  }
+}
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{...headers,'Content-Type':'application/json; charset=utf-8'}});
 let inFlight=0;
 export function createWorker(assets) {
@@ -114,7 +129,7 @@ export function createWorker(assets) {
       if(!asset)return json({error:'Sidan hittades inte.'},404);
       return new Response(request.method==='HEAD'?null:asset.body,{headers:{...headers,'Content-Type':asset.type,'X-Frame-Options':'SAMEORIGIN'}});
     }
-    if(request.method!=='POST'||!['/api/read','/api/image','/api/style','/api/render','/api/font'].includes(path))return json({error:'Funktionen hittades inte.'},404);
+    if(request.method!=='POST'||!['/api/read','/api/image','/api/style','/api/render','/api/font','/api/social'].includes(path))return json({error:'Funktionen hittades inte.'},404);
     if(request.headers.get('Origin')!==url.origin||request.headers.get('Content-Type')?.split(';')[0]!=='application/json')return json({error:'Öppna verktyget och försök igen.'},403);
     if(Number(request.headers.get('Content-Length'))>4096)return json({error:'Adressen är för lång.'},413);
     if(inFlight>=6)return json({error:'Flera hämtningar pågår. Vänta en stund och försök igen.'},429);
@@ -124,12 +139,13 @@ export function createWorker(assets) {
       try{while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>4096)return json({error:'Adressen är för lång.'},413);text+=decoder.decode(part.value,{stream:true});}}finally{await reader.cancel();}
       const payload=JSON.parse(text+decoder.decode());
       if(typeof payload?.url!=='string'||payload.url.length>2000)throw new Error('Ange en giltig företagsadress.');
+      if(path==='/api/social')return json(await readSocialProfile(payload.url));
       if(path==='/api/render')return json(await renderPublic(payload.url,env));
       const data=await readPublic(payload.url,path==='/api/font'?'font':path==='/api/style'?'style':path==='/api/image');
       console.info('[mockup online fetch] Completed',path);
       return path==='/api/style'?json({css:new TextDecoder().decode(data.body),url:data.url}):(path==='/api/image'||path==='/api/font')?new Response(data.body,{headers:{...headers,'Content-Type':data.mime}}):json({html:new TextDecoder().decode(data.body),url:data.url});
     } catch(error) {
-      console.warn('[mockup online fetch]',error.name);
+      console.warn(path==='/api/social'?'[social import]':'[mockup online fetch]',error.name);
       return json({error:error.name==='TimeoutError'?'Hemsidan svarade för långsamt. Försök igen eller fyll i manuellt.':error.message||'Hemsidan kunde inte hämtas. Fyll i innehållet manuellt.'},error.status||400);
     } finally {inFlight--;}
   }};

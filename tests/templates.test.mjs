@@ -5,9 +5,9 @@ import { encodeProject, decodeProject } from '../public/share.mjs';
 import { restoreProject } from '../public/project-tools.mjs';
 import { templates } from '../public/templates.mjs';
 
-test('fourteen distinct industry templates are available',()=>{
-  assert.equal(templates.length,14);
-  assert.equal(new Set(templates.map(t=>t.id)).size,14);
+test('fifteen distinct industry templates are available',()=>{
+  assert.equal(templates.length,15);
+  assert.equal(new Set(templates.map(t=>t.id)).size,15);
   for(const id of ['editorial','construction','hospitality','consulting'])assert.ok(templates.some(t=>t.id===id));
 });
 

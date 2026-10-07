@@ -1,3 +1,5 @@
+import {createSocialStudio} from './social-studio.mjs';
+import {socialProfileURL} from './social-content.mjs';
 import {sectionKinds,detectSectionKind} from './section-design.mjs';
 import {createDesignWorkbench,renderTemplateThumbnail} from './design-workbench.mjs';
 import {brandRoles,brandPalette,selectBrandLogo} from './branding.mjs';
@@ -19,6 +21,16 @@ function currentContent() { return project.pages?.[activePage] || project; }
 function fieldOwner(field) { return ['name','accent'].includes(field) ? project : currentContent(); }
 const draftKey = 'forslag-studio-draft-v1';
 let projectIndex = [], archiveIndex = [], projectLoadSequence = 0, libraryLoadSequence = 0, libraryView = 'active', archiveBusy = false, archiveTarget = '';
+const socialStudio=createSocialStudio({getProject:()=>project,readImage,notify:toast,onCreate:async(next,previous,snapshot)=>{
+  if(project!==previous||JSON.stringify(project)!==snapshot)throw new Error('Det öppna förslaget har ändrats. Stäng och öppna social-flödet igen; dina ändringar finns kvar.');
+  if(importBusy)throw new Error('En webbplatsimport pågår. Vänta tills den är klar innan du skapar ett nytt förslag.');
+  if(dirty&&(project.id||project.name!=='Nytt förslag')){
+    await save(false);
+    if(project!==previous||dirty)throw new Error('Förslaget ändrades under sparningen. Dina senaste ändringar finns kvar. Öppna social-flödet igen.');
+  }
+  ++projectLoadSequence;project=next;dirty=true;fillEditor();markDirty();showEditor();refreshProjects().catch(()=>{});
+}});
+$('fromSocial').addEventListener('click',()=>{if(project)socialStudio.open();});
 
 async function loadInitialProject() {
   let draft, selected;
@@ -284,19 +296,25 @@ new ResizeObserver(fitTemplatePreviews).observe($('templateGallery'));
 function fillEditor(keepPreview = false) {
   if(editingSite!==project){activePage=-1;editingSite=project;}
   if(activePage>=(project.pages?.length||0))activePage=-1;
+  let socialSource=false;try{socialProfileURL(project.source);socialSource=true;}catch{}
   updateTemplateLabel();
   $('pageSelect').innerHTML='<option value="-1">Startsida</option>'+(project.pages||[]).map((p,i)=>`<option value="${i}">${e(p.name||'Sida '+(i+2))}</option>`).join('');
   $('pageSelect').value=String(activePage);
   $('pageHelp').textContent=activePage<0?'Du redigerar startsidan. Namn, meny, logotyp och design gäller hela webbplatsen.':'Du redigerar '+currentContent().name+'. Namn, meny, logotyp och design gäller hela webbplatsen.';
   $('pageOriginal').hidden=!currentContent().source;
   $('pageOriginal').href=currentContent().source||'#';
+  $('pageOriginal').textContent=socialSource?'Visa profil ↗':'Visa original ↗';
+  $('compareDesign').hidden=socialSource;
   document.querySelectorAll('[data-field]').forEach(input => input.value = fieldOwner(input.dataset.field)[input.dataset.field] ?? '');
   $('sourceUrl').value = project.source;
+  document.querySelector('label[for="sourceUrl"]').textContent=socialSource?'Företagets profil':'Företagets hemsida';
+  $('includePages').closest('label').hidden=socialSource;
+  $('importButton').innerHTML=socialSource?'Nytt förslag från profil <span>→</span>':'Hämta innehåll <span>→</span>';
   $('warnings').textContent = currentContent().warnings.join(' ');
   $('warnings').hidden = !currentContent().warnings.length;
   $('savedState').textContent = dirty ? 'OSPARAT' : 'SPARAT';
   $('importStatus').className = 'import-status';
-  $('importStatus').textContent = project.id === 'vegavista' ? 'Vegavista-pilot. Granska eventuella ändringar innan du delar.' : project.importedAt ? 'Importerat innehåll. Granska text och bildval innan du delar.' : 'Klistra in en företagslänk eller fyll i innehållet själv.';
+  $('importStatus').textContent = socialSource ? 'Ny hemsida från sociala medier. Redigera innehåll och design nedan; faktauppgifter behöver granskas före delning.' : project.id === 'vegavista' ? 'Vegavista-pilot. Granska eventuella ändringar innan du delar.' : project.importedAt ? 'Importerat innehåll. Granska text och bildval innan du delar.' : 'Klistra in en företagslänk eller fyll i innehållet själv.';
   renderImportQuality();
   imageChoices.clear();renderNavigationSummary(); renderCards(); renderImages(); renderBenefits(); renderTypography(); renderBranding(); workbench.sync(); if(!keepPreview)updatePreview();else updateTitle();
 }
@@ -583,6 +601,8 @@ $('importButton').addEventListener('click',()=>importCompany());
 async function importCompany({recover=false}={}) {
   if(importBusy||!project)return;
   const url=(recover?project.source:$('sourceUrl').value).trim();if(!url){$('sourceUrl').focus();return toast('Klistra in företagets webbadress.');}
+  let social;try{social=socialProfileURL(url);}catch{}
+  if(social){socialStudio.open(social.url);return;}
   if(!recover&&dirty&&!confirm('Importera ett nytt företag och ersätta det osparade utkastet?'))return;
   const importProject = project;
   importBusy=true;$('importButton').disabled=true;$('importButton').textContent='Hämtar hemsidan…';

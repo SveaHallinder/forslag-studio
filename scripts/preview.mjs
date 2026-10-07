@@ -8,4 +8,5 @@ const server=http.createServer(async(req,res)=>{
     const response=await worker.fetch(request,env);res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));
   }catch(error){console.error('[mockup preview]',error.message);res.writeHead(500);res.end('Preview request failed');}
 });
-server.listen(4174,'127.0.0.1',()=>console.log('Online editor preview: http://localhost:4174'));
+const port=Number(process.env.PORT)||4174;
+server.listen(port,'127.0.0.1',()=>console.log('Online editor preview: http://localhost:'+port));

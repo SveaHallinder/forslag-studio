@@ -1,4 +1,5 @@
 export const templates = Object.freeze([
+  {id:'cafe',name:'Little Café',description:'Pebble-uttrycket: en varm entré, välvald typografi, personliga bildberättelser och en genomarbetad sidfot.',reference:'Café · vår Pebble-pilot'},
   {id:'cinema',name:'Cinema',description:'Atmosfärisk helbild, stora rubriker och mörka bildberättelser. För restauranger, hotell och arkitektur.',reference:'Filmiskt · panoramabilder'},
   {id:'pop',name:'Pop',description:'Färgstarka block, fyllig typografi och lekfulla bildkort. För caféer, mat, produkter och kreativa varumärken.',reference:'Lekfullt · färg & form'},
   {id:'atelier',name:'Atelier',description:'Storskalig typografi, ett bildburet omslag och redaktionella uppslag. För mode, smycken, kultur och personliga varumärken.',reference:'Elegant · redaktionellt'},

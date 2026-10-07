@@ -1,4 +1,5 @@
 import { normalizeProject, linkURL } from './render.mjs';
+import { socialProfileURL } from './social-content.mjs';
 
 function validDestination(value,project) {
   const href=linkURL(value);if(!href)return false;
@@ -22,11 +23,13 @@ function assessPage(raw = {}) {
   const p = normalizeProject(raw);
   const name = String(raw.name ?? '').trim();
   const headline = String(raw.headline ?? '').trim();
+  let socialContact=false;
+  try{const profile=socialProfileURL(p.source);socialContact=p.navigation.some(n=>n.href===profile.url);}catch{}
   const badCard=(Array.isArray(raw.cards)?raw.cards:[]).findIndex(c=>c?.href&&!validDestination(c.href,p));
   return [
     {id:'name',label:'Företagsnamn',ok:!!name&&!['Nytt förslag','Ditt företag'].includes(name),blocking:true,field:'name',tab:'content',help:'Ange kundens företagsnamn.'},
     {id:'headline',label:'En egen huvudrubrik',ok:!!headline&&!['Här börjar nästa kunds hemsida.','En ny plats för ert företag.'].includes(headline),blocking:true,field:'headline',tab:'content',help:'Skriv en rubrik som passar företaget.'},
-    {id:'contact',label:'Giltig kontaktväg',ok:!!(p.email||p.phone),blocking:false,field:'email',tab:'details',help:'Lägg till mejladress eller telefon om kontaktknappen ska fungera.'},
+    {id:'contact',label:'Giltig kontaktväg',ok:!!(p.email||p.phone||socialContact),blocking:false,field:'email',tab:'details',help:'Lägg till mejladress, telefon eller företagets sociala profil som kontaktväg.'},
     {id:'images',label:'Valda verksamhetsbilder',ok:!!p.hero||p.cards.some(c=>c.image),blocking:false,field:'imageUpload',tab:'images',help:'Välj en huvudbild eller fortsätt med en textbaserad demo.'},
     {id:'navigation',label:'Menyns destinationer',ok:!(Array.isArray(raw.navigation)?raw.navigation:[]).some(n=>!validDestination(n?.href,p)),blocking:true,field:'editNavigation',tab:'content',help:'En menylänk saknar giltig destination eller pekar på ett borttaget block. Rätta den under Redigera meny.'},
     {id:'cta',label:'Huvudknappens destination',ok:!raw.ctaHref||validDestination(raw.ctaHref,p),blocking:true,field:'ctaHref',tab:'details',help:'Ange en fullständig webbadress eller ett befintligt #ankare för huvudknappen.'},

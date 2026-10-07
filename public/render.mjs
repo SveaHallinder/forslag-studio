@@ -1,3 +1,4 @@
+import {cafeBody,cafeDesignCSS} from './cafe-design.mjs';
 import {careTravelDesignCSS} from './care-travel-design.mjs';
 import {tradeAdviceDesignCSS} from './trade-advice-design.mjs';
 import {commerceTechDesignCSS} from './commerce-tech-design.mjs';
@@ -153,6 +154,10 @@ function renderSingleDemo(raw, options = {}) {
   const textCompact=imported?compactTextIndices(p.cards):new Set();
   const sectionPlan=pageSectionPlan(p.cards);
   const renderCard=(c,i)=>renderContentCard(c,i,pic,imported||!!c.kind,compact.has(i),textCompact.has(i),{...sectionPlan[i],...(p.templateId==='dining'?{dining:diningCardRole(c,i)}:{})});
+  if(p.templateId==='cafe'){
+    const cafe=cafeBody(p,{e,pic,header:renderHeader(p,imported,e,pic),renderCard});
+    return `<!doctype html><html lang="${cafe.lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><style>${demoCSS}${sectionDesignCSS}${navigationCSS}${cafeDesignCSS(p)}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="cafe" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${cafe.body}<script data-header-navigation>(${installHeaderNavigation.toString()})(document);</script></body></html>`;
+  }
   const cardsHTML=p.templateId==='dining'?diningSections(p.cards,renderCard,e):p.cards.map(renderCard).join('');
   const body = `<div class="demo-note">Designförslag · Framtagen för ${e(p.name)}</div>
   <div class="shell">${renderHeader(p,imported,e,pic)}
