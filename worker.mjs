@@ -64,15 +64,16 @@ export async function readPublic(value, image = false, requestFetch = fetch) {
   throw new Error('Hemsidan omdirigerar för många gånger.');
 }
 const renderError=(message,status=502)=>Object.assign(new Error(message),{status});
+export function browserConfigured(env={}) {return env.CLOUDFLARE_BROWSER_PLAN==='free'&&/^[a-f\d]{32}$/i.test(env.CLOUDFLARE_ACCOUNT_ID||'')&&!!env.CLOUDFLARE_BROWSER_TOKEN;}
 let rendering=0;
 export async function renderPublic(value,env={},requestFetch=fetch) {
   const url=publicURL(value),account=env.CLOUDFLARE_ACCOUNT_ID,token=env.CLOUDFLARE_BROWSER_TOKEN;
   // Set only after verifying Workers Free in the provider account. Never upgrade billing here.
-  if(env.CLOUDFLARE_BROWSER_PLAN!=='free'||!/^[a-f\d]{32}$/i.test(account||'')||!token)throw renderError('Sidan behöver en webbläsare för att kunna läsas. Reservhämtningen är ännu inte ansluten. Ditt öppna förslag är kvar.',503);
+  if(!browserConfigured(env))throw renderError('Sidan behöver en webbläsare för att kunna läsas. Reservhämtningen är ännu inte ansluten. Använd Importera underlag för en sparad HTML-sida. Ditt öppna förslag är kvar.',503);
   if(rendering>=3)throw renderError('Webbläsarhämtningen är upptagen. Vänta en stund och försök igen.',429);
   rendering++;
   try {
-    const response=await requestFetch('https://api.cloudflare.com/client/v4/accounts/'+account+'/browser-rendering/content?cacheTTL=300',{
+    const response=await requestFetch('https://api.cloudflare.com/client/v4/accounts/'+account+'/browser-run/content?cacheTTL=300',{
       method:'POST',redirect:'error',signal:AbortSignal.timeout(25000),
       headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
       body:JSON.stringify({url:url.href,gotoOptions:{waitUntil:'networkidle2',timeout:18000},actionTimeout:5000,viewport:{width:1440,height:1000},rejectResourceTypes:['media','font']})
@@ -100,25 +101,36 @@ export async function renderPublic(value,env={},requestFetch=fetch) {
   }finally{rendering--;}
 }
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
-export async function readSocialProfile(value,requestFetch=fetch) {
+export async function readSocialProfile(value,requestFetch=fetch,env={}) {
   const profile=socialProfileURL(value);
+  let first;
   try{
     const data=await readPublic(profile.url,false,requestFetch);
     let destination;try{destination=socialProfileURL(data.url);}catch{}
     if(!destination||destination.url!==profile.url)throw new Error('Plattformen omdirigerade till en annan profil eller en inloggningssida.');
     const result=extractSocialProfile(new TextDecoder().decode(data.body),profile.url);
     console.info('[social import] Profile',profile.platform,result.status,result.photos.length);
-    return result;
+    if(result.status==='read'||!browserConfigured(env))return result;
+    first=result;
   }catch(error){
     console.warn('[social import] Public profile unavailable',profile.platform,error.name);
-    return {...profile,status:'limited',name:'',bio:'',avatar:'',photos:[],warning:'Profilen kunde inte läsas offentligt. '+(error.name==='TimeoutError'?'Plattformen svarade för långsamt. ':'')+'Klistra in profiltexten och lägg till företagets bilder. Ingen inloggning behövs och ditt utkast finns kvar.'};
+    first={...profile,status:'limited',name:'',bio:'',avatar:'',photos:[],warning:'Profilen kunde inte läsas offentligt. '+(error.name==='TimeoutError'?'Plattformen svarade för långsamt. ':'')+'Klistra in profiltexten och lägg till företagets bilder. Ingen inloggning behövs och ditt utkast finns kvar.'};
   }
+  if(!browserConfigured(env))return first;
+  try{
+    const page=await renderPublic(profile.url,env,requestFetch),destination=socialProfileURL(page.url);
+    if(destination.url!==profile.url)throw new Error('Webbläsaren nådde inte den angivna företagsprofilen.');
+    const result=extractSocialProfile(page.html,profile.url);
+    if(result.status==='read')return {...result,warning:'Profilen lästes efter att JavaScript laddats. '+result.warning};
+  }catch(error){console.warn('[social import] Browser fallback unavailable',profile.platform,error.status||502);if(error.status===429)first.warning='Webbläsarhämtningens kvot är slut. '+first.warning;}
+  return first;
 }
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{...headers,'Content-Type':'application/json; charset=utf-8'}});
 let inFlight=0;
 export function createWorker(assets) {
   return {async fetch(request,env={}) {
     const url=new URL(request.url), path=url.pathname;
+    if(request.method==='GET'&&path==='/api/status')return json({browser:browserConfigured(env)?'configured':'unconnected',cloud:'local',contact:'links',booking:'links',payments:'links'});
     if(request.method==='GET'&&path==='/api/font'){
       if(inFlight>=6)return json({error:'Typsnittshämtningen är upptagen. Försök igen.'},429);
       inFlight++;try{const target=url.searchParams.get('url');if(!target||target.length>2000)throw new Error('Fontadressen är ogiltig.');const data=await readPublic(target,'font');return new Response(data.body,{headers:{...headers,'Content-Type':data.mime,'Cache-Control':'public, max-age=86400'}});}
@@ -139,7 +151,7 @@ export function createWorker(assets) {
       try{while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>4096)return json({error:'Adressen är för lång.'},413);text+=decoder.decode(part.value,{stream:true});}}finally{await reader.cancel();}
       const payload=JSON.parse(text+decoder.decode());
       if(typeof payload?.url!=='string'||payload.url.length>2000)throw new Error('Ange en giltig företagsadress.');
-      if(path==='/api/social')return json(await readSocialProfile(payload.url));
+      if(path==='/api/social')return json(await readSocialProfile(payload.url,fetch,env));
       if(path==='/api/render')return json(await renderPublic(payload.url,env));
       const data=await readPublic(payload.url,path==='/api/font'?'font':path==='/api/style'?'style':path==='/api/image');
       console.info('[mockup online fetch] Completed',path);

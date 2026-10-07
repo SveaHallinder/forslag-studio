@@ -1,4 +1,5 @@
 import {socialProfileURL,socialProfileDetails} from './social-content.mjs';
+import {readSocialProfiles} from './social-import.mjs';
 import {createSocialProject,socialIndustries,socialCopy,socialPalettes} from './social-project.mjs';
 import {brandRoles} from './branding.mjs';
 import {renderDemo,escapeHTML as e} from './render.mjs';
@@ -58,10 +59,9 @@ export function createSocialStudio({getProject,onCreate,readImage,notify}) {
     if(reading||creating||pending.size)return;
     let profiles;try{const links=$('socialLinks').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);if(!links.length||links.length>3)throw new Error('Lägg till en till tre profillänkar, en per rad.');profiles=links.map(socialProfileURL);}catch(error){status('socialStatus',error.message,true);$('socialLinks').focus();return;}
     // Never overwrite a user's corrected intake while a slow platform responds.
-    const before=JSON.stringify(data()),token=++sequence;reading=true;updateBusy();status('socialStatus','Läser den första offentliga profilen… Du kan fortsätta manuellt medan plattformen svarar.');
+    const before=JSON.stringify(data()),token=++sequence;reading=true;updateBusy();status('socialStatus',`Läser ${profiles.length===1?'den offentliga profilen':profiles.length+' offentliga profiler'}… Du kan fortsätta manuellt medan plattformarna svarar.`);
     try{
-      const response=await fetch('/api/social',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:profiles[0].url}),signal:AbortSignal.timeout(30000)}),result=await response.json();
-      if(!response.ok)throw new Error(result.error||'Profilen kunde inte läsas.');
+      const result=await readSocialProfiles(profiles);
       if(token!==sequence||!dialog.open)return;
       if(JSON.stringify(data())!==before){status('socialStatus','Profilens svar lades åt sidan eftersom du ändrade uppgifterna. Dina senaste ändringar är kvar.');return;}
       if(result.status!=='read'){status('socialStatus',result.warning,true);$('socialBio').focus();return;}

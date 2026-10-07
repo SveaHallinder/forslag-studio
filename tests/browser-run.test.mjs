@@ -15,7 +15,7 @@ test('browser rendering is disabled until a free account and token are configure
 test('browser rendering validates targets and uses a fixed authenticated provider endpoint',async()=>{
  await assert.rejects(async()=>render('http://localhost',env,()=>assert.fail('private target')),/offentlig/);
  const data=await render('https://example.com',env,async(url,options)=>{
-  assert.equal(url,'https://api.cloudflare.com/client/v4/accounts/'+env.CLOUDFLARE_ACCOUNT_ID+'/browser-rendering/content?cacheTTL=300');
+  assert.equal(url,'https://api.cloudflare.com/client/v4/accounts/'+env.CLOUDFLARE_ACCOUNT_ID+'/browser-run/content?cacheTTL=300');
   assert.equal(options.headers.Authorization,'Bearer test-secret');assert.equal(options.redirect,'error');
   const body=JSON.parse(options.body);assert.equal(body.url,'https://example.com/');assert.equal(body.gotoOptions.waitUntil,'networkidle2');assert.ok(body.gotoOptions.timeout<=20000);
   assert.equal(body.authenticate,undefined);assert.equal(body.cookies,undefined);return success();
@@ -51,3 +51,19 @@ test('ordinary HTML does not consume browser time',async()=>{const h=client();aw
 test('empty HTML retries once through browser and keeps original content',async()=>{const h=client({empty:true});const p=await h.context.readCompany('https://example.com');assert.equal(p.headline,'Original');assert.deepEqual(h.calls,['/api/read','/api/render']);assert.match(p.warnings.join(' '),/webbläsare/);});
 test('failed browser fallback remains a failure with quota status',async()=>{const h=client({empty:true,renderFailure:true});await assert.rejects(h.context.readCompany('https://example.com'),e=>e.status===429);assert.deepEqual(h.calls,['/api/read','/api/render']);});
 test('unrelated extraction errors do not trigger paid or repeated work',async()=>{const h=client({unexpected:true});await assert.rejects(h.context.readCompany('https://example.com'),/Unexpected/);assert.deepEqual(h.calls,['/api/read']);});
+test('explicit browser import uses the same content pipeline without spending time on a failed raw request',async()=>{const h=client({empty:true});const p=await h.context.readCompany('https://example.com',true,true);assert.equal(p.headline,'Original');assert.deepEqual(h.calls,['/api/render']);assert.match(p.warnings[0],/webbläsare/);});
+test('explicit browser import fails once without retrying or changing an open project',async()=>{const h=client({renderFailure:true});await assert.rejects(h.context.readCompany('https://example.com',true,true),e=>e.status===429);assert.deepEqual(h.calls,['/api/render']);});
+test('connection status is explicit and never returns credentials',async()=>{
+ const worker=workerModule.createWorker({});
+ for(const [settings,state] of [[{},'unconnected'],[env,'configured']]){const response=await worker.fetch(new Request('https://studio.example/api/status'),settings),body=await response.json();assert.equal(body.browser,state);assert.equal(body.cloud,'local');assert.equal(body.contact,'links');assert.ok(!JSON.stringify(body).includes('test-secret'));assert.ok(!JSON.stringify(body).includes(env.CLOUDFLARE_ACCOUNT_ID));}
+});
+test('blocked social HTML is rendered only when Browser Run is configured',async()=>{
+ const html='<meta property="og:title" content="Acme (@acme) • Instagram"><script type="application/json">'+JSON.stringify({username:'acme',full_name:'Acme',biography:'Our coffee shop.'})+'</script>';
+ const calls=[],fetcher=async url=>{calls.push(String(url));return String(url).includes('api.cloudflare.com')?Response.json({success:true,result:html,meta:{finalUrl:'https://www.instagram.com/acme/',status:200}}):new Response('blocked',{status:403});};
+ const result=await workerModule.readSocialProfile('https://instagram.com/acme/',fetcher,env);assert.equal(result.status,'read');assert.equal(result.name,'Acme');assert.equal(calls.length,2);assert.match(calls[1],/browser-run\/content/);
+ calls.length=0;const limited=await workerModule.readSocialProfile('https://instagram.com/acme/',fetcher,{});assert.equal(limited.status,'limited');assert.equal(calls.length,1);
+});
+test('rendered social redirects cannot import a different business profile',async()=>{
+ const result=await workerModule.readSocialProfile('https://instagram.com/acme/',async url=>String(url).includes('api.cloudflare.com')?Response.json({success:true,result:'<h1>Other</h1>',meta:{finalUrl:'https://www.instagram.com/other/',status:200}}):new Response('blocked',{status:403}),env);
+ assert.equal(result.status,'limited');assert.equal(result.name,'');assert.deepEqual(result.photos,[]);
+});

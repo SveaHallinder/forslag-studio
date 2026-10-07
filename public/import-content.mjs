@@ -1,5 +1,6 @@
 import {extractBrand} from './brand-content.mjs';
 import {prepareLegacyContent} from './legacy-content.mjs';
+import {logoScore,structuredLogo} from './import-assets.mjs';
 const clean=value=>String(value||'').replace(/\s+/g,' ').replace(/([.!?])(?=[A-ZÅÄÖ])/g,'$1 ').trim();
 const headings='h1,h2,h3,h4';
 const imageSelector='img,[data-background],[data-bg-image],[style*="background"],[data-current-styles],video[poster],[data-import-background]';
@@ -96,8 +97,9 @@ export function extractContent(html, source, styles='') {
   const stylesheetScore=n=>kitId&&n.id===`elementor-post-${kitId}-css`?4:pageId&&n.id===`elementor-post-${pageId}-css`?3:/fonts\.googleapis\.com|fonts\.bunny\.net|(?:^|[\/_-])fonts?[._-]/i.test(n.url)?2.5:/site\.css|custom|theme/i.test(n.url)?2:new URL(n.url).origin===new URL(source).origin?1:0;
   const stylesheets=[...new Set([...doc.querySelectorAll('link[rel="stylesheet"][href]')].filter(unconditional).map(n=>({id:n.id,url:absolute(n.getAttribute('href'))})).filter(n=>/^https?:/.test(n.url)).sort((a,b)=>stylesheetScore(b)-stylesheetScore(a)).map(n=>n.url))].slice(0,8);
   const hasForms=!!doc.querySelector('form');
+  const schemaLogo=structuredLogo(doc,source);
   removeCSSHidden(doc,css);
-  const inlineMark=[...doc.querySelectorAll('header a[href] svg,[data-elementor-type="header"] a[href] svg')].find(el=>{try{const u=new URL(el.closest('a').getAttribute('href'),source),base=new URL(source);return u.origin===base.origin&&['/',base.pathname].includes(u.pathname)&&!el.closest('[hidden],[aria-hidden="true"]');}catch{return false;}});
+  const inlineMark=[...doc.querySelectorAll('header a[href] svg,[data-elementor-type="header"] a[href] svg')].map(el=>({el,url:'',label:el.getAttribute('aria-label')||'',width:Number(el.getAttribute('width'))||0,height:Number(el.getAttribute('height'))||0})).filter(image=>logoScore(image,source)>0).sort((a,b)=>logoScore(b,source)-logoScore(a,source))[0]?.el;
   let inlineLogo='';if(inlineMark){const clone=inlineMark.cloneNode(true);clone.setAttribute('xmlns','http://www.w3.org/2000/svg');const box=(clone.getAttribute('viewBox')||'').trim().split(/[\s,]+/).map(Number);if(box.length===4&&box[2]>0&&box[3]>0&&!clone.hasAttribute('width')&&!clone.hasAttribute('height')){clone.setAttribute('width',String(box[2]));clone.setAttribute('height',String(box[3]));}inlineLogo=new XMLSerializer().serializeToString(clone);if(inlineLogo.length>200000)inlineLogo='';}
 
   doc.querySelectorAll('form,dialog:not([open]),[inert],[data-state="closed"],script,style,noscript,svg,template,iframe,object,embed,[hidden],[class~="hide-lg"],[class~="hidden-lg"],[class~="d-lg-none"],[style*="display:none"],[style*="display: none"],#cookie-banner,#cookie-consent,#onetrust-banner-sdk,[class*="cookie-banner"],[class*="cookie-consent"],[id*="CookieConsent"]').forEach(el=>el.remove());
@@ -157,16 +159,9 @@ export function extractContent(html, source, styles='') {
     return {url,label,el,backgroundMode,width:Number(dimensions?.[1]||el.getAttribute('width')||el.getAttribute('data-import-width'))||0,height:Number(dimensions?.[2]||el.getAttribute('height')||el.getAttribute('data-import-height'))||0};
   };
   const imageNodes=[...doc.querySelectorAll(imageSelector)].map(imageData).filter(Boolean);
-  const headerImage=imageNodes.find(i=>i.el===legacy?.logo)||imageNodes.find(i=>{
-    if(heroHeading&&!(i.el.compareDocumentPosition(heroHeading)&4))return false;
-    const anchor=i.el.closest('a[href]');if(!anchor)return false;
-    try{
-      const link=new URL(anchor.getAttribute('href'),source),base=new URL(source);
-      const home=link.origin===base.origin&&['',base.pathname.replace(/\/$/,'')].includes(link.pathname.replace(/\/$/,''));
-      return home&&!!(i.el.closest('header,.logo,.ed-logo,[class*="header-logo"],[data-elementor-type="header"],[class*="theme-site-logo"]')||i.label.toLowerCase()===base.hostname.replace(/^www\./,''));
-    }catch{return false;}
-  });
-  const logo=headerImage?.url||'';
+  const rankedLogos=imageNodes.map(image=>({image,score:logoScore(image,source,heroHeading)})).filter(item=>item.score>0).sort((a,b)=>b.score-a.score);
+  const headerImage=imageNodes.find(i=>i.el===legacy?.logo)||rankedLogos[0]?.image;
+  const logo=headerImage?.url||(!inlineLogo?schemaLogo:'');
   const pictures=imageNodes.filter(i=>i.url!==logo&&!excluded(i.el)&&!legacy?.decoration(i.el)&&!(/(?:^|[\/_-])(?:decoration|ornament|spacer|tracking)(?:[\/_.-]|$)/i.test(new URL(i.url).pathname))&&!(/logo|icon|favicon|sprite/i.test(i.label+' '+i.url))&&(!i.width||i.width>=64)&&(!i.height||i.height>=64)).sort((a,b)=>Number(a.el.hasAttribute('data-import-background'))-Number(b.el.hasAttribute('data-import-background')));
   const photos=pictures.filter(i=>(!i.width||i.width>=300)&&(!i.height||i.height>=180));
   // Explicit certification marks remain available as assets and section images,
@@ -267,6 +262,8 @@ export function extractContent(html, source, styles='') {
   warnings.push(...branding.warnings);
   if(galleryTruncated)warnings.unshift('Ett bildavsnitt innehåller fler än 12 bilder. De första 12 har tagits med; jämför med originalet.');
   if(!logo)warnings.push('Logotyp kunde inte identifieras säkert. Lägg till den under Bilder.');
+  if(!headerImage&&schemaLogo&&logo)warnings.push('Logotypen kommer från företagets strukturerade uppgifter. Kontrollera att den är rätt variant under Bilder.');
+  if(rankedLogos.length>1&&rankedLogos[0].score===rankedLogos[1].score&&rankedLogos[0].image.url!==rankedLogos[1].image.url)warnings.push('Flera logovarianter hittades i sidhuvudet. Granska valet under Bilder innan delning.');
   if(!hero)warnings.push('Ingen säker huvudbild hittades vid huvudrubriken. Välj huvudbild under Bilder.');
   if(!email&&!phone)warnings.push('Kontaktuppgifter saknas. Lägg till dem under Detaljer.');
   if(!headline&&!description&&!cards.length&&!email&&!phone)throw Object.assign(new Error('Hemsidan gav inget läsbart innehåll. Den kan kräva JavaScript eller blockera hämtning. Prova adressen till själva innehållssidan. Ditt öppna förslag är kvar.'),{code:'EMPTY_CONTENT'});

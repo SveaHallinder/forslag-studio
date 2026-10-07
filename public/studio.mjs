@@ -10,6 +10,8 @@ import { templates, getTemplate } from './templates.mjs';
 import { assessProject, searchProjects, restoreProject, prepareNavigation } from './project-tools.mjs';
 import { createStudioImageOptions } from './studio-images.mjs';
 import {importQualityIssues} from './import-quality.mjs';
+import {createImportStudio} from './import-studio.mjs';
+import {createConnectionsStudio} from './connections-studio.mjs';
 
 const $ = id => document.getElementById(id);
 const imageChoices = createStudioImageOptions(e);
@@ -24,13 +26,24 @@ let projectIndex = [], archiveIndex = [], projectLoadSequence = 0, libraryLoadSe
 const socialStudio=createSocialStudio({getProject:()=>project,readImage,notify:toast,onCreate:async(next,previous,snapshot)=>{
   if(project!==previous||JSON.stringify(project)!==snapshot)throw new Error('Det öppna förslaget har ändrats. Stäng och öppna social-flödet igen; dina ändringar finns kvar.');
   if(importBusy)throw new Error('En webbplatsimport pågår. Vänta tills den är klar innan du skapar ett nytt förslag.');
-  if(dirty&&(project.id||project.name!=='Nytt förslag')){
+  if(dirty){
     await save(false);
     if(project!==previous||dirty)throw new Error('Förslaget ändrades under sparningen. Dina senaste ändringar finns kvar. Öppna social-flödet igen.');
   }
   ++projectLoadSequence;project=next;dirty=true;fillEditor();markDirty();showEditor();refreshProjects().catch(()=>{});
 }});
 $('fromSocial').addEventListener('click',()=>{if(project)socialStudio.open();});
+const importStudio=createImportStudio({getProject:()=>project,getSource:()=>$('sourceUrl').value,notify:toast,onCreate:async(next,previous,snapshot,isCurrent)=>{
+  if(!isCurrent())throw new Error('Importen stängdes. Ditt öppna förslag är kvar.');
+  if(project!==previous||JSON.stringify(project)!==snapshot)throw new Error('Det öppna förslaget har ändrats. Dina ändringar finns kvar. Öppna importen igen.');
+  if(importBusy)throw new Error('En import pågår. Vänta tills den är klar.');
+  if(dirty){await save(false);if(!isCurrent())throw new Error('Importen stängdes. Ditt öppna förslag är sparat.');if(project!==previous||dirty)throw new Error('Förslaget ändrades under sparningen. Dina senaste ändringar finns kvar. Öppna importen igen.');}
+  ++projectLoadSequence;project=next;workbench.captureOriginal(project);dirty=true;fillEditor();markDirty();showEditor();refreshProjects().catch(()=>{});
+}});
+const connectionsStudio=createConnectionsStudio({getProject:()=>project,navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}}});
+$('importFiles').addEventListener('click',()=>{if(project)importStudio.open();});
+$('showConnections').addEventListener('click',()=>{if(project)connectionsStudio.open();});
+$('browserImport').addEventListener('click',()=>importCompany({renderFirst:true}));
 
 async function loadInitialProject() {
   let draft, selected;
@@ -618,7 +631,7 @@ $('newProject').addEventListener('click',async()=>{
 });
 $('showProjects').addEventListener('click',async()=>{ $('editorView').hidden=true;$('projectsView').hidden=false;$('dashboardResume').textContent=dirty?'Fortsätt med utkastet':'Fortsätt redigera';$('showProjects').classList.add('side-active');try{await refreshProjects();}catch(error){toast(error.message);} });
 $('importButton').addEventListener('click',()=>importCompany());
-async function importCompany({recover=false}={}) {
+async function importCompany({recover=false,renderFirst=false}={}) {
   if(importBusy||!project)return;
   const url=(recover?project.source:$('sourceUrl').value).trim();if(!url){$('sourceUrl').focus();return toast('Klistra in företagets webbadress.');}
   let social;try{social=socialProfileURL(url);}catch{}
@@ -636,7 +649,7 @@ async function importCompany({recover=false}={}) {
       $('importStatus').textContent='Nuvarande version är sparad i Mina förslag. Hämtar innehållet som ett nytt förslag med samma design…';
     }
     const importSnapshot = JSON.stringify(project);
-    const imported=normalizeProject({...await(await api('/api/import',{url,includePages:$('includePages').checked!==false})).json(),...(recover?{id:''}:{}),templateId:importProject.templateId});
+    const imported=normalizeProject({...await(await api('/api/import',{url,includePages:$('includePages').checked!==false,renderFirst})).json(),...(recover?{id:''}:{}),templateId:importProject.templateId});
     if(project !== importProject || JSON.stringify(project) !== importSnapshot){
       $('importStatus').className='import-status';
       $('importStatus').textContent='Importen lades åt sidan eftersom du ändrade eller bytte projekt. Dina senaste ändringar finns kvar.';

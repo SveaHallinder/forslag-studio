@@ -1,0 +1,18 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><title>HTML-reservimport</title><h1>HTML-reservimport med riktig DOM</h1><pre id="results">Kör…</pre><script type="module">
+import {importSavedPage} from '/browser-api.mjs';
+const outcomes=[];
+const check=async(name,fn)=>{try{await fn();outcomes.push('PASS '+name);}catch(error){outcomes.push('FAIL '+name+': '+error.message);}};
+const assert=(value,message)=>{if(!value)throw new Error(message);};
+await check('sparad text och CSS ger samma innehåll och varumärke som vanlig import',async()=>{
+ const p=await importSavedPage('<link rel="stylesheet" href="/theme.css"><main><section><h1>Vårt café</h1><p>Företagets egna ord.</p></section><section><h2>Meny</h2><p>Espresso</p></section></main>','https://example.com/',[{url:'https://example.com/theme.css',css:'body{background:#faf8f3;color:#202020}h1{font-family:Georgia}'}]);
+ assert(p.description==='Företagets egna ord.'&&p.cards[0].title==='Meny','innehåll tappades');assert(p.branding.background==='#faf8f3'&&p.typography.heading==='Georgia','branding tappades');assert(!p.stylesheets&&!p.sourceAnchors,'temporära importfält sparades');
+});
+await check('originalets script och event handlers körs aldrig av importen',async()=>{
+ await importSavedPage('<script>window.unsafeSourceWasExecuted=true</scr'+'ipt><h1>Riktig text</h1><img src="/photo.jpg" onerror="window.unsafeSourceWasExecuted=true">','https://example.com/');
+ assert(!window.unsafeSourceWasExecuted,'originalets kod kördes');
+});
+await check('tom JS-fil, ogiltig adress och för stor fil blir tydliga fel',async()=>{
+ for(const [html,url] of [['<script>loadApp()</scr'+'ipt>','https://example.com/'],['<h1>Hej</h1>','javascript:alert(1)'],['x'.repeat(2_000_001),'https://example.com/']]){let failed=false;try{await importSavedPage(html,url);}catch(error){failed=!!error.message;}assert(failed,'ogiltigt underlag accepterades');}
+});
+document.querySelector('#results').textContent=outcomes.join('\n');
+</script></html>

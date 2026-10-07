@@ -33,11 +33,22 @@ async function remote(path,body) {
   const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(30000)});
   if(!response.ok){const data=await response.json().catch(()=>({}));throw problem(data.error||'Hämtningen misslyckades. Försök igen.',response.status);}return response;
 }
-async function readCompany(url,extraContact=true) {
-  let page=await(await remote('/api/read',{url})).json(),project,rendered=false;
+export async function importSavedPage(html,url,styles=[]) {
+  let source;try{source=new URL(url);}catch{throw problem('Ange originalets fullständiga https-adress.');}
+  if(!/^https?:$/.test(source.protocol)||source.username||source.password||source.port)throw problem('Ange originalets offentliga webbadress utan inloggningsuppgifter eller egen port.');
+  if(typeof html!=='string'||!html.trim()||new TextEncoder().encode(html).length>2_000_000)throw problem('Välj en HTML-sida under 2 MB med läsbart innehåll.');
+  const project=extractContent(html,source.href,styles);
+  if(project.inlineLogo&&!project.logo){try{project.logo=await imageDataURL(new Blob([project.inlineLogo],{type:'image/svg+xml'}));}catch{project.warnings.push('Den inbäddade logotypen kunde inte läsas. Lägg till en egen logotyp under Bilder.');}}
+  if(project.logo)await identifyLogo(project);
+  for(const key of ['inlineLogo','links','stylesheets','sourceAnchors'])delete project[key];
+  project.warnings.unshift('Importerad från ditt HTML-underlag. Originalets JavaScript körs inte. Granska bilder, färger och typsnitt; externa CSS-filer kan behöva läggas till.');
+  return project;
+}
+async function readCompany(url,extraContact=true,renderFirst=false) {
+  let page=await(await remote(renderFirst?'/api/render':'/api/read',{url})).json(),project,rendered=renderFirst;
   try{project=extractContent(page.html,page.url);}
   catch(error){
-    if(error.code!=='EMPTY_CONTENT')throw error;
+    if(error.code!=='EMPTY_CONTENT'||renderFirst)throw error;
     page=await(await remote('/api/render',{url:page.url})).json();
     project=extractContent(page.html,page.url);rendered=true;
   }
@@ -62,8 +73,8 @@ async function readCompany(url,extraContact=true) {
   if(extraContact&&project.logo)await identifyLogo(project);
   delete project.links;delete project.stylesheets;return project;
 }
-async function importCompany(url,includePages=true) {
-  const project=await readCompany(url);project.pages=[];
+async function importCompany(url,includePages=true,renderFirst=false) {
+  const project=await readCompany(url,true,renderFirst);project.pages=[];
   if(!includePages){delete project.sourceAnchors;return project;}
   const root=new URL(project.source),pathKey=url=>url.origin+(root.pathname==='/'&&url.origin===root.origin&&url.pathname==='/index.html'?'':url.pathname.replace(/\/$/,''));
   const seen=new Set([pathKey(root)]),targets=[];
@@ -164,7 +175,7 @@ async function exportDemo(input){
 export async function browserAPI(path,body) {
   try {
     if(path==='/api/config')return reply({publicBase:new URL('/demo.html',location.href).href,hostingStatus:'public',storage:'browser'});
-    if(path==='/api/import')return reply(await importCompany(body.url,body.includePages!==false));
+    if(path==='/api/import')return reply(await importCompany(body.url,body.includePages!==false,body.renderFirst===true));
     if(path==='/api/export')return await exportDemo(body);
     if(!ready)ready=initialize().catch(error=>{ready=null;throw error;});await ready;
     if(path==='/api/projects'||path==='/api/archived')return reply(await transaction([path==='/api/projects'?'active':'archive'],'readonly',async tx=>{
