@@ -87,7 +87,7 @@ async function importCompany(url,includePages=true,renderFirst=false) {
   const failed=[],aliases=new Map();
   for(let start=0;start<Math.min(5,targets.length);start+=2){
     const batch=await Promise.all(targets.slice(start,Math.min(start+2,5)).map(async target=>{
-      try{const page=await readCompany(target.url,false);aliases.set(target.url,page.source);return {...page,name:target.label};}
+      try{const page=await readCompany(target.url,false,renderFirst);aliases.set(target.url,page.source);return {...page,name:target.label};}
       catch{console.warn('[mockup online import] Subpage unavailable',new URL(target.url).pathname);failed.push(target.label);return null;}
     }));project.pages.push(...batch.filter(Boolean));
   }
@@ -174,7 +174,14 @@ async function exportDemo(input){
 }
 export async function browserAPI(path,body) {
   try {
-    if(path==='/api/config')return reply({publicBase:new URL('/demo.html',location.href).href,hostingStatus:'public',storage:'browser'});
+    if(path==='/api/config'){
+      if(['localhost','127.0.0.1'].includes(location.hostname)){
+        let base;try{const response=await fetch('/api/status',{signal:AbortSignal.timeout(5000)});if(response.ok){const status=await response.json(),url=new URL(status.publicBase);if(url.protocol==='https:'&&!url.username&&!url.password&&!url.port)base=url.href;}}catch{}
+        if(!base)throw problem('Den publika demovisaren kunde inte kontrolleras. Försök igen innan du skapar kundlänken.');
+        return reply({publicBase:base,hostingStatus:'public',storage:'browser'});
+      }
+      return reply({publicBase:new URL('/demo.html',location.href).href,hostingStatus:'public',storage:'browser'});
+    }
     if(path==='/api/import')return reply(await importCompany(body.url,body.includePages!==false,body.renderFirst===true));
     if(path==='/api/export')return await exportDemo(body);
     if(!ready)ready=initialize().catch(error=>{ready=null;throw error;});await ready;

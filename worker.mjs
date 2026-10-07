@@ -64,10 +64,11 @@ export async function readPublic(value, image = false, requestFetch = fetch) {
   throw new Error('Hemsidan omdirigerar för många gånger.');
 }
 const renderError=(message,status=502)=>Object.assign(new Error(message),{status});
-export function browserConfigured(env={}) {return env.CLOUDFLARE_BROWSER_PLAN==='free'&&/^[a-f\d]{32}$/i.test(env.CLOUDFLARE_ACCOUNT_ID||'')&&!!env.CLOUDFLARE_BROWSER_TOKEN;}
+export function browserConfigured(env={}) {return env.LOCAL_BROWSER?.ready===true||(env.CLOUDFLARE_BROWSER_PLAN==='free'&&/^[a-f\d]{32}$/i.test(env.CLOUDFLARE_ACCOUNT_ID||'')&&!!env.CLOUDFLARE_BROWSER_TOKEN);}
 let rendering=0;
 export async function renderPublic(value,env={},requestFetch=fetch) {
   const url=publicURL(value),account=env.CLOUDFLARE_ACCOUNT_ID,token=env.CLOUDFLARE_BROWSER_TOKEN;
+  if(env.LOCAL_BROWSER)return await env.LOCAL_BROWSER.render(url.href);
   // Set only after verifying Workers Free in the provider account. Never upgrade billing here.
   if(!browserConfigured(env))throw renderError('Sidan behöver en webbläsare för att kunna läsas. Reservhämtningen är ännu inte ansluten. Använd Importera underlag för en sparad HTML-sida. Ditt öppna förslag är kvar.',503);
   if(rendering>=3)throw renderError('Webbläsarhämtningen är upptagen. Vänta en stund och försök igen.',429);
@@ -130,10 +131,11 @@ let inFlight=0;
 export function createWorker(assets) {
   return {async fetch(request,env={}) {
     const url=new URL(request.url), path=url.pathname;
-    if(request.method==='GET'&&path==='/api/status')return json({browser:browserConfigured(env)?'configured':'unconnected',cloud:'local',contact:'links',booking:'links',payments:'links'});
+    const requestFetch=env.PUBLIC_FETCH||fetch;
+    if(request.method==='GET'&&path==='/api/status')return json({browser:env.LOCAL_BROWSER?(env.LOCAL_BROWSER.ready?'local':'unavailable'):browserConfigured(env)?'configured':'unconnected',cloud:'local',contact:'links',booking:'links',payments:'links',...(env.PUBLIC_DEMO_URL?{publicBase:env.PUBLIC_DEMO_URL}:{})});
     if(request.method==='GET'&&path==='/api/font'){
       if(inFlight>=6)return json({error:'Typsnittshämtningen är upptagen. Försök igen.'},429);
-      inFlight++;try{const target=url.searchParams.get('url');if(!target||target.length>2000)throw new Error('Fontadressen är ogiltig.');const data=await readPublic(target,'font');return new Response(data.body,{headers:{...headers,'Content-Type':data.mime,'Cache-Control':'public, max-age=86400'}});}
+      inFlight++;try{const target=url.searchParams.get('url');if(!target||target.length>2000)throw new Error('Fontadressen är ogiltig.');const data=await readPublic(target,'font',requestFetch);return new Response(data.body,{headers:{...headers,'Content-Type':data.mime,'Cache-Control':'public, max-age=86400'}});}
       catch(error){console.warn('[mockup fonts]',error.name);return json({error:error.message||'Typsnittet kunde inte hämtas.'},400);}finally{inFlight--;}
     }
     if(request.method==='GET'||request.method==='HEAD') {
@@ -151,9 +153,9 @@ export function createWorker(assets) {
       try{while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>4096)return json({error:'Adressen är för lång.'},413);text+=decoder.decode(part.value,{stream:true});}}finally{await reader.cancel();}
       const payload=JSON.parse(text+decoder.decode());
       if(typeof payload?.url!=='string'||payload.url.length>2000)throw new Error('Ange en giltig företagsadress.');
-      if(path==='/api/social')return json(await readSocialProfile(payload.url,fetch,env));
+      if(path==='/api/social')return json(await readSocialProfile(payload.url,requestFetch,env));
       if(path==='/api/render')return json(await renderPublic(payload.url,env));
-      const data=await readPublic(payload.url,path==='/api/font'?'font':path==='/api/style'?'style':path==='/api/image');
+      const data=await readPublic(payload.url,path==='/api/font'?'font':path==='/api/style'?'style':path==='/api/image',requestFetch);
       console.info('[mockup online fetch] Completed',path);
       return path==='/api/style'?json({css:new TextDecoder().decode(data.body),url:data.url}):(path==='/api/image'||path==='/api/font')?new Response(data.body,{headers:{...headers,'Content-Type':data.mime}}):json({html:new TextDecoder().decode(data.body),url:data.url});
     } catch(error) {

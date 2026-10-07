@@ -6,7 +6,7 @@ Projekt sparas i IndexedDB i den egna webbläsaren. Andra besökare får en egen
 
 Servern hämtar offentlig HTML och bildfiler för import respektive export. Text, mallar och bildval granskas av säljaren innan delning. JavaScript-beroende eller blockerande företagssidor kan kräva manuell redigering. Kundlänkar använder den befintliga publika demovisaren och fungerar oberoende av säljarens webbläsare.
 
-Inga paketberoenden. Worker-koden använder Cloudflares publika nätverksåtkomst utan privata nätverkskopplingar. Adresser och omdirigeringar valideras, svarsstorlek och tid begränsas. Publik hämtning följer plattformens användningsgränser.
+Onlinebygget använder inga paket vid körning. Lokalappen använder Playwright och Chromium för JavaScript-import utan Cloudflare Browser Run. Worker-koden använder Cloudflares publika nätverksåtkomst utan privata nätverkskopplingar. Den lokala importen kontrollerar även DNS och låser anslutningen till en offentlig IP-adress. Adresser, omdirigeringar, svarsstorlek och tid begränsas.
 
 ## Originaltypsnitt, branding och bildgrupper
 
@@ -32,11 +32,28 @@ Begränsningar: detta är en statisk redesign, ingen garanti att varje webbplats
 
 ## Git-backup
 
-Privat repo: https://github.com/sveahall/forslag-studio, standardgren `dev`. Hela den lokala Git-historiken är uppladdad. Backupen innehåller designrättningarna och den valfria reservhämtningen som fortfarande väntar på kontoanslutning. Att spara i Git publicerar inte automatiskt appen.
+Privat repo: https://github.com/sveahall/forslag-studio, standardgren `dev`. Hela den lokala Git-historiken är uppladdad. Backupen innehåller designrättningarna och den lokala webbläsarimporten. Cloudflare-alternativet för onlineimport väntar fortfarande på kontoanslutning. Att spara i Git publicerar inte automatiskt appen.
 
-Återställ med `git clone https://github.com/sveahall/forslag-studio.git`, gå in i mappen och kör `npm run build` följt av `npm start`. Inga npm-paket behöver installeras. Hemliga miljöfiler ignoreras. Kundutkast sparas separat i webbläsaren och ingår inte i kodbackupen; exportera dem med **Projektkopia**. Framtida ändringar behöver committas och pushas för att finnas på GitHub.
+Återställ med `git clone https://github.com/sveahall/forslag-studio.git`, gå in i mappen och kör `npm ci`, `npm run browser:install`, `npm run build` och `npm start`. Hemliga miljöfiler ignoreras. Kundutkast sparas separat i webbläsaren och ingår inte i kodbackupen; exportera dem med **Projektkopia**. Framtida ändringar behöver committas och pushas för att finnas på GitHub.
 
-## Reservhämtning med webbläsare — anslutning återstår
+## Lokal webbläsarimport utan Browser Run
+
+Playwright 1.63.0 och Chromium är godkända av användaren. Starta med `npm start` efter installation och bygge; öppna http://localhost:4183/. Porten kan ändras med `PORT=4183 npm start`. **Kopplingar & status** visar ”Redo på din Mac” först när Chromium har startat. Välj **Läs med webbläsare** för att läsa JavaScript-innehåll på startsidan och valda undersidor. Vanlig import prövar samma motor när HTML-innehållet saknas; socialimporten använder den om offentliga profilsvar inte räcker.
+
+Ingen Cloudflare Browser Run-nyckel eller tjänsteavgift används i lokalappen. Din Mac och den lokala servern behöver vara igång när du importerar. Chromium använder nya tillfälliga sessioner utan din vanliga webbläsares inloggningar. Lokala och privata adresser, även i DNS, omdirigeringar och underresurser, blockeras. WebSockets, service workers, bilder, video och fontnedladdningar i importwebbläsaren blockeras; bild- och fontadresser bevaras i HTML och hanteras av den befintliga import-/exportkedjan. Högst två webbläsarimporter körs samtidigt, med tids- och storleksgränser. Fel lämnar utkastet kvar.
+
+Lokala kundlänkar använder https://forslag-studio.sveaha.chatgpt.site/demo.html och fungerar oberoende av om din Mac är igång. Själva länken innehåller förslaget; externa bilder och fontfiler måste fortfarande vara tillgängliga. Molnsynk, serverkontaktformulär, betalning och bokningssystem har inte lagts till. Instagram och andra plattformar kan fortfarande blockera offentliga besök. Sparat HTML-underlag och manuell granskning finns kvar. Den publika Worker-miljön kan inte starta den lokala Chromium-processen.
+
+### QA i sex steg
+
+1. Kör `npm ci`, `npm run browser:install`, `npm run build`, `npm start`. Öppna http://localhost:4183/ och kontrollera ”Redo på din Mac” under Kopplingar & status.
+2. Ange `https://hallinc.se/sv/`, avmarkera undersidor och välj Läs med webbläsare. Kontrollera huvudrubrik, meny, logotyp och importvarningen om JavaScript.
+3. Prova en JavaScript-sida med undersidor valda. Granska varje sida; originalets text och valda mall ska behållas.
+4. Prova `http://127.0.0.1/`. Ett tydligt fel ska visas och ditt tidigare utkast ska finnas kvar. Kontrollera att Hämta innehåll blir aktiv igen.
+5. Spara utkastet, ladda om och välj Granska & dela. Skapa demolänken: den ska börja med den publika `https://forslag-studio.sveaha.chatgpt.site/demo.html#`, inte localhost. Öppna den och jämför innehållet.
+6. Kör `npm run lint`, `npm test`, `npm run test:browser`, `npm run build`. Browser-testet kör verklig Chromium mot kontrollerat JavaScript-underlag och kontrollerar även timeout och sessionsisolering.
+
+## Onlinealternativet Cloudflare Browser Run — anslutning återstår
 
 Koden stöder valfri Cloudflare Browser Run. När vanlig HTML saknar läsbart innehåll gör importen ett reservförsök med en serverbaserad webbläsare. Vanligt HTML-innehåll använder inte denna tjänst. Renderad text och meny behandlas av samma importör. Kvotfel och saknad anslutning avbryter importen; utkastet ska inte ersättas av ett tomt förslag.
 

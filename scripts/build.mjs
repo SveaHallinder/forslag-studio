@@ -13,4 +13,4 @@ const socialSource=await readFile(path.join(root,'public/social-content.mjs'),'u
 const source=(await readFile(path.join(root,'worker.mjs'),'utf8')).replace("import {socialProfileURL,extractSocialProfile} from './public/social-content.mjs';",socialSource.replace(/^export /gm,''));
 await writeFile(path.join(root,'dist/server/index.js'),source+'\nconst bundledAssets='+JSON.stringify(assets)+';\nexport default createWorker(bundledAssets);\n');
 await writeFile(path.join(root,'dist/.openai/hosting.json'),await readFile(path.join(root,'.openai/hosting.json')));
-console.log('Built the online editor and public-page importer without package dependencies.');
+console.log('Built the online editor and Worker importer. Local Chromium stays outside the Worker bundle.');
