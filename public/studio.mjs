@@ -66,6 +66,25 @@ function markDirty() {
   try { localStorage.setItem(draftKey, JSON.stringify(project)); } catch { $('savedState').textContent = 'SPARA MANUELLT'; }
   renderImportQuality();
 }
+let pendingDraftConfirmation;
+function confirmDraftChange(message) {
+  if(pendingDraftConfirmation)return Promise.resolve(false);
+  const current=project,snapshot=JSON.stringify(project);
+  $('draftChangeMessage').textContent=message;
+  $('draftChangeDialog').returnValue='';
+  return new Promise(resolve=>{
+    pendingDraftConfirmation={resolve,current,snapshot};
+    $('draftChangeDialog').showModal();
+  });
+}
+$('confirmDraftChange').addEventListener('click',()=>$('draftChangeDialog').close('continue'));
+$('draftChangeDialog').addEventListener('close',()=>{
+  const pending=pendingDraftConfirmation;pendingDraftConfirmation=null;if(!pending)return;
+  const accepted=$('draftChangeDialog').returnValue==='continue';
+  const unchanged=project===pending.current&&JSON.stringify(project)===pending.snapshot;
+  if(accepted&&!unchanged)toast('Förslaget har ändrats. Dina senaste ändringar finns kvar; försök igen.');
+  pending.resolve(accepted&&unchanged);
+});
 function importQualitySummary(issues) {
   return issues.map(issue=>(issue.pageIndex<0?'Startsidan':issue.name)+' har '+issue.characters+' tecken i introduktionen men inga innehållsblock.').join(' ');
 }
@@ -389,7 +408,7 @@ $('confirmArchive').addEventListener('click',()=>changeArchive(archiveTarget));
 $('activeProjects').addEventListener('click',()=>{libraryView='active';renderProjectCards();});
 $('archivedProjects').addEventListener('click',()=>{libraryView='archived';renderProjectCards();});
 async function openSavedProject(id, duplicate = false) {
-  if(dirty && !confirm('Lämna det osparade utkastet och öppna ett annat förslag?'))return;
+  if(dirty && !await confirmDraftChange('Öppna det valda förslaget? De osparade ändringarna i ditt nuvarande utkast försvinner.'))return;
   const sequence = ++projectLoadSequence;
   const previous = project, snapshot = JSON.stringify(project);
   try {
@@ -437,7 +456,7 @@ $('projectUpload').addEventListener('change',async event=>{
     if(file.size>18000000)throw new Error('Projektkopian är för stor. Välj en fil under 18 MB.');
     const restored=restoreProject(await file.text());
     if(project!==previous||JSON.stringify(project)!==snapshot)return toast('Återställningen avbröts eftersom du ändrade förslaget.');
-    if(dirty&&!confirm('Öppna projektkopian och lämna osparade ändringar?'))return;
+    if(dirty&&!await confirmDraftChange('Öppna projektkopian? De osparade ändringarna i ditt nuvarande utkast försvinner.'))return;
     project=restored;markDirty();fillEditor();showEditor();toast('Projektkopian är öppnad. Spara för att lägga till den bland dina förslag.');
   }catch(error){toast(error.message);}finally{event.target.value='';}
 });
@@ -592,8 +611,9 @@ $('openPreview').addEventListener('click',async()=>{
   catch(error){if(win)win.close();toast(error.message);}
 });
 $('projectList').addEventListener('click',event=>{const button=event.target.closest('[data-project]');if(button)openSavedProject(button.dataset.project);});
-$('newProject').addEventListener('click',()=>{
-  if(dirty&&!confirm('Skapa ett nytt förslag och lämna osparade ändringar?'))return;
+$('newProject').addEventListener('click',async()=>{
+  if(!project)return toast('Dina förslag öppnas. Försök igen om ett ögonblick.');
+  if(dirty&&!await confirmDraftChange('Skapa ett nytt förslag? De osparade ändringarna i ditt nuvarande utkast försvinner.'))return;
   ++projectLoadSequence;showEditor();project=normalizeProject({name:'Nytt förslag',headline:'Här börjar nästa kunds hemsida.'});dirty=true;fillEditor();markDirty();$('sourceUrl').value='';$('sourceUrl').focus();$('importStatus').textContent='Klistra in en företagslänk för att komma igång.';refreshProjects().catch(()=>{});
 });
 $('showProjects').addEventListener('click',async()=>{ $('editorView').hidden=true;$('projectsView').hidden=false;$('dashboardResume').textContent=dirty?'Fortsätt med utkastet':'Fortsätt redigera';$('showProjects').classList.add('side-active');try{await refreshProjects();}catch(error){toast(error.message);} });
@@ -603,7 +623,7 @@ async function importCompany({recover=false}={}) {
   const url=(recover?project.source:$('sourceUrl').value).trim();if(!url){$('sourceUrl').focus();return toast('Klistra in företagets webbadress.');}
   let social;try{social=socialProfileURL(url);}catch{}
   if(social){socialStudio.open(social.url);return;}
-  if(!recover&&dirty&&!confirm('Importera ett nytt företag och ersätta det osparade utkastet?'))return;
+  if(!recover&&dirty&&!await confirmDraftChange('Hämta ett nytt företag? Det ersätter ditt utkast och de osparade ändringarna försvinner.'))return;
   const importProject = project;
   importBusy=true;$('importButton').disabled=true;$('importButton').textContent='Hämtar hemsidan…';
   renderImportQuality();

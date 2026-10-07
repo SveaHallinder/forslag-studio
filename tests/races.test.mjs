@@ -29,7 +29,7 @@ function harness() {
     normalizeProject,
     importQualityIssues,importQualitySummary:()=>'',renderImportQuality(){},
     workbench:{captureOriginal(){}},
-    confirm: () => true,
+    confirmDraftChange: async () => true,
     refreshProjects: async () => {},
     fillEditor() {},
     toast() {},
