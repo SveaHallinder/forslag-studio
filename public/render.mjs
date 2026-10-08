@@ -1,3 +1,4 @@
+import {normalizeCustomerSetup} from './booking-settings.mjs';
 import {cafeBody,cafeDesignCSS} from './cafe-design.mjs';
 import {careTravelDesignCSS} from './care-travel-design.mjs';
 import {tradeAdviceDesignCSS} from './trade-advice-design.mjs';
@@ -55,7 +56,8 @@ function normalizeFlatProject(raw = {},includeOriginal=true) {
     email: /^[^\s@"<>]+@[^\s@"<>]+\.[^\s@"<>]+$/.test(raw.email ?? '') ? text(raw.email, 160) : '',
     phone: /^[+\d\s()-]{5,35}$/.test(raw.phone ?? '') ? raw.phone : '',
     address: text(raw.address, 200),
-    ...(raw.requestForm&&['contact','booking'].includes(raw.requestForm.kind)&&/^https?:\/\/[^\s]+\/contact\.html\?form=[a-z0-9-]{36}$/.test(raw.requestForm.url||'')&&linkURL(raw.requestForm.url)?{requestForm:{url:linkURL(raw.requestForm.url),kind:raw.requestForm.kind}}:{}),
+    ...(raw.requestForm&&['contact','booking'].includes(raw.requestForm.kind)&&new RegExp('^https?://[^\\s]+/'+(raw.requestForm.kind==='booking'?'(?:contact|booking)':'contact')+'\\.html\\?form=[a-z0-9-]{36}$').test(raw.requestForm.url||'')&&linkURL(raw.requestForm.url)?{requestForm:{url:linkURL(raw.requestForm.url),kind:raw.requestForm.kind}}:{}),
+    ...(raw.customerSetup?{customerSetup:normalizeCustomerSetup(raw.customerSetup)}:{}),
     sectionTitle: text(raw.sectionTitle, 140) || 'Upptäck vad vi erbjuder',
     sectionIntro: text(raw.sectionIntro, 600),
     aboutTitle: text(raw.aboutTitle, 180), about: text(raw.about, 1500),

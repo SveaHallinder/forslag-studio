@@ -1,3 +1,4 @@
+import {customerMailConfigured} from './customer-mail.mjs';
 const cloudHeaders={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
 const cloudJSON=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:cloudHeaders});
 const cloudError=(message,status=400)=>Object.assign(new Error(message),{status});
@@ -23,6 +24,7 @@ async function cloudMember(db,workspace,user,owner=false){
 }
 const cloudRows=async stmt=>(await stmt.all()).results;
 const changed=result=>Number(result.meta?.changes||0)>0;
+export {cloudJSON,cloudError,cloudId,cloudEmail,cloudText,cloudHash,cloudUser,cloudBody,cloudMember,cloudRows,changed};
 export async function handleCloud(request,env){
   const url=new URL(request.url),path=url.pathname;
   if(!path.startsWith('/api/cloud/')&&!path.startsWith('/api/request/'))return null;
@@ -85,7 +87,11 @@ export async function handleCloud(request,env){
     if(path==='/api/cloud/save'&&request.method==='POST'){
       if(!cloudId(data.id)||!Number.isSafeInteger(data.revision)||data.revision<0||!data.project||typeof data.project!=='object'||Array.isArray(data.project))throw cloudError('Projektets id eller version är ogiltig. Öppna projektet igen.');
       const name=cloudText(data.project.name,100);if(!name)throw cloudError('Fyll i företagsnamnet.');
-      const project=JSON.stringify({...data.project,id:data.id,name});
+      // Live booking configuration is server-owned; ordinary draft saves cannot
+      // replace it, erase it or activate unvalidated times.
+      const prior=await db.prepare('SELECT data FROM studio_projects WHERE workspace_id=? AND id=?').bind(workspace,data.id).first();
+      const {bookingConfig,...draft}=data.project,live=prior?JSON.parse(prior.data).bookingConfig:null;
+      const project=JSON.stringify({...draft,id:data.id,name,...(live?{bookingConfig:live}:{})});
       if(new TextEncoder().encode(project).length>1_800_000)throw cloudError('Förslaget är för stort för molnsparning (max 1,8 MB). Använd färre eller mindre uppladdade bilder, eller behåll projektet lokalt och ladda ner en projektkopia. Ditt utkast finns kvar.',413);
       const result=data.revision===0?
         await db.prepare('INSERT OR IGNORE INTO studio_projects(workspace_id,id,name,data,updated_at) VALUES(?,?,?,?,?)').bind(workspace,data.id,name,project,now).run():
@@ -110,7 +116,7 @@ export async function handleCloud(request,env){
       await db.prepare('INSERT INTO studio_forms(id,workspace_id,project_id,title,accent,kind,active) VALUES(?,?,?,?,?,?,1) ON CONFLICT(workspace_id,project_id) DO UPDATE SET title=excluded.title,accent=excluded.accent,kind=excluded.kind,active=1').bind(id,workspace,data.projectId,project.name,accent,data.kind).run();
       const form=await db.prepare('SELECT id FROM studio_forms WHERE workspace_id=? AND project_id=?').bind(workspace,data.projectId).first();return cloudJSON({url:url.origin+'/contact.html?form='+form.id,kind:data.kind});
     }
-    if(path==='/api/cloud/inbox'&&request.method==='GET')return cloudJSON(await cloudRows(db.prepare('SELECT r.id,r.name,r.email,r.message,r.visit_at,r.state,r.created_at,f.title,f.kind FROM studio_requests r JOIN studio_forms f ON f.id=r.form_id WHERE f.workspace_id=? ORDER BY r.created_at DESC LIMIT 100').bind(workspace)));
+    if(path==='/api/cloud/inbox'&&request.method==='GET')return cloudJSON(await cloudRows(db.prepare("SELECT r.id,r.name,r.email,r.message,r.visit_at,r.state,r.created_at,f.title,f.kind,b.id AS reservation_id,b.state AS reservation_state,b.starts_at,b.ends_at,b.time_zone,(SELECT j.state FROM studio_email_jobs j WHERE j.reservation_id=b.id AND j.audience='customer') AS email_state,? AS email_configured,(SELECT j.error FROM studio_email_jobs j WHERE j.reservation_id=b.id AND j.audience='customer') AS email_error FROM studio_requests r JOIN studio_forms f ON f.id=r.form_id LEFT JOIN studio_reservations b ON b.request_id=r.id WHERE f.workspace_id=? ORDER BY r.created_at DESC LIMIT 100").bind(customerMailConfigured(env)?1:0,workspace)));
     if(path==='/api/cloud/message-state'&&request.method==='POST'){
       if(!['new','read'].includes(data.state))throw cloudError('Välj en giltig meddelandestatus.');
       const result=await db.prepare('UPDATE studio_requests SET state=? WHERE id=? AND form_id IN (SELECT id FROM studio_forms WHERE workspace_id=?)').bind(data.state,data.id,workspace).run();if(!changed(result))throw cloudError('Förfrågan finns inte i arbetsytan.',404);return cloudJSON({updated:true});

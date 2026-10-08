@@ -11,7 +11,11 @@ assets['/seed.json']={body:await readFile(path.join(root,'seed.json'),'utf8'),ty
 await mkdir(path.join(root,'dist/server'),{recursive:true});await mkdir(path.join(root,'dist/.openai'),{recursive:true});
 const socialSource=await readFile(path.join(root,'public/social-content.mjs'),'utf8');
 const cloudSource=await readFile(path.join(root,'cloud-worker.mjs'),'utf8');
-const source=(await readFile(path.join(root,'worker.mjs'),'utf8')).replace("import {socialProfileURL,extractSocialProfile} from './public/social-content.mjs';",socialSource.replace(/^export /gm,'')).replace("import {handleCloud} from './cloud-worker.mjs';",cloudSource.replace(/^export /gm,''));
+const mailSource=await readFile(path.join(root,'customer-mail.mjs'),'utf8');
+const bookingSource=await readFile(path.join(root,'public/booking-settings.mjs'),'utf8');
+const flowSource=await readFile(path.join(root,'customer-flows.mjs'),'utf8');
+const inline=value=>value.replace(/^import .*;\n/gm,'').replace(/^export \{[^\n]+\};\n/gm,'').replace(/^export /gm,'');
+const source=(await readFile(path.join(root,'worker.mjs'),'utf8')).replace("import {socialProfileURL,extractSocialProfile} from './public/social-content.mjs';",inline(socialSource)).replace("import {handleCloud} from './cloud-worker.mjs';",inline(cloudSource)).replace("import {customerMailConfigured} from './customer-mail.mjs';",inline(mailSource)).replace("import {handleCustomerFlows,pilotStatus,browserAgentConfigured,queueBrowserPage} from './customer-flows.mjs';",inline(bookingSource)+'\n'+inline(flowSource));
 await writeFile(path.join(root,'dist/server/index.js'),source+'\nconst bundledAssets='+JSON.stringify(assets)+';\nexport default createWorker(bundledAssets);\n');
 await writeFile(path.join(root,'dist/.openai/hosting.json'),await readFile(path.join(root,'.openai/hosting.json')));
 await cp(path.join(root,'drizzle'),path.join(root,'dist/.openai/drizzle'),{recursive:true});

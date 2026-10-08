@@ -1,3 +1,4 @@
+import {completeBrowserImport} from './import-jobs.mjs';
 const identity=value=>String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z\d]/g,'');
 
 // A blocked first platform must not prevent the remaining profiles from being read.
@@ -7,7 +8,7 @@ export async function readSocialProfiles(profiles,fetcher=fetch) {
   const unique=[...new Map(profiles.map(profile=>[profile.url,profile])).values()];
   const results=await Promise.all(unique.map(async profile=>{
     try{
-      const response=await fetcher('/api/social',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:profile.url}),signal:AbortSignal.timeout(30000)});
+      const response=await completeBrowserImport(await fetcher('/api/social',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:profile.url}),signal:AbortSignal.timeout(30000)}),fetcher);
       const value=await response.json();
       return {profile,value:response.ok?value:{status:'limited',warning:value.error||'Profilen kunde inte läsas.'}};
     }catch{return {profile,value:{status:'limited',warning:'Profilen kunde inte läsas. Lägg in företagets underlag manuellt.'}};}

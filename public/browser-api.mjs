@@ -4,6 +4,7 @@ import {logoTone,bestInk} from './branding.mjs';
 import { normalizeProject, renderDemo } from './render.mjs';
 import { extractContent } from './import-content.mjs';
 import {checkLaunchAssets,repairImportedImages,launchAssets} from './launch-checks.mjs';
+import {completeBrowserImport} from './import-jobs.mjs';
 
 const reply=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});
 const problem=(message,status=400)=>Object.assign(new Error(message),{status});
@@ -32,7 +33,7 @@ async function initialize() {
 }
 let ready;
 async function remote(path,body) {
-  const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(30000)});
+  const response=await completeBrowserImport(await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(30000)}));
   if(!response.ok){const data=await response.json().catch(()=>({}));throw problem(data.error||'Hämtningen misslyckades. Försök igen.',response.status);}return response;
 }
 export async function probeLaunchImage(url,signal) {
@@ -53,8 +54,9 @@ export async function probeLaunchForm(project,signal) {
   const check={id:'form',label:'Aktivt kundformulär',field:'showCloud',tab:'details',pageIndex:-1,blocking:true};
   try{
     const url=new URL(project.requestForm.url),id=url.searchParams.get('form');
-    if(url.origin!==location.origin||url.pathname!=='/contact.html'||!/^[-a-z0-9]{36}$/.test(id||''))throw new Error('Formuläret behöver kontrolleras från den app där det aktiverades. Öppna förslaget där eller stäng kopplingen.');
-    const response=await fetch('/api/request/'+id,{signal:signal||AbortSignal.timeout(10000)}),data=await response.json();
+    const nativeBooking=url.pathname==='/booking.html'&&project.requestForm.kind==='booking';
+    if(url.origin!==location.origin||url.pathname!=='/contact.html'&&!nativeBooking||!/^[-a-z0-9]{36}$/.test(id||''))throw new Error('Formuläret behöver kontrolleras från den app där det aktiverades. Öppna förslaget där eller stäng kopplingen.');
+    const response=await fetch((nativeBooking?'/api/booking/':'/api/request/')+id,{signal:signal||AbortSignal.timeout(10000)}),data=await response.json();
     if(!response.ok)throw new Error(data.error||'Formuläret kunde inte kontrolleras.');
     if(data.kind!==project.requestForm.kind)throw new Error('Formulärets typ ändrades. Aktivera rätt typ igen under Arbetsyta & inkorg.');
     return [{...check,ok:true,help:''}];

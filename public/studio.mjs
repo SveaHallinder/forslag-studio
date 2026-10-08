@@ -16,6 +16,7 @@ import {createConnectionsStudio} from './connections-studio.mjs';
 import {createCustomerFunctions} from './customer-functions.mjs';
 import {cloudContext,selectCloudWorkspace,cloudRequest,refreshCloudSession,cloudDraftRevision,restoreCloudDraft} from './cloud-api.mjs';
 import {createCloudStudio} from './cloud-studio.mjs';
+import {createPilotSetup} from './pilot-setup.mjs';
 
 const $ = id => document.getElementById(id);
 const imageChoices = createStudioImageOptions(e);
@@ -46,7 +47,7 @@ const importStudio=createImportStudio({getProject:()=>project,getSource:()=>$('s
   if(dirty){await save(false);if(!isCurrent())throw new Error('Importen stängdes. Ditt öppna förslag är sparat.');if(project!==previous||dirty)throw new Error('Förslaget ändrades under sparningen. Dina senaste ändringar finns kvar. Öppna importen igen.');}
   ++projectLoadSequence;project=next;workbench.captureOriginal(project);dirty=true;fillEditor();markDirty();showEditor();refreshProjects().catch(()=>{});
 }});
-const connectionsStudio=createConnectionsStudio({getProject:()=>project,editFunctions:()=>customerFunctions.open(),review:()=>reviewBeforeShare(),navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}}});
+const connectionsStudio=createConnectionsStudio({getProject:()=>project,openPilot:()=>pilotSetup.open(),editFunctions:()=>customerFunctions.open(),review:()=>reviewBeforeShare(),navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}}});
 const cloudStudio=createCloudStudio({getProject:()=>project,save,notify:toast,onForm:form=>{
   const old=project.requestForm;if(form){project.requestForm=form;project.ctaHref=form.url;project.cta=form.kind==='booking'?'Skicka bokningsförfrågan':'Kontakta oss';}
   else{delete project.requestForm;if(project.ctaHref===old?.url){project.ctaHref=project.email?'mailto:'+project.email:project.phone?'tel:'+project.phone.replace(/[^+\d]/g,''):'#kontakt';project.cta='Kontakta oss';}}
@@ -65,6 +66,7 @@ const cloudStudio=createCloudStudio({getProject:()=>project,save,notify:toast,on
     dirty=false;project=next||await loadInitialProject();dirty=copy||dirty;fillEditor();if(copy){markDirty();await save(false);}await refreshProjects();showEditor();
   }catch(error){selectCloudWorkspace(previousWorkspace);updateStorageUI();project=previous;dirty=previousDirty;fillEditor();await refreshProjects().catch(()=>{});throw error;}
 }});
+const pilotSetup=createPilotSetup({getProject:()=>project,save,notify:toast,openWorkspace:()=>cloudStudio.open(),editFunctions:()=>customerFunctions.open(),onApply:setup=>{project.customerSetup=setup;markDirty();fillEditor();},onForm:form=>{project.requestForm=form;project.ctaHref=form.url;project.cta='Boka besök';for(const page of project.pages||[]){page.cta=project.cta;page.ctaHref=project.ctaHref;}markDirty();fillEditor();}});
 $('showCloud').addEventListener('click',()=>cloudStudio.open());
 function updateStorageUI(){
   const c=cloudContext(),workspace=c.workspaces.find(w=>w.id===c.workspace),scope=c.workspace?'-'+c.workspace:'';

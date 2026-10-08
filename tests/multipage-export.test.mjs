@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import { normalizeProject, renderDemo } from '../public/render.mjs';
+import { completeBrowserImport } from '../public/import-jobs.mjs';
 
 const source = (await readFile(new URL('../public/browser-api.mjs', import.meta.url), 'utf8'))
   .replace(/^import .*\n/gm, '').replace(/^export /gm, '');
@@ -20,7 +21,7 @@ function harness(failedURL) {
     }
   }
   const context = vm.createContext({
-    normalizeProject, renderDemo, Response, AbortSignal, FileReader,
+    normalizeProject, renderDemo, completeBrowserImport, Response, AbortSignal, FileReader,
     console: { warn() {} },
     fetch: async (path, options) => {
       assert.equal(path, '/api/image');

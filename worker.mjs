@@ -1,5 +1,7 @@
 import {socialProfileURL,extractSocialProfile} from './public/social-content.mjs';
 import {handleCloud} from './cloud-worker.mjs';
+import {customerMailConfigured} from './customer-mail.mjs';
+import {handleCustomerFlows,pilotStatus,browserAgentConfigured,queueBrowserPage} from './customer-flows.mjs';
 const MAX_HTML = 2_000_000, MAX_IMAGE = 5_000_000;
 function scriptRedirect(html, source) {
   // Recognize simple redirect shells; never execute third-party JavaScript.
@@ -66,11 +68,12 @@ export async function readPublic(value, image = false, requestFetch = fetch) {
 }
 const renderError=(message,status=502)=>Object.assign(new Error(message),{status});
 function renderServiceURL(env){try{const url=publicURL(env.BROWSER_RENDER_ENDPOINT);return url.protocol==='https:'&&typeof env.BROWSER_RENDER_TOKEN==='string'&&env.BROWSER_RENDER_TOKEN.length>=32&&env.BROWSER_RENDER_TOKEN.length<=200&&!/[\r\n]/.test(env.BROWSER_RENDER_TOKEN)?url.href:'';}catch{return '';}}
-export function browserConfigured(env={}) {return env.LOCAL_BROWSER?.ready===true||!!renderServiceURL(env)||(env.CLOUDFLARE_BROWSER_PLAN==='free'&&/^[a-f\d]{32}$/i.test(env.CLOUDFLARE_ACCOUNT_ID||'')&&!!env.CLOUDFLARE_BROWSER_TOKEN);}
+export function browserConfigured(env={}) {return env.LOCAL_BROWSER?.ready===true||browserAgentConfigured(env)||!!renderServiceURL(env)||(env.CLOUDFLARE_BROWSER_PLAN==='free'&&/^[a-f\d]{32}$/i.test(env.CLOUDFLARE_ACCOUNT_ID||'')&&!!env.CLOUDFLARE_BROWSER_TOKEN);}
 let rendering=0;
 export async function renderPublic(value,env={},requestFetch=fetch) {
   const url=publicURL(value),account=env.CLOUDFLARE_ACCOUNT_ID,token=env.CLOUDFLARE_BROWSER_TOKEN;
   if(env.LOCAL_BROWSER)return await env.LOCAL_BROWSER.render(url.href);
+  if(browserAgentConfigured(env)&&env.BROWSER_REQUEST)return await queueBrowserPage(env.BROWSER_REQUEST,url.href,env,env.BROWSER_JOB_KIND||'page');
   const service=renderServiceURL(env);
   // Set only after verifying Workers Free in the provider account. Never upgrade billing here.
   if(!browserConfigured(env))throw renderError('Sidan behöver en webbläsare för att kunna läsas. Reservhämtningen är ännu inte ansluten. Använd Importera underlag för en sparad HTML-sida. Ditt öppna förslag är kvar.',503);
@@ -123,7 +126,8 @@ export async function readSocialProfile(value,requestFetch=fetch,env={}) {
   }
   if(!browserConfigured(env))return first;
   try{
-    const page=await renderPublic(profile.url,env,requestFetch),destination=socialProfileURL(page.url);
+    const page=await renderPublic(profile.url,{...env,BROWSER_JOB_KIND:'social'},requestFetch);if(page.jobId)return page;
+    const destination=socialProfileURL(page.url);
     if(destination.url!==profile.url)throw new Error('Webbläsaren nådde inte den angivna företagsprofilen.');
     const result=extractSocialProfile(page.html,profile.url);
     if(result.status==='read')return {...result,warning:'Profilen lästes efter att JavaScript laddats. '+result.warning};
@@ -133,11 +137,12 @@ export async function readSocialProfile(value,requestFetch=fetch,env={}) {
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{...headers,'Content-Type':'application/json; charset=utf-8'}});
 let inFlight=0;
 export function createWorker(assets) {
-  return {async fetch(request,env={}) {
+  return {async fetch(request,env={},ctx) {
     const url=new URL(request.url), path=url.pathname;
     const requestFetch=env.PUBLIC_FETCH||fetch;
+    const customerResponse=await handleCustomerFlows(request,env,ctx);if(customerResponse)return customerResponse;
     const cloudResponse=await handleCloud(request,env);if(cloudResponse)return cloudResponse;
-    if(request.method==='GET'&&path==='/api/status')return json({browser:env.LOCAL_BROWSER?(env.LOCAL_BROWSER.ready?'local':'unavailable'):browserConfigured(env)?'configured':'unconnected',browserProvider:env.LOCAL_BROWSER?'local':renderServiceURL(env)?'own':browserConfigured(env)?'cloudflare':'none',cloud:env.DB?'workspaces':'local',contact:env.DB?'requests':'links',booking:'links',payments:'links',email:'unconnected',...(env.PUBLIC_DEMO_URL?{publicBase:env.PUBLIC_DEMO_URL}:{})});
+    if(request.method==='GET'&&path==='/api/status')return json({browser:env.LOCAL_BROWSER?(env.LOCAL_BROWSER.ready?'local':'unavailable'):browserConfigured(env)?'configured':'unconnected',browserProvider:env.LOCAL_BROWSER?'local':browserAgentConfigured(env)?'mac':renderServiceURL(env)?'own':browserConfigured(env)?'cloudflare':'none',cloud:env.DB?'workspaces':'local',contact:env.DB?'requests':'links',booking:env.DB?'reservations':'links',payments:'links',...await pilotStatus(env),...(env.PUBLIC_DEMO_URL?{publicBase:env.PUBLIC_DEMO_URL}:{})});
     if(request.method==='GET'&&path==='/api/font'){
       if(inFlight>=6)return json({error:'Typsnittshämtningen är upptagen. Försök igen.'},429);
       inFlight++;try{const target=url.searchParams.get('url');if(!target||target.length>2000)throw new Error('Fontadressen är ogiltig.');const data=await readPublic(target,'font',requestFetch);return new Response(data.body,{headers:{...headers,'Content-Type':data.mime,'Cache-Control':'public, max-age=86400'}});}
@@ -158,8 +163,8 @@ export function createWorker(assets) {
       try{while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>4096)return json({error:'Adressen är för lång.'},413);text+=decoder.decode(part.value,{stream:true});}}finally{await reader.cancel();}
       const payload=JSON.parse(text+decoder.decode());
       if(typeof payload?.url!=='string'||payload.url.length>2000)throw new Error('Ange en giltig företagsadress.');
-      if(path==='/api/social')return json(await readSocialProfile(payload.url,requestFetch,env));
-      if(path==='/api/render')return json(await renderPublic(payload.url,env));
+      if(path==='/api/social'){const result=await readSocialProfile(payload.url,requestFetch,{...env,BROWSER_REQUEST:request});return json(result,result.jobId?202:200);}
+      if(path==='/api/render'){const result=await renderPublic(payload.url,{...env,BROWSER_REQUEST:request});return json(result,result.jobId?202:200);}
       const data=await readPublic(payload.url,path==='/api/font'?'font':path==='/api/style'?'style':path==='/api/image',requestFetch);
       console.info('[mockup online fetch] Completed',path);
       return path==='/api/style'?json({css:new TextDecoder().decode(data.body),url:data.url}):(path==='/api/image'||path==='/api/font')?new Response(data.body,{headers:{...headers,'Content-Type':data.mime}}):json({html:new TextDecoder().decode(data.body),url:data.url});

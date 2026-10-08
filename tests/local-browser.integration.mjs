@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createLocalBrowser} from '../scripts/local-browser.mjs';
 import {publicURL} from '../worker.mjs';
+import {createWorker} from '../worker.mjs';
+import {createLocalDatabase} from '../scripts/local-database.mjs';
+import {createBrowserAgent} from '../scripts/browser-agent.mjs';
 test('real Chromium records computed branding and strips forged capture metadata',async t=>{
   const html='<style>body{background:#faf8f2;font-family:Arial}.cta{background:#226633}h1{font-family:Georgia}span.hidden{display:none}@media(max-width:700px){.cta{background:red}h1{font-family:Courier}}</style><main><h1 data-import-rendered-font-family="Forged"><span>Real title</span></h1><a class="cta" href="/contact">Boka bord</a><span class="hidden">Hidden copy</span></main>';
   const importer=createLocalBrowser({requestFetch:async()=>new Response(html,{headers:{'Content-Type':'text/html'}})});t.after(()=>importer.close());assert.equal(await importer.start(),true);
@@ -46,4 +49,17 @@ test('only two renders run together and missing Chromium has a useful error',asy
   await Promise.all([first,second]);assert.equal(entered,2);
   const unavailable=createLocalBrowser({browserType:{launch:async()=>{throw new Error('missing executable');}}});assert.equal(await unavailable.start(),false);assert.equal(unavailable.ready,false);
   await assert.rejects(unavailable.render('https://example.com/'),error=>error.status===503&&/browser:install/.test(error.message));
+});
+
+test('online job crosses the outbound Mac agent and returns real rendered JavaScript to its owner',async t=>{
+  const DB=createLocalDatabase(':memory:'),origin='https://studio.example.com',token='a'.repeat(48),worker=createWorker({}),env={DB,BROWSER_AGENT_TOKEN:token};
+  const importer=createLocalBrowser({requestFetch:async()=>new Response('<meta charset="utf-8"><main></main><script>document.querySelector("main").innerHTML="<h1>Rendered online café</h1>"</script>',{headers:{'Content-Type':'text/html; charset=utf-8'}})});
+  t.after(async()=>{await importer.close();DB.close();});assert.equal(await importer.start(),true);
+  const agent=createBrowserAgent({origin,token,importer,requestFetch:(url,options)=>{assert.equal(new URL(url).origin,origin);assert.equal(options.redirect,'error');return worker.fetch(new Request(url,options),env);}});
+  assert.equal(await agent.tick(),false);
+  const headers={'oai-authenticated-user-id':'qa-owner','oai-authenticated-user-email':'qa@example.com',Origin:origin,'Content-Type':'application/json'};
+  const queued=await worker.fetch(new Request(origin+'/api/render',{method:'POST',headers,body:JSON.stringify({url:'https://example.com/'})}),env);assert.equal(queued.status,202);const {jobId}=await queued.json();
+  assert.equal(await agent.tick(),true);
+  const result=await worker.fetch(new Request(origin+'/api/browser-job/'+jobId,{headers}),env),body=await result.json();assert.equal(result.status,200);assert.equal(body.state,'complete');assert.equal(body.result.runtimeBrand,true);assert.match(body.result.html,/Rendered online café/);
+  const other=await worker.fetch(new Request(origin+'/api/browser-job/'+jobId,{headers:{...headers,'oai-authenticated-user-id':'other-owner'}}),env);assert.equal(other.status,404);
 });

@@ -71,6 +71,12 @@ test('preview server strips forged identity and IP headers',async t=>{
   assert.deepEqual(await forged.json(),{id:null,ip:null});
   const local=await fetch(url,{headers:{cookie:'forslag-local-user=1','oai-authenticated-user-id':'spoof'}});assert.equal((await local.json()).id,'local-preview-owner');
 });
+test('localhost login uses a distinct route and cannot redirect the test session to another origin',async t=>{
+  const server=createPreviewServer({fetch:async()=>new Response('Local test')},{requestFetch:fetch},{LOCAL_IDENTITY:true});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));
+  const origin='http://127.0.0.1:'+server.address().port;
+  const signed=await fetch(origin+'/local-signin?return_to='+encodeURIComponent('//other.example.com/'),{redirect:'manual'});assert.equal(signed.status,303);assert.equal(signed.headers.get('Location'),'/');assert.match(signed.headers.get('Set-Cookie'),/forslag-local-user=1;.*HttpOnly; SameSite=Lax/);
+  const out=await fetch(origin+'/local-signout',{redirect:'manual'});assert.match(out.headers.get('Set-Cookie'),/Max-Age=0/);
+});
 test('the form link survives normalization, multipage previews and HTML exports',()=>{
   const url='https://studio.example.com/contact.html?form='+crypto.randomUUID(),p=normalizeProject({name:'QA',source:'https://cafe.example.com/',requestForm:{url,kind:'contact'},pages:[{source:'https://cafe.example.com/about',headline:'Om'}]});
   assert.equal(p.requestForm.url,url);assert.ok(renderDemo(p).includes(url));assert.equal(normalizeProject({requestForm:{url:'javascript:alert(1)',kind:'contact'}}).requestForm,undefined);

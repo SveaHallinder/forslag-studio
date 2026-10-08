@@ -5,6 +5,12 @@ import {renderSiteEnding,siteEndingCSS} from '../public/site-ending.mjs';
 
 const ending=raw=>renderSiteEnding(normalizeProject(raw),escapeHTML,(url,alt)=>`<img src="${escapeHTML(url)}" alt="${escapeHTML(alt)}">`);
 
+test('confirmed booking routes are labelled as booking while request forms retain their meaning',()=>{
+  const id=crypto.randomUUID();
+  const native=ending({requestForm:{kind:'booking',url:'https://studio.example.com/booking.html?form='+id}}).contact;assert.match(native,/ending-label">Bokning</);assert.match(native,/Boka besök/);assert.doesNotMatch(native,/bokningsförfrågan/i);
+  const request=ending({requestForm:{kind:'booking',url:'https://studio.example.com/contact.html?form='+id}}).contact;assert.match(request,/Skicka bokningsförfrågan/);
+});
+
 test('contact ending uses real email, phone and address while preserving editor targets',()=>{
   const {contact}=ending({name:'Åkes ateljé',cta:'Köp kollektionen',ctaHref:'https://example.com/shop',email:'hej@example.com',phone:'+46 (0) 70-123 45 67',address:'Torget 2\nStockholm'});
   assert.match(contact,/class="contact site-contact" id="kontakt"/);

@@ -8,7 +8,9 @@ export function restoreCloudDraft(id,revision){if(id&&Number.isSafeInteger(revis
 export async function cloudRequest(path,body) {
   const response=await fetch('/api/cloud'+path,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(30000)});
   let data;try{data=await response.json();}catch{throw new Error('Arbetsytan svarade inte korrekt. Ditt utkast finns kvar.');}
-  if(!response.ok)throw Object.assign(new Error(data.error||'Arbetsytan kunde inte läsas. Försök igen.'),{status:response.status});return data;
+  if(!response.ok)throw Object.assign(new Error(data.error||'Arbetsytan kunde inte läsas. Försök igen.'),{status:response.status});
+  if(path==='/booking-config'&&body.workspace===context.workspace)rememberRevision(data.projectId,data.revision);
+  return data;
 }
 export async function initializeCloud() {
   if(!initialized)initialized=(async()=>{
