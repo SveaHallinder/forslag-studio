@@ -46,7 +46,7 @@ Lokala kundlänkar använder https://forslag-studio.sveaha.chatgpt.site/demo.htm
 
 ## Privata arbetsytor och förfrågningar
 
-**Arbetsyta & inkorg** använder den befintliga Sites-hostingen med dess inloggning och databas. Inget separat Cloudflare-konto, ny betaltjänst eller nytt körningspaket läggs till. Inloggning ger ingen åtkomst till andras arbetsytor: ägaren skapar en personlig, mejlbunden inbjudningslänk som gäller i sju dagar. Länken skickas manuellt. Medlemmar kan redigera projekt och läsa inkorgen; bara ägaren kan bjuda in och ta bort åtkomst.
+**Arbetsyta & inkorg** använder den befintliga Sites-hostingen med dess inloggning och databas. Inget separat Cloudflare-konto, ny betaltjänst eller nytt körningspaket läggs till. Inloggningen öppnas i huvudfönstret. Om appens inbyggda visningswebbläsare avbryter OpenAI-inloggningen, öppna verktyget i Chrome eller Safari. Inloggning ger ingen åtkomst till andras arbetsytor: ägaren skapar en personlig, mejlbunden inbjudningslänk som gäller i sju dagar. Länken skickas manuellt. Medlemmar kan redigera projekt och läsa inkorgen; bara ägaren kan bjuda in och ta bort åtkomst.
 
 Projekt och utkast hålls isär per arbetsyta. En sparning använder projektets lästa version; samtidiga ändringar ger ett tydligt konfliktfel och behåller utkastet. Aktiva och arkiverade projekt har samma återställningsflöde som lokala projekt. Kopior får egna projekt-id och behöver egna formulär, så deras förfrågningar inte hamnar i originalets inkorg.
 
@@ -78,7 +78,7 @@ Godkänd schemaändring: `drizzle/0000_studio_workspaces.sql` med arbetsytor, me
 
 Under **Kontakt & detaljer → Kundfunktioner** kan säljaren lägga in företagets mejladress samt separata offentliga HTTPS-länkar till bokning och betalning eller beställning. Välj vilken funktion huvudknappen ska visa, eller behåll den nuvarande. Boknings- och betallänkar läggs till i menyn och följer med till sparat utkast, projektkopia, kundlänk och HTML-export. En ny vald huvudknapp används även på undersidor; befintliga kopplade knappar uppdateras när länken ändras.
 
-Detta använder befintliga projektfält och kräver inget nytt paket eller ändrat sparformat. Avbryt lämnar förslaget kvar. Ogiltiga adresser, flera möjliga boknings-/betallänkar och en full meny ger tydliga fel. En länk som används av en huvudknapp kan inte tas bort utan att ett nytt nästa steg väljs. **Kontakt öppnar besökarens mejlprogram.** Bokningar, lediga tider, betalningar och kvitton hanteras av företagets externa system, inte av Förslag Studio. Kontrollera mottagare, erbjudande och bokningsdestination innan kunddelning.
+Detta använder befintliga projektfält och kräver inget nytt paket eller ändrat sparformat. Avbryt lämnar förslaget kvar. Ogiltiga adresser, flera möjliga boknings-/betallänkar och en full meny ger tydliga fel. En länk som används av en huvudknapp kan inte tas bort utan att ett nytt nästa steg väljs. **Kontakt öppnar det aktiva arbetsyteformuläret, eller besökarens mejlprogram när bara mejladress är kopplad.** Bokningar, lediga tider, betalningar och kvitton hanteras av företagets externa system, inte av Förslag Studio. Kontrollera mottagare, erbjudande och bokningsdestination innan kunddelning.
 
 ### QA i fem steg
 
