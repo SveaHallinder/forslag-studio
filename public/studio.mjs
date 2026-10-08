@@ -3,13 +3,14 @@ import {socialProfileURL} from './social-content.mjs';
 import {sectionKinds,detectSectionKind} from './section-design.mjs';
 import {createDesignWorkbench,renderTemplateThumbnail} from './design-workbench.mjs';
 import {brandRoles,brandPalette,selectBrandLogo} from './branding.mjs';
-import { browserAPI, trimLogo } from './browser-api.mjs';
+import { browserAPI, trimLogo, probeLaunchImage, probeLaunchForm } from './browser-api.mjs';
 import { normalizeProject, normalizeGallery, renderDemo, installDemoNavigation, escapeHTML as e } from './render.mjs';
 import { encodeProject } from './share.mjs';
 import { templates, getTemplate } from './templates.mjs';
 import { assessProject, searchProjects, restoreProject, prepareNavigation, requestFormIssue, detachRequestForm } from './project-tools.mjs';
 import { createStudioImageOptions } from './studio-images.mjs';
 import {importQualityIssues} from './import-quality.mjs';
+import {checkLaunchAssets,importLaunchChecks,launchSignature,launchReportCurrent} from './launch-checks.mjs';
 import {createImportStudio} from './import-studio.mjs';
 import {createConnectionsStudio} from './connections-studio.mjs';
 import {createCustomerFunctions} from './customer-functions.mjs';
@@ -21,6 +22,7 @@ const imageChoices = createStudioImageOptions(e);
 let project, config = {}, dirty = false, device = 'desktop', toastTimer, previewTimer, importBusy = false;
 let activePage = -1, editingSite, previewSource;
 let pendingImportQualityAction;
+let launchReport,launchSequence=0,launchController;
 const workbench=createDesignWorkbench({getProject:()=>project,getPage:()=>currentContent(),changed:()=>{markDirty();fillEditor();},navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}},editNavigation:()=>$('editNavigation').click(),notify:toast});
 function currentContent() { return project.pages?.[activePage] || project; }
 function fieldOwner(field) { return ['name','accent'].includes(field) ? project : currentContent(); }
@@ -44,7 +46,7 @@ const importStudio=createImportStudio({getProject:()=>project,getSource:()=>$('s
   if(dirty){await save(false);if(!isCurrent())throw new Error('Importen stängdes. Ditt öppna förslag är sparat.');if(project!==previous||dirty)throw new Error('Förslaget ändrades under sparningen. Dina senaste ändringar finns kvar. Öppna importen igen.');}
   ++projectLoadSequence;project=next;workbench.captureOriginal(project);dirty=true;fillEditor();markDirty();showEditor();refreshProjects().catch(()=>{});
 }});
-const connectionsStudio=createConnectionsStudio({getProject:()=>project,editFunctions:()=>customerFunctions.open(),navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}}});
+const connectionsStudio=createConnectionsStudio({getProject:()=>project,editFunctions:()=>customerFunctions.open(),review:()=>reviewBeforeShare(),navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}}});
 const cloudStudio=createCloudStudio({getProject:()=>project,save,notify:toast,onForm:form=>{
   const old=project.requestForm;if(form){project.requestForm=form;project.ctaHref=form.url;project.cta=form.kind==='booking'?'Skicka bokningsförfrågan':'Kontakta oss';}
   else{delete project.requestForm;if(project.ctaHref===old?.url){project.ctaHref=project.email?'mailto:'+project.email:project.phone?'tel:'+project.phone.replace(/[^+\d]/g,''):'#kontakt';project.cta='Kontakta oss';}}
@@ -468,26 +470,46 @@ async function openSavedProject(id, duplicate = false) {
     toast(duplicate ? 'Kopian är öppnad. Spara den som ett nytt förslag.' : 'Förslaget är öppnat.');
   } catch(error) { toast(error.message); }
 }
-function reviewBeforeShare() {
-  $('reviewTemplate').textContent = 'Vald design: ' + getTemplate(project.templateId).name;
-  const checks = [...importQualityIssues(project).map(issue=>({label:'Importen behöver granskas',ok:false,field:'description',tab:'content',pageIndex:issue.pageIndex,help:importQualitySummary([issue])+' Hämta om som nytt förslag eller dela upp texten.'})),...assessProject(project)];
-  $('reviewChecks').innerHTML = checks.map(c=>`<div class="review-check ${c.ok?'complete':'needs-review'}"><span role="img" aria-label="${c.ok?'Klart':'Behöver granskas'}">${c.ok?'✓':'○'}</span><div><strong>${e(c.label)}</strong>${!c.ok?`<p>${e(c.help)}</p>`:''}</div>${!c.ok?`<button class="text-button" data-review-field="${c.field}" data-review-tab="${c.tab}" data-review-page="${c.pageIndex??-1}">Rätta</button>`:''}</div>`).join('');
-  const blocked = checks.some(c=>c.blocking&&!c.ok);
-  $('confirmShare').disabled = blocked;
-  $('reviewBlocker').textContent = blocked ? 'Rätta de markerade uppgifterna och länkarna innan du skapar en kundlänk.' : 'Du kan dela även utan bilder eller kontaktväg. Granska påminnelserna först.';
-  $('reviewDialog').showModal();
+function renderLaunchReview(checks,checking=false) {
+  const blocked=checking||checks.some(c=>c.blocking&&!c.ok);
+  $('reviewTitle').textContent=checking?'Kontrollerar förslaget.':blocked?'Rätta före kundvisning.':'Teknisk kontroll klar.';
+  $('reviewChecks').innerHTML=checks.map(c=>`<div class="review-check ${c.ok?'complete':'needs-review'}"><span role="img" aria-label="${c.ok?'Klart':'Behöver rättas'}">${c.ok?'✓':'○'}</span><div><strong>${e(c.label)}</strong>${!c.ok?`<p>${e(c.help)}</p>`:''}</div>${!c.ok?`<button class="text-button" data-review-field="${c.field}" data-review-tab="${c.tab}" data-review-page="${c.pageIndex??-1}">Rätta</button>`:''}</div>`).join('');
+  $('confirmShare').disabled=blocked;
+  $('reviewDialog').setAttribute('aria-busy',String(checking));
+  const remaining=checks.filter(c=>!c.ok).length;
+  $('reviewProgress').textContent=checking?'Kontrollerar valda bilder och logotyp på alla sidor…':launchReport?`${launchReport.checked} av ${launchReport.total} bildfiler kontrollerade. ${remaining} ${remaining===1?'punkt':'punkter'} återstår.`:'';
+  $('reviewBlocker').textContent=checking?'Du kan fortsätta redigera efter kontrollen.':blocked?'Rätta de markerade uppgifterna och otillgängliga bilderna innan du skapar en kundlänk.':'De tekniska kontrollerna är klara. Eventuella påminnelser om fakta och varumärkesunderlag visas ovan.';
 }
+async function reviewBeforeShare() {
+  launchController?.abort();const sequence=++launchSequence,current=project,signature=launchSignature(current);
+  launchController=new AbortController();const controller=launchController,timer=setTimeout(()=>controller.abort(),25000);
+  $('reviewTemplate').textContent = 'Vald design: ' + getTemplate(project.templateId).name;
+  launchReport=null;const checks=[...importLaunchChecks(current),...assessProject(current)];
+  renderLaunchReview(checks,true);
+  if(!$('reviewDialog').open)$('reviewDialog').showModal();
+  try{
+    const [report,forms]=await Promise.all([checkLaunchAssets(current,probeLaunchImage,{signal:controller.signal}),probeLaunchForm(current,controller.signal)]);report.checks.push(...forms);
+    if(sequence!==launchSequence||!$('reviewDialog').open)return;
+    if(project!==current||launchSignature(current)!==signature){renderLaunchReview(checks,false);$('confirmShare').disabled=true;$('reviewProgress').textContent='Förslaget ändrades under kontrollen. Kör kontrollen igen för den nya versionen.';return;}
+    launchReport={...report,checkedAt:Date.now()};renderLaunchReview([...checks,...report.checks],false);
+  }catch(error){if(sequence===launchSequence&&$('reviewDialog').open){$('reviewProgress').textContent='Kontrollen kunde inte slutföras: '+error.message;$('confirmShare').disabled=true;}}
+  finally{clearTimeout(timer);}
+}
+$('recheckLaunch').addEventListener('click',reviewBeforeShare);
+$('reviewDialog').addEventListener('close',()=>{launchController?.abort();++launchSequence;});
 $('reviewChecks').addEventListener('click',event=>{
   const button=event.target.closest('[data-review-field]');if(!button)return;
   $('reviewDialog').close();showEditor();activePage=Number(button.dataset.reviewPage??-1);fillEditor();
   document.querySelector(`[data-tab="${button.dataset.reviewTab}"]`).click();
   const field=$(button.dataset.reviewField);
   if(button.dataset.reviewField==='showCloud'){cloudStudio.open();return;}
+  if(!field)return;
   (field.hidden ? field.previousElementSibling : field).scrollIntoView({behavior:'smooth',block:'center'});
   if(!field.hidden)field.focus({preventScroll:true});
 });
 $('confirmShare').addEventListener('click',()=>{
   if(assessProject(project).some(c=>c.blocking&&!c.ok))return reviewBeforeShare();
+  if(!launchReportCurrent(project,launchReport))return reviewBeforeShare();
   $('reviewDialog').close();share();
 });
 $('backupButton').addEventListener('click',()=>{
@@ -553,6 +575,8 @@ async function downloadDemo(allowIncomplete=false) {
   finally { button.disabled = false; button.textContent = 'Ladda ner demosida ↓'; }
 }
 async function share(allowIncomplete=false) {
+  if(!launchReportCurrent(project,launchReport))return reviewBeforeShare();
+  const reviewed=launchReport;
   if(allowIncomplete!==true&&requestImportQualityReview(()=>share(true),'share'))return;
   $('shareButton').disabled = true;
   try {
@@ -566,9 +590,9 @@ async function share(allowIncomplete=false) {
     const base = publicReady ? config.publicBase : location.origin + '/viewer';
     const url = await encodeProject(shareSnapshot, base);
     $('shareUrl').value = url; $('shareUrl').dataset.companyName = shareSnapshot.name; $('visitLink').href = url;
-    const incomplete=importQualityIssues(shareSnapshot).length>0;
-    $('shareReadiness').textContent=incomplete?'EJ FÄRDIGGRANSKAT':'REDO ATT VISA';
-    $('shareIntro').textContent = incomplete?'Länken innehåller en import som behöver granskas. Kontrollera text och sektioner innan du visar den för kunden.':publicReady ? 'Öppna länken på mobilen eller skicka den inför nästa samtal.' : 'Förhandsvisningen fungerar på den här datorn. Publik hosting är ännu inte ansluten.';
+    const incomplete=importQualityIssues(shareSnapshot).length>0,reminders=[...importLaunchChecks(shareSnapshot),...assessProject(shareSnapshot),...reviewed.checks].some(check=>!check.ok);
+    $('shareReadiness').textContent=incomplete||reminders?'KONTROLLERA MARKERADE PUNKTER':'TEKNISKT KONTROLLERAD';
+    $('shareIntro').textContent = incomplete||reminders?'Bild- och länkkontrollen är klar. Kontrollera återstående påminnelser om fakta, bildkvalitet och varumärke innan kundvisning.':publicReady ? 'Öppna länken på mobilen eller skicka den inför nästa samtal.' : 'Förhandsvisningen fungerar på den här datorn. Publik hosting är ännu inte ansluten.';
     $('shareWarning').hidden = publicReady;
     $('shareWarning').textContent = 'Detta är en lokal länk. Skicka den inte till kunden ännu. Ladda ner en fristående demosida eller anslut den publika visningssidan.';
     $('shareHelp').textContent = 'Länken visar den här versionen och ändras inte när du redigerar. ' + ([shareSnapshot,...(shareSnapshot.pages||[])].some(p=>[p.hero,p.logo,...p.cards.map(c=>c.image)].some(url=>/^https?:/.test(url))) ? 'Bilder från andra sajter måste vara fortsatt tillgängliga. HTML-exporten sparar egna kopior.' : 'Spara hela länken, inklusive delen efter #.');

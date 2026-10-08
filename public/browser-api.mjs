@@ -3,6 +3,7 @@ import {trimLogoBlob} from './logo-framing.mjs';
 import {logoTone,bestInk} from './branding.mjs';
 import { normalizeProject, renderDemo } from './render.mjs';
 import { extractContent } from './import-content.mjs';
+import {checkLaunchAssets,repairImportedImages,launchAssets} from './launch-checks.mjs';
 
 const reply=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});
 const problem=(message,status=400)=>Object.assign(new Error(message),{status});
@@ -34,6 +35,43 @@ async function remote(path,body) {
   const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(30000)});
   if(!response.ok){const data=await response.json().catch(()=>({}));throw problem(data.error||'Hämtningen misslyckades. Försök igen.',response.status);}return response;
 }
+export async function probeLaunchImage(url,signal) {
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+  const abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});let objectURL='';
+  try{
+    if(signal?.aborted)controller.abort();
+    const response=await fetch(url.startsWith('data:')||url.startsWith('/assets/')?url:'/api/image',url.startsWith('data:')||url.startsWith('/assets/')?{signal:controller.signal}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url}),signal:controller.signal});
+    if(!response.ok){const failure=await response.json().catch(()=>({}));throw new Error(failure.error||'Bilden svarade med HTTP '+response.status+'.');}
+    const blob=await response.blob();if(blob.size>5_000_000)throw new Error('Bilden är större än importgränsen på 5 MB.');
+    objectURL=URL.createObjectURL(blob);const image=new Image();
+    await new Promise((resolve,reject)=>{const done=error=>{controller.signal.removeEventListener('abort',stop);image.onload=image.onerror=null;if(error){image.src='';reject(error);}else resolve();},stop=()=>done(new Error('Bilden tog för lång tid att läsa.'));controller.signal.addEventListener('abort',stop,{once:true});image.onload=()=>done();image.onerror=()=>done(new Error('Bilden kunde inte avkodas.'));if(controller.signal.aborted)return stop();image.src=objectURL;});
+    return {width:image.naturalWidth,height:image.naturalHeight,vector:blob.type.split(';')[0]==='image/svg+xml'};
+  }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);if(objectURL)URL.revokeObjectURL(objectURL);}
+}
+export async function probeLaunchForm(project,signal) {
+  if(!project.requestForm)return [];
+  const check={id:'form',label:'Aktivt kundformulär',field:'showCloud',tab:'details',pageIndex:-1,blocking:true};
+  try{
+    const url=new URL(project.requestForm.url),id=url.searchParams.get('form');
+    if(url.origin!==location.origin||url.pathname!=='/contact.html'||!/^[-a-z0-9]{36}$/.test(id||''))throw new Error('Formuläret behöver kontrolleras från den app där det aktiverades. Öppna förslaget där eller stäng kopplingen.');
+    const response=await fetch('/api/request/'+id,{signal:signal||AbortSignal.timeout(10000)}),data=await response.json();
+    if(!response.ok)throw new Error(data.error||'Formuläret kunde inte kontrolleras.');
+    if(data.kind!==project.requestForm.kind)throw new Error('Formulärets typ ändrades. Aktivera rätt typ igen under Arbetsyta & inkorg.');
+    return [{...check,ok:true,help:''}];
+  }catch(error){return [{...check,ok:false,help:error.message||'Kundformuläret kunde inte kontrolleras.'}];}
+}
+async function finishImportedImages(project) {
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
+  try{
+    const report=await checkLaunchAssets(project,probeLaunchImage,{signal:controller.signal});
+    const next=repairImportedImages(project,report.results).project;
+    const selected=new Set(launchAssets(next).map(item=>item.url));
+    const broken=report.checks.filter(check=>selected.has(check.url)&&!check.ok&&check.blocking),small=report.checks.filter(check=>selected.has(check.url)&&!check.ok&&!check.blocking);
+    if(broken.length)next.warnings.unshift(broken.length+' bild(er) kunde inte kontrolleras. Automatisk kundkontroll visar vilka som behöver bytas.');
+    if(small.length)next.warnings.unshift(small.length+' bild(er) har låg upplösning. Välj större original för en skarpare demo.');
+    return next;
+  }finally{clearTimeout(timer);}
+}
 export async function importSavedPage(html,url,styles=[]) {
   let source;try{source=new URL(url);}catch{throw problem('Ange originalets fullständiga https-adress.');}
   if(!/^https?:$/.test(source.protocol)||source.username||source.password||source.port)throw problem('Ange originalets offentliga webbadress utan inloggningsuppgifter eller egen port.');
@@ -43,15 +81,15 @@ export async function importSavedPage(html,url,styles=[]) {
   if(project.logo)await identifyLogo(project);
   for(const key of ['inlineLogo','links','stylesheets','sourceAnchors'])delete project[key];
   project.warnings.unshift('Importerad från ditt HTML-underlag. Originalets JavaScript körs inte. Granska bilder, färger och typsnitt; externa CSS-filer kan behöva läggas till.');
-  return project;
+  return finishImportedImages(project);
 }
 async function readCompany(url,extraContact=true,renderFirst=false) {
   let page=await(await remote(renderFirst?'/api/render':'/api/read',{url})).json(),project,rendered=renderFirst;
-  try{project=extractContent(page.html,page.url);}
+  try{project=extractContent(page.html,page.url,'',page.runtimeBrand===true);}
   catch(error){
     if(error.code!=='EMPTY_CONTENT'||renderFirst)throw error;
     page=await(await remote('/api/render',{url:page.url})).json();
-    project=extractContent(page.html,page.url);rendered=true;
+    project=extractContent(page.html,page.url,'',page.runtimeBrand===true);rendered=true;
   }
   const styles=[];
   for(let start=0;start<project.stylesheets.length;start+=3){
@@ -63,7 +101,7 @@ async function readCompany(url,extraContact=true,renderFirst=false) {
   }
   const fontSheets=await Promise.all(imports.slice(0,2).map(async ({url,importedBy})=>{try{const result=await(await remote('/api/style',{url})).json();return {css:result.css,url:result.url||url,href:url,importedBy};}catch{console.warn('[mockup online import] Imported font stylesheet unavailable');return null;}}));
   styles.unshift(...fontSheets.filter(Boolean));
-  if(styles.some(Boolean))project=extractContent(page.html,page.url,styles.filter(Boolean));
+  if(styles.some(Boolean))project=extractContent(page.html,page.url,styles.filter(Boolean),page.runtimeBrand===true);
   if(extraContact&&!project.email&&!project.phone){
     const contact=project.links.find(link=>{try{return new URL(link).hostname===new URL(page.url).hostname&&/kontakt|contact|om-oss|about/i.test(new URL(link).pathname);}catch{return false;}});
     if(contact)try{const extra=await(await remote('/api/read',{url:contact})).json(),details=extractContent(extra.html,extra.url);project.email=details.email;project.phone=details.phone;if(details.email||details.phone)project.warnings=project.warnings.filter(w=>!w.startsWith('Kontaktuppgifter saknas'));}catch{console.warn('[mockup online import] Contact page unavailable');}
@@ -76,7 +114,7 @@ async function readCompany(url,extraContact=true,renderFirst=false) {
 }
 async function importCompany(url,includePages=true,renderFirst=false) {
   const project=await readCompany(url,true,renderFirst);project.pages=[];
-  if(!includePages){delete project.sourceAnchors;return project;}
+  if(!includePages){delete project.sourceAnchors;return finishImportedImages(project);}
   const root=new URL(project.source),pathKey=url=>url.origin+(root.pathname==='/'&&url.origin===root.origin&&url.pathname==='/index.html'?'':url.pathname.replace(/\/$/,''));
   const seen=new Set([pathKey(root)]),targets=[];
   for(const item of project.navigation){
@@ -112,7 +150,7 @@ async function importCompany(url,includePages=true,renderFirst=false) {
   if(project.navigation.some(item=>/^https?:/.test(item.href)&&!content.some(page=>{try{return key(new URL(page.source))===key(new URL(item.href));}catch{return false;}})))project.warnings.push('Menylänkar till sidor som inte importerats öppnar företagets original.');
   if(failed.length)project.warnings.unshift('Kunde inte hämta: '+failed.join(', ')+'. Menylänkarna öppnar originalet.');
   if(targets.length>5)project.warnings.push('Högst fem undersidor hämtas. Övriga menylänkar öppnar originalet.');
-  return project;
+  return finishImportedImages(project);
 }
 function dataURL(blob){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(problem('Bilden kunde inte läsas.'));reader.readAsDataURL(blob);});}
 export async function imageDataURL(blob) {

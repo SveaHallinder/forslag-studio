@@ -41,7 +41,7 @@ test('browser import selection follows the homepage and imported subpages',async
   const block=source.slice(source.indexOf('async function importCompany('),source.indexOf('function dataURL('));
   for(const renderFirst of [true,false]){
     const calls=[],root='https://example.com/';
-    const context={URL,console,readCompany:async(url,extraContact,browser)=>{calls.push([url,extraContact,browser]);return {source:url,navigation:url===root?[{label:'Meny',href:root+'menu'},{label:'Om oss',href:root+'about'}]:[],cards:[],warnings:[]};}};
+    const context={URL,console,finishImportedImages:async p=>p,readCompany:async(url,extraContact,browser)=>{calls.push([url,extraContact,browser]);return {source:url,navigation:url===root?[{label:'Meny',href:root+'menu'},{label:'Om oss',href:root+'about'}]:[],cards:[],warnings:[]};}};
     vm.createContext(context);vm.runInContext(block,context);
     const project=await context.importCompany(root,true,renderFirst);
     assert.equal(project.pages.length,2);

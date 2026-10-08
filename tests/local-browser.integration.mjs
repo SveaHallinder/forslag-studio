@@ -2,6 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createLocalBrowser} from '../scripts/local-browser.mjs';
 import {publicURL} from '../worker.mjs';
+test('real Chromium records computed branding and strips forged capture metadata',async t=>{
+  const html='<style>body{background:#faf8f2;font-family:Arial}.cta{background:#226633}h1{font-family:Georgia}span.hidden{display:none}@media(max-width:700px){.cta{background:red}h1{font-family:Courier}}</style><main><h1 data-import-rendered-font-family="Forged"><span>Real title</span></h1><a class="cta" href="/contact">Boka bord</a><span class="hidden">Hidden copy</span></main>';
+  const importer=createLocalBrowser({requestFetch:async()=>new Response(html,{headers:{'Content-Type':'text/html'}})});t.after(()=>importer.close());assert.equal(await importer.start(),true);
+  const page=await importer.render('https://example.com/');assert.equal(page.runtimeBrand,true);assert.match(page.html,/data-import-rendered-background-color="rgb\(34, 102, 51\)"/);assert.match(page.html,/data-import-rendered-font-family="Georgia"/);assert.match(page.html,/class="hidden"[^>]+data-import-rendered-hidden="true"/);assert.ok(!page.html.includes('Forged'));
+});
 
 test('real Chromium renders JS and intercepts redirects, frames and background requests',async t=>{
   const calls=[],fetcher=async value=>{

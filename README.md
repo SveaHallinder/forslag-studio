@@ -88,6 +88,27 @@ Detta använder befintliga projektfält och kräver inget nytt paket eller ändr
 4. Prova en lokal adress, exempelvis `https://127.0.0.1/`, och en borttagen bokningslänk med Behåll nuvarande huvudknapp. Båda ska ge fel utan att ersätta utkastet.
 5. Granska Desktop/Mobil och undersidor. Skapa kundlänk och HTML-export: menyn ska ha båda funktionslänkarna och huvudknappen rätt destination. Öppna destinationerna för granskning utan att slutföra ett köp eller en bokning.
 
+## Automatisk kundkontroll och egen webbläsartjänst
+
+Importen testar de bilder som används i förslaget. En trasig huvudbild kan ersättas med en läsbar bild ur samma innehållsblocks galleri. Låg upplösning och osäkert varumärkesunderlag markeras. Vid webbläsarimport läses de beräknade färgerna och typsnitten efter JavaScript; faktiskt dolda element tas bort. Entydigt märkta offentliga boknings- och betallänkar följer med automatiskt. Flera möjliga destinationer behöver väljas under Kundfunktioner.
+
+**Granska & dela** kontrollerar valda bildfiler på startsidan och undersidorna samt det aktiva kundformuläret. Otillgängliga bilder, stängda formulär och ogiltiga länkar stoppar kundlänken. Kontrollen gäller just den granskade versionen i högst fem minuter; ändringar kräver en ny kontroll. Högst 64 bildfiler kontrolleras, tre samtidigt. Ett ofullständigt eller avbrutet test ger inte ett godkänt resultat. Bildkvalitet och osäkra importuppgifter visas som påminnelser och kräver fortfarande visuell granskning. Externa boknings- och betalflöden testas inte som genomförda köp eller reservationer.
+
+Den befintliga Chromium-motorn kan köras som separat tjänst med `npm run browser:serve`. Sätt `BROWSER_RENDER_TOKEN` till en hemlig nyckel på 32–200 tecken i tjänstens processmiljö. Tjänsten lyssnar på `127.0.0.1:4190`; `BROWSER_SERVICE_PORT` och `BROWSER_SERVICE_HOST` kan ändras i processmiljön. `/health` och `POST /render` kräver nyckeln som Bearer-token. Inga nya paket krävs.
+
+För onlineåtkomst behövs en igångvarande server och en offentlig HTTPS-adress via en reverse proxy. Sätt `BROWSER_RENDER_ENDPOINT` till hela `/render`-adressen och samma hemliga `BROWSER_RENDER_TOKEN` i Sites servermiljö. Lägg aldrig nyckeln i projektdata, frontend, Git eller chatten. Onlineimporten använder den egna tjänsten när den är konfigurerad; den lokala appen använder sin befintliga Chromium-process. Inga Cloudflare Browser Run-avgifter används för den egna tjänsten, men server och HTTPS-drift behöver ordnas separat.
+
+**Återstår:** egen webbläsartjänst är inte ansluten online, och inga betalnings- eller mejlkonton är anslutna. Riktiga reservationer och automatiska mejl kräver företagets konton samt beslut om lagring, leverans och tillgänglighet. Sociala plattformar kan fortfarande neka offentliga besök; manuell bio, bilder eller HTML-underlag finns kvar. Ingen automatisk kontroll kan intyga att varje företags fakta och visuella identitet är rätt.
+
+### QA i sex steg
+
+1. Kör `npm run lint`, `npm test`, `npm run test:browser`, `npm run build` och `npm start`. Öppna http://localhost:4183/ och duplicera ett förslag för QA.
+2. Välj Kopplingar & status → Kontrollera hela förslaget. Kontrollera att bildkontrollen blir klar och att osäkra uppgifter visas separat.
+3. Lägg in en bildadress som svarar med 404. Granska & dela ska blockera kundlänken. Rätta bilden och kör kontrollen igen.
+4. Stäng kontrollen, ändra en rubrik eller bild och dela igen. Den nya versionen ska få en ny kontroll; avbryt ska behålla utkastet.
+5. I en QA-arbetsyta, aktivera och sedan stäng ett formulär. Granskningen ska visa det stängda formuläret; Rätta ska öppna Arbetsyta & inkorg. Lokala formulär ska också blockera kunddelning.
+6. Prova vid 375 px och på desktop. Kontrollera knappar och feltexter. Betalning, bokning och mejl får bara visas som anslutna efter att respektive företagskonto har testats.
+
 ## Onlinealternativet Cloudflare Browser Run — anslutning återstår
 
 Koden stöder valfri Cloudflare Browser Run. När vanlig HTML saknar läsbart innehåll gör importen ett reservförsök med en serverbaserad webbläsare. Vanligt HTML-innehåll använder inte denna tjänst. Renderad text och meny behandlas av samma importör. Kvotfel och saknad anslutning avbryter importen; utkastet ska inte ersättas av ett tomt förslag.

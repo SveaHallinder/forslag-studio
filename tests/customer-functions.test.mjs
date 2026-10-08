@@ -1,11 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {prepareCustomerFunctions,customerFunctionURL,customerFunctionLinks} from '../public/customer-functions.mjs';
+import {prepareCustomerFunctions,customerFunctionURL,customerFunctionLinks,discoverCustomerFunctions} from '../public/customer-functions.mjs';
 import {renderDemo} from '../public/render.mjs';
 import {encodeProject,decodeProject} from '../public/share.mjs';
 
 const project={name:'Café QA',headline:'Kaffe för hela dagen.',email:'hello@example.com',cta:'Prata med oss',ctaHref:'mailto:hello@example.com',navigation:[{label:'Meny',href:'#erbjudande'}],cards:[{title:'Meny'}]};
 const input={email:project.email,booking:'https://booking.example.com/table',payment:'https://buy.stripe.com/fixture',primary:'booking'};
+test('only explicit unambiguous customer actions are connected during import, including Romanian labels',()=>{
+  const result=discoverCustomerFunctions([{label:'Rezervă o masă',href:input.booking},{label:'Reservations',href:input.booking},{label:'Comandă online',href:input.payment},{label:'Shop',href:'https://example.com/shop'},{label:'Pay now',href:'http://localhost:4183/pay'}]);
+  assert.equal(result.links.length,2);assert.equal(result.warnings.length,0);assert.equal(customerFunctionLinks({navigation:result.links}).payment[0].href,input.payment);
+  const ambiguous=discoverCustomerFunctions([{label:'Boka bord',href:input.booking},{label:'Boka tid',href:'https://example.com/other-booking'}]);assert.equal(ambiguous.links.length,0);assert.match(ambiguous.warnings[0],/Flera boknings/);
+});
 test('booking and payment coexist in the menu, primary button and public customer copy',async()=>{
   const before=JSON.stringify(project),next=prepareCustomerFunctions(project,input);
   assert.equal(JSON.stringify(project),before);assert.equal(next.ctaHref,input.booking);assert.equal(next.cta,'Boka besök');

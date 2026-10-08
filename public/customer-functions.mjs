@@ -1,6 +1,20 @@
 import {normalizeProject} from './render.mjs';
 
-const roles={booking:/^(boka(?:\s+(?:bord|tid|besök))?|bokning|book(?:\s+(?:a table|a visit|now))?|reservations?)$/i,payment:/^(betala|till betalning|köp|köp online|beställ online|pay|payment|checkout|shop online|order online)$/i};
+const roles={booking:/^(boka(?:\s+(?:bord|tid|besök|nu))?|bokning|book(?:\s+(?:a table|a visit|now))?|reservations?|reserve(?: a table)?|rezerv[aă](?:\s+(?:o mas[aă]|acum))?|rezerv[aă]ri|programare)$/i,payment:/^(betala|till betalning|köp|köp online|beställ online|pay(?: now)?|payment|checkout|shop online|order online|comand[aă](?: online| acum)?)$/i};
+export function discoverCustomerFunctions(anchors) {
+  const matches={booking:new Map(),payment:new Map()},warnings=[];
+  const labels={booking:roles.booking,payment:/^(?:betala|köp online|beställ online|pay(?: now)?|payment|checkout|shop online|order online|comand[aă](?: online| acum)?)$/i};
+  for(const item of anchors.slice(0,200))for(const [role,pattern] of Object.entries(labels)){
+    const label=String(item.label||'').replace(/\s+/g,' ').trim();if(!pattern.test(label))continue;
+    let href;try{href=customerFunctionURL(item.href,role);}catch{continue;}if(href)matches[role].set(href,{label,href});
+  }
+  const links=[];
+  for(const [role,items] of Object.entries(matches)){
+    if(items.size===1)links.push([...items.values()][0]);
+    else if(items.size>1)warnings.push(`Flera ${role==='booking'?'boknings':'betal-/beställnings'}destinationer hittades. Välj rätt företagssystem under Kundfunktioner.`);
+  }
+  return {links,warnings};
+}
 export function customerFunctionLinks(project) {
   return Object.fromEntries(Object.entries(roles).map(([role,pattern])=>{
     const items=(project.navigation||[]).filter(item=>pattern.test(item.label.trim()));

@@ -28,7 +28,7 @@ function colorHex(doc,value,neutral=false) {
   if(!hex)return '';if(neutral)return hex;const channels=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
   return Math.max(...channels)-Math.min(...channels)>=18&&Math.max(...channels)>35&&Math.min(...channels)<235?hex:'';
 }
-export function extractBrand(doc,styleSources,{heading,button,logo}={}) {
+export function extractBrand(doc,styleSources,{heading,button,logo,runtimeBrand=false}={}) {
   const warnings=[],rules=[],fontRules=[],layers=new Map();let order=0;
   const layerIndex=name=>{if(!layers.has(name))layers.set(name,layers.size);return layers.get(name);};
   if(typeof CSSStyleSheet==='undefined')return {accent:'',warnings:['Typsnitt och varumärkesfärg kunde inte läsas i denna webbläsare.']};
@@ -60,6 +60,8 @@ export function extractBrand(doc,styleSources,{heading,button,logo}={}) {
   }
   function resolved(element,property,seen=new Set()) {
     if(!element||seen.size>24||seen.has(property))return {value:'',uncertain:false};
+    const captured=runtimeBrand&&['color','background-color','font-family'].includes(property)&&element.getAttribute('data-import-rendered-'+property);
+    if(captured)return {value:captured,uncertain:false};
     const next=new Set(seen);next.add(property);
     for(let node=element;node;node=node.parentElement){
       const entry=raw(node,property);if(entry.uncertain)return {value:'',uncertain:true};

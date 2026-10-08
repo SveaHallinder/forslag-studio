@@ -1,6 +1,7 @@
 import {extractBrand} from './brand-content.mjs';
 import {prepareLegacyContent} from './legacy-content.mjs';
 import {logoScore,structuredLogo} from './import-assets.mjs';
+import {discoverCustomerFunctions} from './customer-functions.mjs';
 const clean=value=>String(value||'').replace(/\s+/g,' ').replace(/([.!?])(?=[A-ZÅÄÖ])/g,'$1 ').trim();
 const headings='h1,h2,h3,h4';
 const imageSelector='img,[data-background],[data-bg-image],[style*="background"],[data-current-styles],video[poster],[data-import-background]';
@@ -78,8 +79,9 @@ export function brandColor(css) {
   }
   const hex=match[1].toLowerCase();return hex.length===4?'#'+[...hex.slice(1)].map(x=>x+x).join(''):hex;
 }
-export function extractContent(html, source, styles='') {
+export function extractContent(html, source, styles='',runtimeBrand=false) {
   const doc=new DOMParser().parseFromString(html,'text/html');
+  if(runtimeBrand)doc.querySelectorAll('[data-import-rendered-hidden="true"]').forEach(el=>el.remove());
   const meta=name=>doc.querySelector(`meta[property="${name}"],meta[name="${name}"]`)?.getAttribute('content')||'';
   const absolute=value=>{try{const u=new URL(value,source);return ['http:','https:','mailto:','tel:'].includes(u.protocol)&&!u.username&&!u.password?u.href:'';}catch{return '';}};
   const unconditional=n=>!n.getAttribute('media')||/^(all|screen)$/i.test(n.getAttribute('media').trim());
@@ -98,11 +100,12 @@ export function extractContent(html, source, styles='') {
   const stylesheets=[...new Set([...doc.querySelectorAll('link[rel="stylesheet"][href]')].filter(unconditional).map(n=>({id:n.id,url:absolute(n.getAttribute('href'))})).filter(n=>/^https?:/.test(n.url)).sort((a,b)=>stylesheetScore(b)-stylesheetScore(a)).map(n=>n.url))].slice(0,8);
   const hasForms=!!doc.querySelector('form');
   const schemaLogo=structuredLogo(doc,source);
-  removeCSSHidden(doc,css);
+  if(!runtimeBrand)removeCSSHidden(doc,css);
   const inlineMark=[...doc.querySelectorAll('header a[href] svg,[data-elementor-type="header"] a[href] svg')].map(el=>({el,url:'',label:el.getAttribute('aria-label')||'',width:Number(el.getAttribute('width'))||0,height:Number(el.getAttribute('height'))||0})).filter(image=>logoScore(image,source)>0).sort((a,b)=>logoScore(b,source)-logoScore(a,source))[0]?.el;
   let inlineLogo='';if(inlineMark){const clone=inlineMark.cloneNode(true);clone.setAttribute('xmlns','http://www.w3.org/2000/svg');const box=(clone.getAttribute('viewBox')||'').trim().split(/[\s,]+/).map(Number);if(box.length===4&&box[2]>0&&box[3]>0&&!clone.hasAttribute('width')&&!clone.hasAttribute('height')){clone.setAttribute('width',String(box[2]));clone.setAttribute('height',String(box[3]));}inlineLogo=new XMLSerializer().serializeToString(clone);if(inlineLogo.length>200000)inlineLogo='';}
 
-  doc.querySelectorAll('form,dialog:not([open]),[inert],[data-state="closed"],script,style,noscript,svg,template,iframe,object,embed,[hidden],[class~="hide-lg"],[class~="hidden-lg"],[class~="d-lg-none"],[style*="display:none"],[style*="display: none"],#cookie-banner,#cookie-consent,#onetrust-banner-sdk,[class*="cookie-banner"],[class*="cookie-consent"],[id*="CookieConsent"]').forEach(el=>el.remove());
+  const staticHidden=runtimeBrand?'':',[hidden],[class~="hide-lg"],[class~="hidden-lg"],[class~="d-lg-none"],[style*="display:none"],[style*="display: none"]';
+  doc.querySelectorAll('form,dialog:not([open]),[inert],[data-state="closed"],script,style,noscript,svg,template,iframe,object,embed,#cookie-banner,#cookie-consent,#onetrust-banner-sdk,[class*="cookie-banner"],[class*="cookie-consent"],[id*="CookieConsent"]'+staticHidden).forEach(el=>el.remove());
   // Media fallback copy is browser UI, while poster/source attributes remain available.
   for(const media of doc.querySelectorAll('video,audio'))for(const child of [...media.childNodes])if(child.nodeType===3||child.nodeType===1&&!child.matches('source,track'))child.remove();
   doc.querySelectorAll('br').forEach(el=>el.replaceWith('\n'));
@@ -241,6 +244,8 @@ export function extractContent(html, source, styles='') {
   const heroLink=[...scope.querySelectorAll('a[href]')].find(el=>!excluded(el)&&clean(el.textContent)&&!el.querySelector('img')&&absolute(el.getAttribute('href')));
   const cta=clean(heroLink?.textContent),ctaHref=heroLink?mapLink(absolute(heroLink.getAttribute('href'))):'';
   const links=[...doc.querySelectorAll('a[href]')].map(el=>absolute(el.getAttribute('href'))).filter(Boolean);
+  const functions=discoverCustomerFunctions([...doc.querySelectorAll('a[href]')].map(el=>({label:clean(el.textContent),href:absolute(el.getAttribute('href'))})));
+  for(const item of functions.links)if(navigation.length<12&&!navigation.some(link=>link.href===item.href))navigation.push(item);
   const decodeContact=value=>{try{return decodeURIComponent(value||'');}catch{return '';}};
   const contactRegion='footer,aside,address,[id*="kontakt"],[id*="contact"],[id*="adress"],[class*="contact"]';
   const contactBlocks=[...doc.querySelectorAll('p,li,address')].sort((a,b)=>Number(!!b.closest(contactRegion))-Number(!!a.closest(contactRegion))),contactLines=contactBlocks.flatMap(el=>el.textContent.split('\n').map(clean));
@@ -250,7 +255,7 @@ export function extractContent(html, source, styles='') {
   const phone=decodeContact(links.find(u=>u.startsWith('tel:'))?.slice(4))||textPhone;
   const postal=contactBlocks.filter(el=>el.closest(contactRegion)).map(el=>el.textContent.match(/([^\n]{3,80}\d[^\n]{0,10})\n\s*(\d{3}\s?\d{2}\s+[^\n]{2,60})/)).find(Boolean);
   const address=legacy?.address||(postal?[clean(postal[1]),clean(postal[2])].join(', '):'');
-  const branding=extractBrand(doc,styleSources,{heading:legacy?.heading()||heroHeading,button:heroLink,logo:headerImage?.el}),accent=branding.accent||branding.branding?.text||legacy?.accent||'#cdeb60';
+  const branding=extractBrand(doc,styleSources,{heading:legacy?.heading()||heroHeading,button:heroLink,logo:headerImage?.el,runtimeBrand}),accent=branding.accent||branding.branding?.text||legacy?.accent||'#cdeb60';
   if(legacy){branding.branding={...branding.branding,...legacy.branding};if(branding.branding.mutedText===branding.branding.background)delete branding.branding.mutedText;}
   if(inlineLogo&&/currentcolor/i.test(inlineLogo))inlineLogo=branding.branding?.headerText?inlineLogo.replace(/currentcolor/gi,branding.branding.headerText):'';
   if(inlineLogo&&/var\(/.test(inlineLogo))inlineLogo='';
@@ -260,6 +265,7 @@ export function extractContent(html, source, styles='') {
   if(hasForms)warnings.push('Originalets formulär har inte återskapats. Använd en knapp till originalet för anmälan, bokning eller köp.');
   if(navigation.some(n=>/^https?:/.test(n.href)))warnings.push('Menylänkar till undersidor öppnar företagets original. Bara startsidan har fått ny design.');
   warnings.push(...branding.warnings);
+  warnings.push(...functions.warnings);
   if(galleryTruncated)warnings.unshift('Ett bildavsnitt innehåller fler än 12 bilder. De första 12 har tagits med; jämför med originalet.');
   if(!logo)warnings.push('Logotyp kunde inte identifieras säkert. Lägg till den under Bilder.');
   if(!headerImage&&schemaLogo&&logo)warnings.push('Logotypen kommer från företagets strukturerade uppgifter. Kontrollera att den är rätt variant under Bilder.');

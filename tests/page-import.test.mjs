@@ -6,7 +6,7 @@ const source=readFileSync(new URL('../public/browser-api.mjs',import.meta.url),'
 const block=source.slice(source.indexOf('async function importCompany('),source.indexOf('function dataURL('));
 function harness(navigation,fail=[],fields={}){
   const calls=[],root={source:'https://example.com/',navigation,warnings:[],...fields};
-  const context={URL,console:{warn(){}},readCompany:async url=>{calls.push(url);if(calls.length===1)return structuredClone(root);if(fail.includes(url))throw new Error('Unavailable');return {source:url,headline:'Original '+url};}};
+  const context={URL,console:{warn(){}},finishImportedImages:async p=>p,readCompany:async url=>{calls.push(url);if(calls.length===1)return structuredClone(root);if(fail.includes(url))throw new Error('Unavailable');return {source:url,headline:'Original '+url};}};
   vm.createContext(context);vm.runInContext(block,context);return {context,calls};
 }
 test('imports at most five unique menu pages from the same site',async()=>{
@@ -40,7 +40,7 @@ test('nested index pages, other origins and query variants do not become homepag
 });
 
 test('redirected pages and original section fragments link to the imported content',async()=>{
- const context={URL,console:{warn(){}},readCompany:async url=>url==='https://example.com/'?{source:url,warnings:[],sourceAnchors:{intro:'section-1'},navigation:[{label:'Team',href:'https://example.com/about#people'}]}:{source:'https://example.com/team',sourceAnchors:{people:'section-2'},cards:[{title:'Home',href:'https://example.com/#intro'}],warnings:[]}};
+ const context={URL,console:{warn(){}},finishImportedImages:async p=>p,readCompany:async url=>url==='https://example.com/'?{source:url,warnings:[],sourceAnchors:{intro:'section-1'},navigation:[{label:'Team',href:'https://example.com/about#people'}]}:{source:'https://example.com/team',sourceAnchors:{people:'section-2'},cards:[{title:'Home',href:'https://example.com/#intro'}],warnings:[]}};
  vm.createContext(context);vm.runInContext(block,context);
  const p=await context.importCompany('https://example.com/');assert.equal(p.navigation[0].href,'https://example.com/team#section-2');assert.equal(p.pages[0].cards[0].href,'https://example.com/#section-1');assert.equal(p.sourceAnchors,undefined);assert.equal(p.pages[0].sourceAnchors,undefined);
 });

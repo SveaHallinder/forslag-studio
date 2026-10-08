@@ -6,6 +6,15 @@ import * as workerModule from '../worker.mjs';
 const env={CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32),CLOUDFLARE_BROWSER_TOKEN:'test-secret',CLOUDFLARE_BROWSER_PLAN:'free'};
 const render=(url,settings,fetcher)=>workerModule.renderPublic(url,settings,fetcher);
 const success=(extra={})=>Response.json({success:true,result:'<h1>Original text</h1>',meta:{finalUrl:'https://example.com/about/',status:200},...extra});
+test('own HTTPS browser service uses guarded targets and a server-only token without Browser Run',async()=>{
+ const own={BROWSER_RENDER_ENDPOINT:'https://browser.example.com/render',BROWSER_RENDER_TOKEN:'fixture-only-32-character-service-token'};
+ assert.equal(workerModule.browserConfigured(own),true);
+ const result=await render('https://example.com/',own,async(url,options)=>{assert.equal(url,own.BROWSER_RENDER_ENDPOINT);assert.equal(options.headers.Authorization,'Bearer '+own.BROWSER_RENDER_TOKEN);assert.deepEqual(JSON.parse(options.body),{url:'https://example.com/'});assert.equal(options.redirect,'error');return Response.json({html:'<h1>Own browser</h1>',url:'https://example.com/about',runtimeBrand:true});});
+ assert.equal(result.runtimeBrand,true);assert.equal(result.url,'https://example.com/about');
+ await assert.rejects(render('https://example.com/',own,async()=>Response.json({html:'<h1>Bad redirect</h1>',url:'http://127.0.0.1/'})),/offentlig/);
+ for(const config of [{...own,BROWSER_RENDER_TOKEN:'short'},{...own,BROWSER_RENDER_TOKEN:own.BROWSER_RENDER_TOKEN+'\n'},{...own,BROWSER_RENDER_ENDPOINT:'http://browser.example.com/render'},{...own,BROWSER_RENDER_ENDPOINT:'https://127.0.0.1/render'}])assert.equal(workerModule.browserConfigured(config),false);
+ const status=await(await workerModule.createWorker({}).fetch(new Request('https://studio.example/api/status'),own)).json();assert.equal(status.browserProvider,'own');assert.ok(!JSON.stringify(status).includes(own.BROWSER_RENDER_TOKEN));
+});
 
 test('browser rendering is disabled until a free account and token are configured',async()=>{
  for(const settings of [{},{...env,CLOUDFLARE_BROWSER_PLAN:'paid'},{...env,CLOUDFLARE_BROWSER_TOKEN:''}]){

@@ -78,10 +78,22 @@ export function createLocalBrowser({browserType=chromium,requestFetch=createPubl
         await page.goto(target.href,{waitUntil:'domcontentloaded',timeout:17000});
         await page.waitForLoadState('networkidle',{timeout:5000}).catch(()=>{});
         if(navigationError)throw navigationError;
-        const url=publicURL(page.url()),html=await page.content();
+        const url=publicURL(page.url()),html=await page.evaluate(()=>{
+          const clone=document.documentElement.cloneNode(true),source=[document.documentElement,...document.documentElement.querySelectorAll('*')],nodes=[clone,...clone.querySelectorAll('*')];
+          // Computed values resolve responsive/theme conflicts at the import
+          // viewport. Remove any source-supplied capture metadata first.
+          for(const node of nodes)for(const attribute of [...node.attributes])if(attribute.name.startsWith('data-import-rendered-'))node.removeAttribute(attribute.name);
+          for(let i=0;i<Math.min(source.length,6000);i++){
+            const element=source[i],copy=nodes[i];if(!copy)continue;
+            const style=getComputedStyle(element);
+            if(style.display==='none')copy.setAttribute('data-import-rendered-hidden','true');
+            if(element.matches('html,body,header,nav,main,section,article,div,h1,h2,h3,h4,p,a,button,img,svg,span'))for(const property of ['color','background-color','font-family'])copy.setAttribute('data-import-rendered-'+property,style.getPropertyValue(property).slice(0,200));
+          }
+          return '<!doctype html>'+clone.outerHTML;
+        });
         if(!html.trim()||Buffer.byteLength(html)>2_000_000)throw failure('Den renderade sidan är tom eller för stor att importera.');
         console.info('[local browser import] Completed',target.hostname,requests,bytes);
-        return {html,url:url.href};
+        return {html,url:url.href,runtimeBrand:true};
       }
       try{return await Promise.race([run(),timedOut]);}
       catch(error){

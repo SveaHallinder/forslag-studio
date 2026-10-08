@@ -65,25 +65,27 @@ export async function readPublic(value, image = false, requestFetch = fetch) {
   throw new Error('Hemsidan omdirigerar för många gånger.');
 }
 const renderError=(message,status=502)=>Object.assign(new Error(message),{status});
-export function browserConfigured(env={}) {return env.LOCAL_BROWSER?.ready===true||(env.CLOUDFLARE_BROWSER_PLAN==='free'&&/^[a-f\d]{32}$/i.test(env.CLOUDFLARE_ACCOUNT_ID||'')&&!!env.CLOUDFLARE_BROWSER_TOKEN);}
+function renderServiceURL(env){try{const url=publicURL(env.BROWSER_RENDER_ENDPOINT);return url.protocol==='https:'&&typeof env.BROWSER_RENDER_TOKEN==='string'&&env.BROWSER_RENDER_TOKEN.length>=32&&env.BROWSER_RENDER_TOKEN.length<=200&&!/[\r\n]/.test(env.BROWSER_RENDER_TOKEN)?url.href:'';}catch{return '';}}
+export function browserConfigured(env={}) {return env.LOCAL_BROWSER?.ready===true||!!renderServiceURL(env)||(env.CLOUDFLARE_BROWSER_PLAN==='free'&&/^[a-f\d]{32}$/i.test(env.CLOUDFLARE_ACCOUNT_ID||'')&&!!env.CLOUDFLARE_BROWSER_TOKEN);}
 let rendering=0;
 export async function renderPublic(value,env={},requestFetch=fetch) {
   const url=publicURL(value),account=env.CLOUDFLARE_ACCOUNT_ID,token=env.CLOUDFLARE_BROWSER_TOKEN;
   if(env.LOCAL_BROWSER)return await env.LOCAL_BROWSER.render(url.href);
+  const service=renderServiceURL(env);
   // Set only after verifying Workers Free in the provider account. Never upgrade billing here.
   if(!browserConfigured(env))throw renderError('Sidan behöver en webbläsare för att kunna läsas. Reservhämtningen är ännu inte ansluten. Använd Importera underlag för en sparad HTML-sida. Ditt öppna förslag är kvar.',503);
   if(rendering>=3)throw renderError('Webbläsarhämtningen är upptagen. Vänta en stund och försök igen.',429);
   rendering++;
   try {
-    const response=await requestFetch('https://api.cloudflare.com/client/v4/accounts/'+account+'/browser-run/content?cacheTTL=300',{
+    const response=await requestFetch(service||'https://api.cloudflare.com/client/v4/accounts/'+account+'/browser-run/content?cacheTTL=300',{
       method:'POST',redirect:'error',signal:AbortSignal.timeout(25000),
-      headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
-      body:JSON.stringify({url:url.href,gotoOptions:{waitUntil:'networkidle2',timeout:18000},actionTimeout:5000,viewport:{width:1440,height:1000},rejectResourceTypes:['media','font']})
+      headers:{Authorization:'Bearer '+(service?env.BROWSER_RENDER_TOKEN:token),'Content-Type':'application/json'},
+      body:JSON.stringify(service?{url:url.href}:{url:url.href,gotoOptions:{waitUntil:'networkidle2',timeout:18000},actionTimeout:5000,viewport:{width:1440,height:1000},rejectResourceTypes:['media','font']})
     });
     console.info('[mockup browser render] Response',url.hostname,response.status);
     if(!response.ok){
       await response.body?.cancel();
-      if(response.status===429)throw renderError('Webbläsarhämtningens gräns har nåtts. Vänta och försök igen; om dagens gratiskvot är slut behöver du vänta till nästa dag. Ditt förslag är kvar.',429);
+      if(response.status===429)throw renderError(service?'Webbläsartjänsten är upptagen. Vänta en stund och försök igen. Ditt förslag är kvar.':'Webbläsarhämtningens gräns har nåtts. Vänta och försök igen; om dagens gratiskvot är slut behöver du vänta till nästa dag. Ditt förslag är kvar.',429);
       if([401,403].includes(response.status))throw renderError('Webbläsarhämtningens anslutning behöver kontrolleras av verktygets ägare. Ditt förslag är kvar.',503);
       throw renderError('Webbläsarhämtningen är tillfälligt otillgänglig. Försök igen senare.');
     }
@@ -91,11 +93,12 @@ export async function renderPublic(value,env={},requestFetch=fetch) {
     let size=0,text='';const decoder=new TextDecoder();
     try{while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>MAX_HTML*2)throw renderError('Den renderade sidan är för stor att importera.');text+=decoder.decode(part.value,{stream:true});}}finally{await reader.cancel();}
     let data;try{data=JSON.parse(text+decoder.decode());}catch{throw renderError('Webbläsaren gav ett oläsbart svar. Försök igen senare.');}
-    if(!data.success||typeof data.result!=='string'||!data.result.trim())throw renderError('Webbläsaren hittade inget läsbart innehåll. Sidan kan blockera hämtning.');
-    if(new TextEncoder().encode(data.result).length>MAX_HTML)throw renderError('Den renderade sidan är för stor att importera.');
+    const html=service?data.html:data.result;
+    if((!service&&!data.success)||typeof html!=='string'||!html.trim())throw renderError('Webbläsaren hittade inget läsbart innehåll. Sidan kan blockera hämtning.');
+    if(new TextEncoder().encode(html).length>MAX_HTML)throw renderError('Den renderade sidan är för stor att importera.');
     if(data.meta?.status>=400)throw renderError('Företagets sida svarade med HTTP '+Number(data.meta.status)+' även i webbläsaren. Kontrollera adressen.');
-    const finalURL=publicURL(data.meta?.finalUrl||url.href);
-    return {html:data.result,url:finalURL.href};
+    const finalURL=publicURL((service?data.url:data.meta?.finalUrl)||url.href);
+    return {html,url:finalURL.href,...(service&&data.runtimeBrand===true?{runtimeBrand:true}:{})};
   }catch(error){
     console.warn('[mockup browser render] Failed',url.hostname,error.name,error.status||502);
     if(error.status)throw error;
@@ -134,7 +137,7 @@ export function createWorker(assets) {
     const url=new URL(request.url), path=url.pathname;
     const requestFetch=env.PUBLIC_FETCH||fetch;
     const cloudResponse=await handleCloud(request,env);if(cloudResponse)return cloudResponse;
-    if(request.method==='GET'&&path==='/api/status')return json({browser:env.LOCAL_BROWSER?(env.LOCAL_BROWSER.ready?'local':'unavailable'):browserConfigured(env)?'configured':'unconnected',cloud:env.DB?'workspaces':'local',contact:env.DB?'requests':'links',booking:'links',payments:'links',...(env.PUBLIC_DEMO_URL?{publicBase:env.PUBLIC_DEMO_URL}:{})});
+    if(request.method==='GET'&&path==='/api/status')return json({browser:env.LOCAL_BROWSER?(env.LOCAL_BROWSER.ready?'local':'unavailable'):browserConfigured(env)?'configured':'unconnected',browserProvider:env.LOCAL_BROWSER?'local':renderServiceURL(env)?'own':browserConfigured(env)?'cloudflare':'none',cloud:env.DB?'workspaces':'local',contact:env.DB?'requests':'links',booking:'links',payments:'links',email:'unconnected',...(env.PUBLIC_DEMO_URL?{publicBase:env.PUBLIC_DEMO_URL}:{})});
     if(request.method==='GET'&&path==='/api/font'){
       if(inFlight>=6)return json({error:'Typsnittshämtningen är upptagen. Försök igen.'},429);
       inFlight++;try{const target=url.searchParams.get('url');if(!target||target.length>2000)throw new Error('Fontadressen är ogiltig.');const data=await readPublic(target,'font',requestFetch);return new Response(data.body,{headers:{...headers,'Content-Type':data.mime,'Cache-Control':'public, max-age=86400'}});}
