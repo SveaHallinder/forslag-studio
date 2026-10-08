@@ -1,4 +1,4 @@
-import {readFile,writeFile,mkdir,readdir} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,readdir,cp} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -10,7 +10,9 @@ for(const name of await readdir(path.join(root,'public'))){
 assets['/seed.json']={body:await readFile(path.join(root,'seed.json'),'utf8'),type:'application/json'};
 await mkdir(path.join(root,'dist/server'),{recursive:true});await mkdir(path.join(root,'dist/.openai'),{recursive:true});
 const socialSource=await readFile(path.join(root,'public/social-content.mjs'),'utf8');
-const source=(await readFile(path.join(root,'worker.mjs'),'utf8')).replace("import {socialProfileURL,extractSocialProfile} from './public/social-content.mjs';",socialSource.replace(/^export /gm,''));
+const cloudSource=await readFile(path.join(root,'cloud-worker.mjs'),'utf8');
+const source=(await readFile(path.join(root,'worker.mjs'),'utf8')).replace("import {socialProfileURL,extractSocialProfile} from './public/social-content.mjs';",socialSource.replace(/^export /gm,'')).replace("import {handleCloud} from './cloud-worker.mjs';",cloudSource.replace(/^export /gm,''));
 await writeFile(path.join(root,'dist/server/index.js'),source+'\nconst bundledAssets='+JSON.stringify(assets)+';\nexport default createWorker(bundledAssets);\n');
 await writeFile(path.join(root,'dist/.openai/hosting.json'),await readFile(path.join(root,'.openai/hosting.json')));
+await cp(path.join(root,'drizzle'),path.join(root,'dist/.openai/drizzle'),{recursive:true});
 console.log('Built the online editor and Worker importer. Local Chromium stays outside the Worker bundle.');

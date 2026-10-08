@@ -1,3 +1,4 @@
+import {initializeCloud,cloudContext,cloudProjectAPI} from './cloud-api.mjs';
 import {trimLogoBlob} from './logo-framing.mjs';
 import {logoTone,bestInk} from './branding.mjs';
 import { normalizeProject, renderDemo } from './render.mjs';
@@ -175,6 +176,7 @@ async function exportDemo(input){
 export async function browserAPI(path,body) {
   try {
     if(path==='/api/config'){
+      await initializeCloud();
       if(['localhost','127.0.0.1'].includes(location.hostname)){
         let base;try{const response=await fetch('/api/status',{signal:AbortSignal.timeout(5000)});if(response.ok){const status=await response.json(),url=new URL(status.publicBase);if(url.protocol==='https:'&&!url.username&&!url.password&&!url.port)base=url.href;}}catch{}
         if(!base)throw problem('Den publika demovisaren kunde inte kontrolleras. Försök igen innan du skapar kundlänken.');
@@ -184,6 +186,8 @@ export async function browserAPI(path,body) {
     }
     if(path==='/api/import')return reply(await importCompany(body.url,body.includePages!==false,body.renderFirst===true));
     if(path==='/api/export')return await exportDemo(body);
+    await initializeCloud();
+    if(cloudContext().workspace){const response=await cloudProjectAPI(path,body);if(response)return response;}
     if(!ready)ready=initialize().catch(error=>{ready=null;throw error;});await ready;
     if(path==='/api/projects'||path==='/api/archived')return reply(await transaction([path==='/api/projects'?'active':'archive'],'readonly',async tx=>{
       const list=await requestResult(tx.objectStore(path==='/api/projects'?'active':'archive').getAll());

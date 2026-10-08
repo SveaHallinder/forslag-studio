@@ -1,5 +1,20 @@
 import { normalizeProject, linkURL } from './render.mjs';
 import { socialProfileURL } from './social-content.mjs';
+import { customerFunctionURL } from './customer-functions.mjs';
+
+export function requestFormIssue(raw) {
+  for(const page of [raw,...(Array.isArray(raw?.pages)?raw.pages:[])])if(page?.requestForm)try{if(!customerFunctionURL(page.requestForm.url,'Formulär'))throw new Error();}catch{return 'Formuläret gäller en lokal testmiljö. Stäng det under Arbetsyta & inkorg, eller aktivera ett nytt formulär i onlineverktyget innan kunddelning.';}
+  return '';
+}
+export function detachRequestForm(raw) {
+  const project=normalizeProject(raw),urls=new Set([project,...(project.pages||[])].map(p=>p.requestForm?.url).filter(Boolean));
+  for(const page of [project,...(project.pages||[])]){
+    delete page.requestForm;
+    if(urls.has(page.ctaHref)){page.ctaHref='#kontakt';page.cta='Kontakta oss';}
+    page.navigation=page.navigation.filter(item=>!urls.has(item.href));
+  }
+  return project;
+}
 
 function validDestination(value,project) {
   const href=linkURL(value);if(!href)return false;
@@ -29,7 +44,7 @@ function assessPage(raw = {}) {
   return [
     {id:'name',label:'Företagsnamn',ok:!!name&&!['Nytt förslag','Ditt företag'].includes(name),blocking:true,field:'name',tab:'content',help:'Ange kundens företagsnamn.'},
     {id:'headline',label:'En egen huvudrubrik',ok:!!headline&&!['Här börjar nästa kunds hemsida.','En ny plats för ert företag.'].includes(headline),blocking:true,field:'headline',tab:'content',help:'Skriv en rubrik som passar företaget.'},
-    {id:'contact',label:'Giltig kontaktväg',ok:!!(p.email||p.phone||socialContact),blocking:false,field:'email',tab:'details',help:'Lägg till mejladress, telefon eller företagets sociala profil som kontaktväg.'},
+    {id:'contact',label:'Giltig kontaktväg',ok:!!(p.email||p.phone||p.requestForm||socialContact),blocking:false,field:'email',tab:'details',help:'Lägg till mejladress, telefon, ett formulär eller företagets sociala profil som kontaktväg.'},
     {id:'images',label:'Valda verksamhetsbilder',ok:!!p.hero||p.cards.some(c=>c.image),blocking:false,field:'imageUpload',tab:'images',help:'Välj en huvudbild eller fortsätt med en textbaserad demo.'},
     {id:'navigation',label:'Menyns destinationer',ok:!(Array.isArray(raw.navigation)?raw.navigation:[]).some(n=>!validDestination(n?.href,p)),blocking:true,field:'editNavigation',tab:'content',help:'En menylänk saknar giltig destination eller pekar på ett borttaget block. Rätta den under Redigera meny.'},
     {id:'cta',label:'Huvudknappens destination',ok:!raw.ctaHref||validDestination(raw.ctaHref,p),blocking:true,field:'ctaHref',tab:'details',help:'Ange en fullständig webbadress eller ett befintligt #ankare för huvudknappen.'},
@@ -39,6 +54,7 @@ function assessPage(raw = {}) {
 
 export function assessProject(raw = {}) {
   const checks=assessPage(raw);
+  const formIssue=requestFormIssue(raw);if(formIssue)checks.push({id:'form',label:'Formuläret är tillgängligt online',ok:false,blocking:true,field:'showCloud',tab:'details',help:formIssue});
   for(const [pageIndex,page] of (Array.isArray(raw.pages)?raw.pages:[]).slice(0,5).entries()){
     if(!page||typeof page!=='object')continue;
     for(const check of assessPage(page)){
@@ -72,5 +88,5 @@ export function restoreProject(source) {
       restoreProject(JSON.stringify(page));
     }catch{throw new Error('En undersida i projektkopian är ogiltig eller förekommer flera gånger. Originalfilen är oförändrad.');}
   }
-  return normalizeProject({...raw,id:''});
+  return detachRequestForm({...raw,id:''});
 }

@@ -1,4 +1,5 @@
 import {socialProfileURL,extractSocialProfile} from './public/social-content.mjs';
+import {handleCloud} from './cloud-worker.mjs';
 const MAX_HTML = 2_000_000, MAX_IMAGE = 5_000_000;
 function scriptRedirect(html, source) {
   // Recognize simple redirect shells; never execute third-party JavaScript.
@@ -132,7 +133,8 @@ export function createWorker(assets) {
   return {async fetch(request,env={}) {
     const url=new URL(request.url), path=url.pathname;
     const requestFetch=env.PUBLIC_FETCH||fetch;
-    if(request.method==='GET'&&path==='/api/status')return json({browser:env.LOCAL_BROWSER?(env.LOCAL_BROWSER.ready?'local':'unavailable'):browserConfigured(env)?'configured':'unconnected',cloud:'local',contact:'links',booking:'links',payments:'links',...(env.PUBLIC_DEMO_URL?{publicBase:env.PUBLIC_DEMO_URL}:{})});
+    const cloudResponse=await handleCloud(request,env);if(cloudResponse)return cloudResponse;
+    if(request.method==='GET'&&path==='/api/status')return json({browser:env.LOCAL_BROWSER?(env.LOCAL_BROWSER.ready?'local':'unavailable'):browserConfigured(env)?'configured':'unconnected',cloud:env.DB?'workspaces':'local',contact:env.DB?'requests':'links',booking:'links',payments:'links',...(env.PUBLIC_DEMO_URL?{publicBase:env.PUBLIC_DEMO_URL}:{})});
     if(request.method==='GET'&&path==='/api/font'){
       if(inFlight>=6)return json({error:'Typsnittshämtningen är upptagen. Försök igen.'},429);
       inFlight++;try{const target=url.searchParams.get('url');if(!target||target.length>2000)throw new Error('Fontadressen är ogiltig.');const data=await readPublic(target,'font',requestFetch);return new Response(data.body,{headers:{...headers,'Content-Type':data.mime,'Cache-Control':'public, max-age=86400'}});}

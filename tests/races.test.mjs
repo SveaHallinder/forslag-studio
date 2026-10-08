@@ -16,7 +16,7 @@ function harness() {
   const pending = new Promise(resolve => { resolveRequest = resolve; });
   const context = {
     project: normalizeProject({id:'company-a', name:'Company A'}),
-    dirty: false, importBusy: false, draftKey: 'draft',
+    dirty: false, importBusy: false, draftKey: 'draft', selectionKey:'forslag-studio-selected-project',
     $: id => {
       if (!elements.has(id)) elements.set(id, {
         value: id === 'sourceUrl' ? 'https://example.com' : '',

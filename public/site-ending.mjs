@@ -12,10 +12,11 @@ export function renderSiteEnding(p,e,picture) {
   const source=websiteURL(p.source),tone=toneFor(p.templateId);
   const phone=p.phone?`tel:${p.phone.replace(/[^+\d]/g,'')}`:'';
   const contactLink=p.navigation.find(item=>/^(kontakt|kontakta oss|contact|contact us)$/i.test(item.label.trim())&&item.href!=='#kontakt'&&!item.href.startsWith('#'));
-  const direct=p.email?{href:`mailto:${p.email}`,label:'Skicka ett mejl'}:phone?{href:phone,label:'Ring oss'}:contactLink?{href:contactLink.href,label:contactLink.label}:null;
+  const direct=p.requestForm?{href:p.requestForm.url,label:p.requestForm.kind==='booking'?'Skicka bokningsförfrågan':'Skicka en förfrågan'}:p.email?{href:`mailto:${p.email}`,label:'Skicka ett mejl'}:phone?{href:phone,label:'Ring oss'}:contactLink?{href:contactLink.href,label:contactLink.label}:null;
   const mode=direct||p.address?'available':source?'website':'empty';
   const route=direct||(source?{href:source,label:'Besök webbplatsen'}:null);
   const rows=[
+    p.requestForm?`<div class="ending-detail"><span class="ending-label">Förfrågan</span><a href="${e(direct.href)}"${external(direct.href)}>${e(direct.label)}<span aria-hidden="true">↗</span></a></div>`:'',
     p.email?`<div class="ending-detail"><span class="ending-label">E-post</span><a href="mailto:${e(p.email)}">${e(p.email)}<span aria-hidden="true">↗</span></a></div>`:'',
     p.phone?`<div class="ending-detail"><span class="ending-label">Telefon</span><a href="${e(phone)}">${e(p.phone)}<span aria-hidden="true">↗</span></a></div>`:'',
     p.address?`<div class="ending-detail"><span class="ending-label">Adress</span><span class="ending-address">${e(p.address)}</span></div>`:'',

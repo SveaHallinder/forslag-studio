@@ -7,4 +7,4 @@ try {
   const doc=new DOMParser().parseFromString(renderDemo(p),'text/html');
   document.title=doc.title;document.querySelector('style').textContent=doc.querySelector('style').textContent;document.body.replaceChildren(...doc.body.childNodes);document.body.setAttribute('style',doc.body.getAttribute('style'));Object.assign(document.body.dataset,doc.body.dataset);
   installDemoNavigation(document,window);
-} catch(error){document.body.textContent=error.message+' Öppna verktyget i samma webbläsare som projektet sparades i.';}
+} catch(error){document.body.textContent=error.message+(new URL(location.href).searchParams.has('workspace')?' Logga in i verktyget med ett konto som är medlem i arbetsytan.':' Öppna verktyget i samma webbläsare som projektet sparades i.');}

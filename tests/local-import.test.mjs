@@ -51,7 +51,7 @@ test('browser import selection follows the homepage and imported subpages',async
 test('local sharing uses the public viewer and fails closed when its configuration is missing',async()=>{
   const block=source.slice(source.indexOf('export async function browserAPI(')).replace('export async','async');
   for(const base of ['https://forslag-studio.sveaha.chatgpt.site/demo.html',undefined,'http://localhost:4183/demo.html']){
-    const context={URL,location:{hostname:'localhost',href:'http://localhost:4183/'},AbortSignal,Response,reply:(value,status)=>Response.json(value,{status}),problem:(message)=>new Error(message),console:{warn(){}},fetch:async()=>Response.json({publicBase:base})};vm.createContext(context);vm.runInContext(block,context);
+    const context={initializeCloud:async()=>{},URL,location:{hostname:'localhost',href:'http://localhost:4183/'},AbortSignal,Response,reply:(value,status)=>Response.json(value,{status}),problem:(message)=>new Error(message),console:{warn(){}},fetch:async()=>Response.json({publicBase:base})};vm.createContext(context);vm.runInContext(block,context);
     const response=await context.browserAPI('/api/config');
     if(base?.startsWith('https:'))assert.equal((await response.json()).publicBase,base);
     else{assert.equal(response.status,400);assert.match((await response.json()).error,/demovisaren/);}

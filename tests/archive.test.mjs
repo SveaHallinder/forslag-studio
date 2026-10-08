@@ -10,7 +10,7 @@ function harness() {
   const pending=new Promise(resolve=>resolveRequest=resolve);
   const entries=new Map([['forslag-studio-selected-project','customer']]);
   const elements=new Map();
-  const context={project:normalizeProject({id:'customer',name:'Kund AB',templateId:'studio'}),dirty:false,archiveBusy:false,projectLoadSequence:0,draftKey:'draft',normalizeProject,
+  const context={project:normalizeProject({id:'customer',name:'Kund AB',templateId:'studio'}),dirty:false,archiveBusy:false,projectLoadSequence:0,draftKey:'draft', selectionKey:'forslag-studio-selected-project',normalizeProject,
     api:async()=>pending,refreshProjects:async()=>{},renderProjectCards(){},fillEditor(){},toast(){},
     markDirty(){context.dirty=true;entries.set('draft',JSON.stringify(context.project));},
     localStorage:{getItem:key=>entries.get(key),removeItem:key=>entries.delete(key),setItem:(key,value)=>entries.set(key,value)},

@@ -73,3 +73,13 @@ test('project backup rejects malformed subpages instead of silently losing them'
  for(const pages of [{},[null],[{name:'About',headline:'About',source:'javascript:alert(1)'}],Array.from({length:6},(_,i)=>({name:'Page',headline:'Page',source:'https://example.com/'+i}))])assert.throws(()=>restoreProject(JSON.stringify({...root,pages})),/undersid/i);
  const p=restoreProject(JSON.stringify({...root,pages:[{name:'About',headline:'About',source:'https://example.com/about',cards:[{title:'Team'}]}]}));assert.equal(p.pages[0].cards[0].title,'Team');
 });
+test('customer review rejects local forms and recognises an online form as a contact route',()=>{
+ const base={name:'Café QA',headline:'Kaffe hela dagen.',requestForm:{kind:'contact',url:'http://localhost:4183/contact.html?form='+crypto.randomUUID()}};
+ assert.ok(assessProject(base).some(c=>c.id==='form'&&c.blocking&&!c.ok));
+ const online={...base,requestForm:{...base.requestForm,url:'https://studio.example.com/contact.html?form='+crypto.randomUUID()}};
+ assert.equal(assessProject(online).some(c=>c.blocking&&!c.ok),false);assert.equal(assessProject(online).find(c=>c.id==='contact').ok,true);
+});
+test('restored project copies cannot send requests into the original project inbox',()=>{
+ const url='https://studio.example.com/contact.html?form='+crypto.randomUUID(),raw={name:'QA',headline:'Start',requestForm:{url,kind:'contact'},ctaHref:url,navigation:[{label:'Kontakt',href:url},{label:'Hem',href:'#start'}],pages:[{name:'Om',headline:'Om oss',source:'https://cafe.example.com/about',ctaHref:url}]};
+ const copy=restoreProject(JSON.stringify(raw));assert.equal(copy.requestForm,undefined);assert.equal(copy.ctaHref,'#kontakt');assert.equal(copy.pages[0].ctaHref,'#kontakt');assert.equal(copy.navigation.length,1);assert.equal(raw.requestForm.url,url);
+});

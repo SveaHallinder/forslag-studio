@@ -1,8 +1,8 @@
 # Förslag Studio online
 
-Webbversion för en säljare som ska kunna börja direkt från en länk, utan installation eller konto. Sex mallar och stöd för startsida plus upp till fem undersidor.
+Webbversion för en säljare som ska kunna börja direkt från en länk, utan installation eller konto. Femton designriktningar och stöd för startsida plus upp till fem undersidor.
 
-Projekt sparas i IndexedDB i den egna webbläsaren. Andra besökare får en egen projektlista. Ingen projektdata lagras på servern, och listan synkas inte mellan enheter. Rensad webbplatsdata, privat läge eller byte av webbläsare kan innebära att sparade projekt inte finns kvar. Ladda ner **Projektkopia** som backup och öppna den på en annan dator vid behov.
+Lokala projekt sparas i IndexedDB i den egna webbläsaren. Under **Arbetsyta & inkorg** kan du logga in med ChatGPT, skapa en privat arbetsyta och kopiera öppna förslag dit. Arbetsytans projekt sparas på servern och kan öppnas från andra enheter av dess medlemmar. Lokala original flyttas inte automatiskt. Rensad webbplatsdata kan radera lokala projekt och osparade utkast; ladda ner **Projektkopia** som backup.
 
 Servern hämtar offentlig HTML och bildfiler för import respektive export. Text, mallar och bildval granskas av säljaren innan delning. JavaScript-beroende eller blockerande företagssidor kan kräva manuell redigering. Kundlänkar använder den befintliga publika demovisaren och fungerar oberoende av säljarens webbläsare.
 
@@ -42,7 +42,28 @@ Playwright 1.63.0 och Chromium är godkända av användaren. Starta med `npm sta
 
 Ingen Cloudflare Browser Run-nyckel eller tjänsteavgift används i lokalappen. Din Mac och den lokala servern behöver vara igång när du importerar. Chromium använder nya tillfälliga sessioner utan din vanliga webbläsares inloggningar. Lokala och privata adresser, även i DNS, omdirigeringar och underresurser, blockeras. WebSockets, service workers, bilder, video och fontnedladdningar i importwebbläsaren blockeras; bild- och fontadresser bevaras i HTML och hanteras av den befintliga import-/exportkedjan. Högst två webbläsarimporter körs samtidigt, med tids- och storleksgränser. Fel lämnar utkastet kvar.
 
-Lokala kundlänkar använder https://forslag-studio.sveaha.chatgpt.site/demo.html och fungerar oberoende av om din Mac är igång. Själva länken innehåller förslaget; externa bilder och fontfiler måste fortfarande vara tillgängliga. Molnsynk, serverkontaktformulär och egna betal- eller bokningssystem har inte lagts till. Företagets externa boknings- och betallänkar kan kopplas under Kundfunktioner. Instagram och andra plattformar kan fortfarande blockera offentliga besök. Sparat HTML-underlag och manuell granskning finns kvar. Den publika Worker-miljön kan inte starta den lokala Chromium-processen.
+Lokala kundlänkar använder https://forslag-studio.sveaha.chatgpt.site/demo.html och fungerar oberoende av om din Mac är igång. Själva länken innehåller förslaget; externa bilder och fontfiler måste fortfarande vara tillgängliga. Molnsynk och serverformulär finns i onlineverktygets arbetsytor. Formulär som aktiveras på localhost gäller däremot bara testmiljön och måste stängas innan kunddelning eller HTML-export. Företagets externa boknings- och betallänkar kan kopplas under Kundfunktioner. Instagram och andra plattformar kan fortfarande blockera offentliga besök. Sparat HTML-underlag och manuell granskning finns kvar. Den publika Worker-miljön kan inte starta den lokala Chromium-processen.
+
+## Privata arbetsytor och förfrågningar
+
+**Arbetsyta & inkorg** använder den befintliga Sites-hostingen med dess inloggning och databas. Inget separat Cloudflare-konto, ny betaltjänst eller nytt körningspaket läggs till. Inloggning ger ingen åtkomst till andras arbetsytor: ägaren skapar en personlig, mejlbunden inbjudningslänk som gäller i sju dagar. Länken skickas manuellt. Medlemmar kan redigera projekt och läsa inkorgen; bara ägaren kan bjuda in och ta bort åtkomst.
+
+Projekt och utkast hålls isär per arbetsyta. En sparning använder projektets lästa version; samtidiga ändringar ger ett tydligt konfliktfel och behåller utkastet. Aktiva och arkiverade projekt har samma återställningsflöde som lokala projekt. Kopior får egna projekt-id och behöver egna formulär, så deras förfrågningar inte hamnar i originalets inkorg.
+
+Molnsparning stöder projekt upp till 1,8 MB inklusive inbäddade bilder. Större projekt ger ett tydligt fel och behåller utkastet; använd mindre uppladdade bilder eller lokal lagring och projektkopia. Gränsen lämnar marginal till databasens [maximala radstorlek på 2 MB](https://developers.cloudflare.com/d1/platform/limits/). Projektlistan visar högst 500 aktiva respektive arkiverade projekt per arbetsyta och inkorgen de senaste 100 förfrågningarna.
+
+Aktivera **Kontaktförfrågan** eller **Bokningsförfrågan** för ett sparat projekt. Huvudknappar och kontaktsektioner länkar till ett offentligt formulär. Förfrågningar sparas i arbetsytans inkorg; ingen bokning bekräftas, inga tider reserveras och inget mejl skickas automatiskt. En stängning eller arkivering stoppar nya förfrågningar. Betalning, kvitton och automatisk tillgänglighetsbokning kräver fortfarande företagets externa system och ansluts med dess länkar.
+
+Godkänd schemaändring: `drizzle/0000_studio_workspaces.sql` med arbetsytor, medlemskap, inbjudningar, projekt, formulär och förfrågningar. Bygget paketerar migrationen under `dist/.openai/drizzle`. Den lokala testmiljön använder Node 22:s inbyggda SQLite med `--experimental-sqlite` och en ignorerad databas i `.sites-runtime/`; den är separat från den publicerade databasen. Lokal testinloggning aktiveras bara i förhandsvisningsservern, som tar bort förfalskade identitetshuvuden. Produktion använder Sites betrodda inloggningsidentitet.
+
+### QA i sex steg
+
+1. Kör `npm run lint`, `npm test`, `npm run build`, `npm start`. Öppna http://localhost:4183/ och välj Arbetsyta & inkorg → Starta lokal testinloggning. På onlineverktyget används Logga in med ChatGPT i stället.
+2. Skapa en arbetsyta. Välj den i listan och kopiera ett öppet lokalt förslag. Originalet ska finnas kvar när du byter tillbaka till Den här webbläsaren.
+3. Spara en ändring, ladda om och öppna samma arbetsyta i en andra flik. Projektet ska finnas där. Motstridiga sparningar ska ge konfliktfel utan att skriva över en nyare version.
+4. Ägaren kan skapa en personlig inbjudningslänk. Den avsedda kollegan loggar in med samma mejladress och accepterar länken; andra konton ska nekas. Gör detta endast med en kollega du vill ge åtkomst. Ägaren kan ta bort åtkomsten igen.
+5. Aktivera ett formulär, öppna det och skicka en märkt QA-förfrågan. Uppdatera inkorgen och markera den som läst. Bokningsformuläret ska tydligt säga att en förfrågan inte är en bekräftad bokning.
+6. Stäng formuläret och kontrollera att länken visar ett stängt tillstånd. Arkivera och återställ projektet. Lokala testformulär ska blockera kunddelning och HTML-export; använd onlineverktygets formulär för kunder. Kör även `npm run test:browser` för Chromium-importens kontroller.
 
 ### QA i sex steg
 

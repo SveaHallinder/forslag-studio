@@ -55,6 +55,7 @@ function normalizeFlatProject(raw = {},includeOriginal=true) {
     email: /^[^\s@"<>]+@[^\s@"<>]+\.[^\s@"<>]+$/.test(raw.email ?? '') ? text(raw.email, 160) : '',
     phone: /^[+\d\s()-]{5,35}$/.test(raw.phone ?? '') ? raw.phone : '',
     address: text(raw.address, 200),
+    ...(raw.requestForm&&['contact','booking'].includes(raw.requestForm.kind)&&/^https?:\/\/[^\s]+\/contact\.html\?form=[a-z0-9-]{36}$/.test(raw.requestForm.url||'')&&linkURL(raw.requestForm.url)?{requestForm:{url:linkURL(raw.requestForm.url),kind:raw.requestForm.kind}}:{}),
     sectionTitle: text(raw.sectionTitle, 140) || 'Upptäck vad vi erbjuder',
     sectionIntro: text(raw.sectionIntro, 600),
     aboutTitle: text(raw.aboutTitle, 180), about: text(raw.about, 1500),
@@ -221,7 +222,7 @@ export function installDemoNavigation(doc=document,win=window,resolveRoute=resol
 export function renderDemo(raw,options = {}) {
   const root=normalizeProject(raw);
   if(!root.pages?.length)return renderSingleDemo(root,options);
-  const pages=[root,...root.pages],initial=Math.max(0,pages.findIndex(page=>page.source===options.pageSource)),documents=pages.map((page,index)=>renderSingleDemo({...page,name:root.name,logo:root.logo,accent:root.accent,typography:root.typography,branding:root.branding,templateId:root.templateId,navigation:root.navigation},{...options,autoDiningCTA:index===0}));
+  const pages=[root,...root.pages],initial=Math.max(0,pages.findIndex(page=>page.source===options.pageSource)),documents=pages.map((page,index)=>renderSingleDemo({...page,name:root.name,logo:root.logo,accent:root.accent,typography:root.typography,branding:root.branding,templateId:root.templateId,navigation:root.navigation,requestForm:root.requestForm},{...options,autoDiningCTA:index===0}));
   const bodies=documents.map(html=>html.match(/<body[^>]*>([\s\S]*)<\/body>/)[1]);
   const rootHref=escapeHTML(root.source||'#start');
   const contents=bodies.map(body=>body.replace('<a class="brand" href="#"','<a class="brand" href="'+rootHref+'"'));

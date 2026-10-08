@@ -7,12 +7,14 @@ import { browserAPI, trimLogo } from './browser-api.mjs';
 import { normalizeProject, normalizeGallery, renderDemo, installDemoNavigation, escapeHTML as e } from './render.mjs';
 import { encodeProject } from './share.mjs';
 import { templates, getTemplate } from './templates.mjs';
-import { assessProject, searchProjects, restoreProject, prepareNavigation } from './project-tools.mjs';
+import { assessProject, searchProjects, restoreProject, prepareNavigation, requestFormIssue, detachRequestForm } from './project-tools.mjs';
 import { createStudioImageOptions } from './studio-images.mjs';
 import {importQualityIssues} from './import-quality.mjs';
 import {createImportStudio} from './import-studio.mjs';
 import {createConnectionsStudio} from './connections-studio.mjs';
 import {createCustomerFunctions} from './customer-functions.mjs';
+import {cloudContext,selectCloudWorkspace,cloudRequest,refreshCloudSession,cloudDraftRevision,restoreCloudDraft} from './cloud-api.mjs';
+import {createCloudStudio} from './cloud-studio.mjs';
 
 const $ = id => document.getElementById(id);
 const imageChoices = createStudioImageOptions(e);
@@ -22,7 +24,7 @@ let pendingImportQualityAction;
 const workbench=createDesignWorkbench({getProject:()=>project,getPage:()=>currentContent(),changed:()=>{markDirty();fillEditor();},navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}},editNavigation:()=>$('editNavigation').click(),notify:toast});
 function currentContent() { return project.pages?.[activePage] || project; }
 function fieldOwner(field) { return ['name','accent'].includes(field) ? project : currentContent(); }
-const draftKey = 'forslag-studio-draft-v1';
+let draftKey = 'forslag-studio-draft-v1',selectionKey='forslag-studio-selected-project';
 let projectIndex = [], archiveIndex = [], projectLoadSequence = 0, libraryLoadSequence = 0, libraryView = 'active', archiveBusy = false, archiveTarget = '';
 const customerFunctions=createCustomerFunctions({getProject:()=>project,onApply:next=>{Object.assign(project,next);markDirty();fillEditor();toast('Kundfunktionerna är uppdaterade. Spara utkastet och kontrollera länkarna före kunddelning.');}});
 const socialStudio=createSocialStudio({getProject:()=>project,readImage,notify:toast,onCreate:async(next,previous,snapshot)=>{
@@ -43,6 +45,33 @@ const importStudio=createImportStudio({getProject:()=>project,getSource:()=>$('s
   ++projectLoadSequence;project=next;workbench.captureOriginal(project);dirty=true;fillEditor();markDirty();showEditor();refreshProjects().catch(()=>{});
 }});
 const connectionsStudio=createConnectionsStudio({getProject:()=>project,editFunctions:()=>customerFunctions.open(),navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}}});
+const cloudStudio=createCloudStudio({getProject:()=>project,save,notify:toast,onForm:form=>{
+  const old=project.requestForm;if(form){project.requestForm=form;project.ctaHref=form.url;project.cta=form.kind==='booking'?'Skicka bokningsförfrågan':'Kontakta oss';}
+  else{delete project.requestForm;if(project.ctaHref===old?.url){project.ctaHref=project.email?'mailto:'+project.email:project.phone?'tel:'+project.phone.replace(/[^+\d]/g,''):'#kontakt';project.cta='Kontakta oss';}}
+  for(const page of project.pages||[]){if(form||page.ctaHref===old?.url){page.cta=project.cta;page.ctaHref=project.ctaHref;}delete page.requestForm;}
+  if(!form&&old)project.navigation=project.navigation.map(item=>item.href===old.url?{...item,href:project.ctaHref}:item);
+  markDirty();fillEditor();
+},onSelect:async(workspace,copy)=>{
+  if(!copy&&workspace===cloudContext().workspace)return;
+  if(importBusy||$('saveButton').disabled||archiveBusy)throw new Error('Vänta tills import, sparning eller arkivering är klar innan du byter arbetsyta.');
+  const previous=project,previousWorkspace=cloudContext().workspace,previousDirty=dirty;
+  const next=copy?detachRequestForm({...project,id:''}):null;
+  ++projectLoadSequence;++libraryLoadSequence;
+  if(dirty)localStorage.setItem(draftKey,serializeDraft());
+  selectCloudWorkspace(workspace);updateStorageUI();
+  try{
+    dirty=false;project=next||await loadInitialProject();dirty=copy||dirty;fillEditor();if(copy){markDirty();await save(false);}await refreshProjects();showEditor();
+  }catch(error){selectCloudWorkspace(previousWorkspace);updateStorageUI();project=previous;dirty=previousDirty;fillEditor();await refreshProjects().catch(()=>{});throw error;}
+}});
+$('showCloud').addEventListener('click',()=>cloudStudio.open());
+function updateStorageUI(){
+  const c=cloudContext(),workspace=c.workspaces.find(w=>w.id===c.workspace),scope=c.workspace?'-'+c.workspace:'';
+  draftKey='forslag-studio-draft-v1'+scope;selectionKey='forslag-studio-selected-project'+scope;
+  $('storageLabel').textContent=workspace?'Arbetsyta: '+workspace.name:'Sparas i din webbläsare';
+  $('storageNote').textContent=workspace?'Sparas i '+workspace.name+' · Gemensamt för medlemmar':'Projekt sparas i din webbläsare · Ta en projektkopia som backup';
+  $('libraryStorageNote').textContent=workspace?'Projekten sparas i '+workspace.name+' och kan öppnas av arbetsytans medlemmar. Osparade utkast finns bara i den här webbläsaren. Ladda ner Projektkopia som backup.':'Dina projekt sparas bara i den här webbläsaren och delas inte med andra säljare. Ladda ner Projektkopia som backup. Rensad webbplatsdata eller privat läge kan ta bort projekten.';
+  $('archiveDialog').querySelector('.dialog-intro').textContent='Förslaget flyttas från Aktiva till Arkiverade. Du kan återställa det när som helst. Dina delade kundlänkar fortsätter fungera.'+(workspace?' Formuläret tar inte emot nya förfrågningar medan projektet är arkiverat.':'');
+}
 $('editCustomerFunctions').addEventListener('click',()=>customerFunctions.open());
 $('importFiles').addEventListener('click',()=>{if(project)importStudio.open();});
 $('showConnections').addEventListener('click',()=>{if(project)connectionsStudio.open();});
@@ -50,8 +79,8 @@ $('browserImport').addEventListener('click',()=>importCompany({renderFirst:true}
 
 async function loadInitialProject() {
   let draft, selected;
-  try { selected = localStorage.getItem('forslag-studio-selected-project'); draft = JSON.parse(localStorage.getItem(draftKey)); } catch {}
-  if(draft && typeof draft === 'object' && !Array.isArray(draft)) { dirty = true; return normalizeProject(draft); }
+  try { selected = localStorage.getItem(selectionKey); draft = JSON.parse(localStorage.getItem(draftKey)); } catch {}
+  if(draft && typeof draft === 'object' && !Array.isArray(draft)) { if(draft._baseRevision!==undefined)restoreCloudDraft(draft.id,draft._baseRevision);dirty = true; return normalizeProject(draft); }
   const id = /^[a-z0-9-]{1,70}$/.test(selected ?? '') ? selected : 'vegavista';
   try { return normalizeProject(await(await api('/api/projects/' + id)).json()); }
   catch(error) {
@@ -77,9 +106,10 @@ async function api(path, body, timeout = 90000) {
   }
   return response;
 }
+function serializeDraft(){return JSON.stringify({...project,...(cloudContext().workspace?{_baseRevision:cloudDraftRevision(project.id)}:{})});}
 function markDirty() {
   dirty = true; $('savedState').textContent = 'OSPARAT';
-  try { localStorage.setItem(draftKey, JSON.stringify(project)); } catch { $('savedState').textContent = 'SPARA MANUELLT'; }
+  try { localStorage.setItem(draftKey, serializeDraft()); } catch { $('savedState').textContent = 'SPARA MANUELLT'; }
   renderImportQuality();
 }
 let pendingDraftConfirmation;
@@ -380,7 +410,7 @@ function renderProjectCards() {
   const found = searchProjects(list, $('projectSearch').value);
   $('activeProjects').setAttribute('aria-pressed',String(!archived));
   $('archivedProjects').setAttribute('aria-pressed',String(archived));
-  $('libraryHelp').textContent = archived ? 'Arkiverade förslag finns kvar i den här webbläsaren. Återställ ett förslag för att redigera det igen. Delade kundlänkar påverkas inte.' : 'Dina aktiva kundförslag, senast ändrade först.';
+  $('libraryHelp').textContent = archived ? 'Arkiverade förslag finns kvar '+(cloudContext().workspace?'i arbetsytan':'i den här webbläsaren')+'. Återställ ett förslag för att redigera det igen. Delade kundlänkar påverkas inte.' : 'Dina aktiva kundförslag, senast ändrade först.';
   $('projectCards').innerHTML = found.map(p => {
     const date = new Date(p.updatedAt);
     const edited = Number.isNaN(date.getTime()) ? 'Sparat i den här webbläsaren' : 'Ändrat ' + date.toLocaleDateString('sv-SE');
@@ -406,7 +436,7 @@ async function changeArchive(id, restore = false) {
       }
       fillEditor();
     }
-    if(!restore)try{if(localStorage.getItem('forslag-studio-selected-project')===id)localStorage.removeItem('forslag-studio-selected-project');}catch{}
+    if(!restore)try{if(localStorage.getItem(selectionKey)===id)localStorage.removeItem(selectionKey);}catch{}
     $('archiveDialog').close();
     $('dashboardResume').textContent=dirty?'Fortsätt med utkastet':'Fortsätt redigera';
     toast(restore?'Förslaget är återställt under Aktiva.':keptDraft?'Den sparade versionen är arkiverad. Dina senaste ändringar finns kvar som en osparad kopia.':'Förslaget är arkiverat. Du kan återställa det under Arkiverade.');
@@ -430,10 +460,10 @@ async function openSavedProject(id, duplicate = false) {
   try {
     const loaded = normalizeProject(await(await api('/api/projects/' + encodeURIComponent(id))).json());
     if(sequence !== projectLoadSequence || previous !== project || snapshot !== JSON.stringify(project))return toast('Projektbytet avbröts eftersom du ändrade förslaget. Dina ändringar finns kvar.');
-    project = duplicate ? normalizeProject({...loaded,id:'',name:loaded.name.slice(0,90)+' – kopia'}) : loaded;
+    project = duplicate ? detachRequestForm({...loaded,id:'',name:loaded.name.slice(0,90)+' – kopia'}) : loaded;
     dirty = duplicate;
     if(duplicate)markDirty();
-    else { try { localStorage.removeItem(draftKey); localStorage.setItem('forslag-studio-selected-project',project.id); } catch {} }
+    else { try { localStorage.removeItem(draftKey); localStorage.setItem(selectionKey,project.id); } catch {} }
     fillEditor(); showEditor(); await refreshProjects();
     toast(duplicate ? 'Kopian är öppnad. Spara den som ett nytt förslag.' : 'Förslaget är öppnat.');
   } catch(error) { toast(error.message); }
@@ -452,6 +482,7 @@ $('reviewChecks').addEventListener('click',event=>{
   $('reviewDialog').close();showEditor();activePage=Number(button.dataset.reviewPage??-1);fillEditor();
   document.querySelector(`[data-tab="${button.dataset.reviewTab}"]`).click();
   const field=$(button.dataset.reviewField);
+  if(button.dataset.reviewField==='showCloud'){cloudStudio.open();return;}
   (field.hidden ? field.previousElementSibling : field).scrollIntoView({behavior:'smooth',block:'center'});
   if(!field.hidden)field.focus({preventScroll:true});
 });
@@ -495,17 +526,18 @@ async function save(notify = true) {
     const result = await (await api('/api/save', savedProject)).json();
     const unchanged = project === savedProject && JSON.stringify(savedProject) === snapshot;
     savedProject.id = result.id;
-    if(project === savedProject)try { localStorage.setItem('forslag-studio-selected-project', result.id); } catch {}
+    if(project === savedProject)try { localStorage.setItem(selectionKey, result.id); } catch {}
     if (unchanged) {
       dirty = false; $('savedState').textContent = 'SPARAT';
       localStorage.removeItem(draftKey);
     }
     await refreshProjects();
-    if (notify) toast('Utkastet är sparat i den här webbläsaren.');
+    if (notify) toast(cloudContext().workspace?'Utkastet är sparat i arbetsytan.':'Utkastet är sparat i den här webbläsaren.');
     return result;
   } finally { $('saveButton').disabled = false; }
 }
 async function downloadDemo(allowIncomplete=false) {
+  const formIssue=requestFormIssue(project);if(formIssue)return toast(formIssue);
   if(allowIncomplete!==true&&requestImportQualityReview(()=>downloadDemo(true),'download'))return;
   const incomplete=importQualityIssues(project).length>0;
   const button = $('downloadButton');
@@ -670,10 +702,16 @@ new ResizeObserver(fitPreview).observe($('previewStage'));
 
 if(location.protocol !== 'file:')try {
   config = await (await api('/api/config')).json();
+  updateStorageUI();
   project = await loadInitialProject();
   fillEditor();await refreshProjects();fitPreview();
   $('sourceUrl').disabled=false;$('importButton').disabled=false;
   if(dirty)toast('Ditt senaste osparade utkast har återställts.');
+  const invite=new URL(location.href).searchParams.get('invite');
+  if(invite){
+    if(!cloudContext().user){toast('Logga in med den inbjudna mejladressen för att gå med i arbetsytan.');cloudStudio.open();}
+    else if(confirm('Gå med i arbetsytan som den här personliga inbjudan gäller? Du får tillgång till dess projekt och inkorg.')){try{const joined=await cloudRequest('/join',{token:invite});await refreshCloudSession();selectCloudWorkspace(joined.workspace);location.href='/?workspace-open=1';}catch(error){toast(error.message);cloudStudio.open();}}
+  }else if(new URL(location.href).searchParams.has('workspace-open'))cloudStudio.open();
 } catch(error) {
   $('importStatus').textContent=error.message + ' Ladda om sidan eller prova en vanlig webbläsarflik.';
   $('importStatus').className='import-status error';

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {importQualityIssues} from '../public/import-quality.mjs';
+import {requestFormIssue} from '../public/project-tools.mjs';
 
 const broken={name:'Café Rosteriet',source:'https://www.cafe-rosteriet.se/',importedAt:'2026-09-29T12:00:00Z',description:'Meny och öppettider. '.repeat(300).trim(),cards:[],logo:''};
 
@@ -30,7 +31,7 @@ test('absent or invalid project data is safe to inspect',()=>{
 const studioSource=readFileSync(new URL('../public/studio.mjs',import.meta.url),'utf8');
 function exportHarness(project=broken){
  const elements=new Map(),downloads=[],notices=[];let requests=0;
- const context={project:structuredClone(project),pendingImportQualityAction:null,importQualityIssues,importBusy:false,
+ const context={project:structuredClone(project),pendingImportQualityAction:null,importQualityIssues,requestFormIssue,importBusy:false,
   $:id=>{if(!elements.has(id))elements.set(id,{open:false,listeners:{},addEventListener(type,callback){this.listeners[type]=callback;},showModal(){this.open=true;},close(){this.open=false;this.listeners.close?.();}});return elements.get(id);},
   toast:text=>notices.push(text),api:async()=>{requests++;return {blob:async()=>new Blob(['demo'])};},
   document:{createElement:()=>({click(){downloads.push(this.download);}})},URL:{createObjectURL:()=>'',revokeObjectURL(){}},setTimeout(){}};
@@ -61,4 +62,8 @@ test('closing the quality dialog cancels the pending action without changing the
  const h=exportHarness(),before=JSON.stringify(h.context.project);await h.context.downloadDemo();
  h.context.$('importQualityDialog').close();
  assert.equal(h.context.pendingImportQualityAction,null);assert.equal(h.requests(),0);assert.equal(JSON.stringify(h.context.project),before);
+});
+test('a local request form cannot be exported as a customer-ready website',async()=>{
+ const h=exportHarness({...broken,importedAt:'',requestForm:{url:'http://127.0.0.1:4183/contact.html?form=fixture',kind:'contact'}});
+ await h.context.downloadDemo(true);assert.equal(h.requests(),0);assert.equal(h.downloads.length,0);assert.match(h.notices[0],/lokal testmiljö/);
 });

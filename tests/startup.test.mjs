@@ -6,7 +6,7 @@ import { normalizeProject } from '../public/render.mjs';
 const source = readFileSync(new URL('../public/studio.mjs', import.meta.url), 'utf8');
 function startup(entries, missing = false) {
   const calls = [];
-  const context = {normalizeProject, dirty:false, draftKey:'draft', localStorage:{getItem:key=>entries[key]??null}, toast(){}, api:async path=>{
+  const context = {normalizeProject, restoreCloudDraft(id,revision){calls.push({id,revision});}, dirty:false, draftKey:'draft', selectionKey:'forslag-studio-selected-project', localStorage:{getItem:key=>entries[key]??null}, toast(){}, api:async path=>{
     calls.push(path);
     if(path==='/api/projects')return {json:async()=>missing==='all'?[]:[{id:'vegavista',name:'Company'}]};
     if(missing && (path.endsWith('/customer-b') || missing==='all'))throw Object.assign(new Error('Missing project'),{status:404});
@@ -51,4 +51,8 @@ test('connection failures are not silently replaced with an empty proposal',asyn
   const h=startup({});
   h.context.api=async()=>{throw new Error('Connection unavailable');};
   await assert.rejects(()=>h.context.loadInitialProject(),/Connection unavailable/);
+});
+test('reloading an unsaved cloud draft keeps its original saved revision',async()=>{
+  const h=startup({draft:JSON.stringify({id:'customer',name:'Unsaved customer',_baseRevision:1})});
+  assert.equal((await h.context.loadInitialProject()).name,'Unsaved customer');assert.deepEqual(h.calls,[{id:'customer',revision:1}]);
 });
