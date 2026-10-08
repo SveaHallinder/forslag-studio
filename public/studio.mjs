@@ -12,6 +12,7 @@ import { createStudioImageOptions } from './studio-images.mjs';
 import {importQualityIssues} from './import-quality.mjs';
 import {createImportStudio} from './import-studio.mjs';
 import {createConnectionsStudio} from './connections-studio.mjs';
+import {createCustomerFunctions} from './customer-functions.mjs';
 
 const $ = id => document.getElementById(id);
 const imageChoices = createStudioImageOptions(e);
@@ -23,6 +24,7 @@ function currentContent() { return project.pages?.[activePage] || project; }
 function fieldOwner(field) { return ['name','accent'].includes(field) ? project : currentContent(); }
 const draftKey = 'forslag-studio-draft-v1';
 let projectIndex = [], archiveIndex = [], projectLoadSequence = 0, libraryLoadSequence = 0, libraryView = 'active', archiveBusy = false, archiveTarget = '';
+const customerFunctions=createCustomerFunctions({getProject:()=>project,onApply:next=>{Object.assign(project,next);markDirty();fillEditor();toast('Kundfunktionerna är uppdaterade. Spara utkastet och kontrollera länkarna före kunddelning.');}});
 const socialStudio=createSocialStudio({getProject:()=>project,readImage,notify:toast,onCreate:async(next,previous,snapshot)=>{
   if(project!==previous||JSON.stringify(project)!==snapshot)throw new Error('Det öppna förslaget har ändrats. Stäng och öppna social-flödet igen; dina ändringar finns kvar.');
   if(importBusy)throw new Error('En webbplatsimport pågår. Vänta tills den är klar innan du skapar ett nytt förslag.');
@@ -40,7 +42,8 @@ const importStudio=createImportStudio({getProject:()=>project,getSource:()=>$('s
   if(dirty){await save(false);if(!isCurrent())throw new Error('Importen stängdes. Ditt öppna förslag är sparat.');if(project!==previous||dirty)throw new Error('Förslaget ändrades under sparningen. Dina senaste ändringar finns kvar. Öppna importen igen.');}
   ++projectLoadSequence;project=next;workbench.captureOriginal(project);dirty=true;fillEditor();markDirty();showEditor();refreshProjects().catch(()=>{});
 }});
-const connectionsStudio=createConnectionsStudio({getProject:()=>project,navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}}});
+const connectionsStudio=createConnectionsStudio({getProject:()=>project,editFunctions:()=>customerFunctions.open(),navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}}});
+$('editCustomerFunctions').addEventListener('click',()=>customerFunctions.open());
 $('importFiles').addEventListener('click',()=>{if(project)importStudio.open();});
 $('showConnections').addEventListener('click',()=>{if(project)connectionsStudio.open();});
 $('browserImport').addEventListener('click',()=>importCompany({renderFirst:true}));

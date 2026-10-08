@@ -42,7 +42,7 @@ Playwright 1.63.0 och Chromium är godkända av användaren. Starta med `npm sta
 
 Ingen Cloudflare Browser Run-nyckel eller tjänsteavgift används i lokalappen. Din Mac och den lokala servern behöver vara igång när du importerar. Chromium använder nya tillfälliga sessioner utan din vanliga webbläsares inloggningar. Lokala och privata adresser, även i DNS, omdirigeringar och underresurser, blockeras. WebSockets, service workers, bilder, video och fontnedladdningar i importwebbläsaren blockeras; bild- och fontadresser bevaras i HTML och hanteras av den befintliga import-/exportkedjan. Högst två webbläsarimporter körs samtidigt, med tids- och storleksgränser. Fel lämnar utkastet kvar.
 
-Lokala kundlänkar använder https://forslag-studio.sveaha.chatgpt.site/demo.html och fungerar oberoende av om din Mac är igång. Själva länken innehåller förslaget; externa bilder och fontfiler måste fortfarande vara tillgängliga. Molnsynk, serverkontaktformulär, betalning och bokningssystem har inte lagts till. Instagram och andra plattformar kan fortfarande blockera offentliga besök. Sparat HTML-underlag och manuell granskning finns kvar. Den publika Worker-miljön kan inte starta den lokala Chromium-processen.
+Lokala kundlänkar använder https://forslag-studio.sveaha.chatgpt.site/demo.html och fungerar oberoende av om din Mac är igång. Själva länken innehåller förslaget; externa bilder och fontfiler måste fortfarande vara tillgängliga. Molnsynk, serverkontaktformulär och egna betal- eller bokningssystem har inte lagts till. Företagets externa boknings- och betallänkar kan kopplas under Kundfunktioner. Instagram och andra plattformar kan fortfarande blockera offentliga besök. Sparat HTML-underlag och manuell granskning finns kvar. Den publika Worker-miljön kan inte starta den lokala Chromium-processen.
 
 ### QA i sex steg
 
@@ -52,6 +52,20 @@ Lokala kundlänkar använder https://forslag-studio.sveaha.chatgpt.site/demo.htm
 4. Prova `http://127.0.0.1/`. Ett tydligt fel ska visas och ditt tidigare utkast ska finnas kvar. Kontrollera att Hämta innehåll blir aktiv igen.
 5. Spara utkastet, ladda om och välj Granska & dela. Skapa demolänken: den ska börja med den publika `https://forslag-studio.sveaha.chatgpt.site/demo.html#`, inte localhost. Öppna den och jämför innehållet.
 6. Kör `npm run lint`, `npm test`, `npm run test:browser`, `npm run build`. Browser-testet kör verklig Chromium mot kontrollerat JavaScript-underlag och kontrollerar även timeout och sessionsisolering.
+
+## Kundfunktioner: kontakt, bokning och betalning
+
+Under **Kontakt & detaljer → Kundfunktioner** kan säljaren lägga in företagets mejladress samt separata offentliga HTTPS-länkar till bokning och betalning eller beställning. Välj vilken funktion huvudknappen ska visa, eller behåll den nuvarande. Boknings- och betallänkar läggs till i menyn och följer med till sparat utkast, projektkopia, kundlänk och HTML-export. En ny vald huvudknapp används även på undersidor; befintliga kopplade knappar uppdateras när länken ändras.
+
+Detta använder befintliga projektfält och kräver inget nytt paket eller ändrat sparformat. Avbryt lämnar förslaget kvar. Ogiltiga adresser, flera möjliga boknings-/betallänkar och en full meny ger tydliga fel. En länk som används av en huvudknapp kan inte tas bort utan att ett nytt nästa steg väljs. **Kontakt öppnar besökarens mejlprogram.** Bokningar, lediga tider, betalningar och kvitton hanteras av företagets externa system, inte av Förslag Studio. Kontrollera mottagare, erbjudande och bokningsdestination innan kunddelning.
+
+### QA i fem steg
+
+1. Kör `npm run build` och `npm start`. Öppna http://localhost:4183/ och duplicera ett förslag för testet.
+2. Öppna Kontakt & detaljer → Kundfunktioner. Ange företagets mejl, bokningslänk och betallänk; välj bokning som huvudknapp. Använd kundfunktioner och spara utkastet.
+3. Ladda om. Öppna samma utkast och Kundfunktioner: alla tre uppgifter ska finnas kvar. Ändra en uppgift och välj Avbryt; den sparade versionen ska behållas.
+4. Prova en lokal adress, exempelvis `https://127.0.0.1/`, och en borttagen bokningslänk med Behåll nuvarande huvudknapp. Båda ska ge fel utan att ersätta utkastet.
+5. Granska Desktop/Mobil och undersidor. Skapa kundlänk och HTML-export: menyn ska ha båda funktionslänkarna och huvudknappen rätt destination. Öppna destinationerna för granskning utan att slutföra ett köp eller en bokning.
 
 ## Onlinealternativet Cloudflare Browser Run — anslutning återstår
 

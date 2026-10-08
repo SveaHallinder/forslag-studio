@@ -2,10 +2,11 @@
 export function renderHeader(project,imported,escape,picture) {
   const p=project,e=escape;
   const items=p.navigation.length?p.navigation:imported?[]:[...(p.cards.length?[{label:'Utforska',href:'#erbjudande'}]:[]),...(p.about?[{label:'Om oss',href:'#om'}]:[]),{label:p.cta,href:'#kontakt'}];
-  const action=items.findIndex(item=>/^(kontakt|kontakta oss|contact|contact us|boka|boka bord|boka tid|book|book now)$/i.test(item.label.trim()));
+  const selectedAction=p.ctaHref?items.findIndex(item=>item.href===p.ctaHref):-1;
+  const action=selectedAction>=0?selectedAction:items.findIndex(item=>/^(kontakt|kontakta oss|contact|contact us|boka|boka bord|boka tid|book|book now)$/i.test(item.label.trim()));
   let remaining=42,visible=0;
   const links=items.map((item,i)=>{
-    const priority=visible<3&&item.label.length<=Math.min(30,remaining);if(priority){remaining-=item.label.length;visible++;}
+    const priority=i===selectedAction||visible<(selectedAction>=0?2:3)&&item.label.length<=Math.min(30,remaining);if(priority&&i!==selectedAction){remaining-=item.label.length;visible++;}
     return `<a${i===action?' class="nav-action"':''} href="${e(item.href)}"${priority?' data-nav-priority="true"':''} ${/^https?:/.test(item.href)?'target="_blank" rel="noopener noreferrer" title="Öppnar företagets original"':''}>${e(item.label)}${i===action?'<span aria-hidden="true">↗</span>':''}</a>`;
   }).join('');
   const menuLinks=items.map((item,i)=>`<a href="${e(item.href)}" ${/^https?:/.test(item.href)?'target="_blank" rel="noopener noreferrer" title="Öppnar företagets original"':''}><span class="menu-index" aria-hidden="true">${String(i+1).padStart(2,'0')}</span><span class="menu-label">${e(item.label)}</span><span class="menu-arrow" aria-hidden="true">↗</span></a>`).join('');
