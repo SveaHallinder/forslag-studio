@@ -1,7 +1,8 @@
 import {createSocialStudio} from './social-studio.mjs';
 import {socialProfileURL} from './social-content.mjs';
 import {sectionKinds,detectSectionKind} from './section-design.mjs';
-import {createDesignWorkbench,renderTemplateThumbnail} from './design-workbench.mjs';
+import {createDesignWorkbench} from './design-workbench.mjs';
+import {createTemplatePicker} from './template-picker.mjs';
 import {brandRoles,brandPalette,selectBrandLogo} from './branding.mjs';
 import { browserAPI, trimLogo, probeLaunchImage, probeLaunchForm } from './browser-api.mjs';
 import { normalizeProject, normalizeGallery, renderDemo, installDemoNavigation, escapeHTML as e } from './render.mjs';
@@ -24,7 +25,7 @@ let project, config = {}, dirty = false, device = 'desktop', toastTimer, preview
 let activePage = -1, editingSite, previewSource;
 let pendingImportQualityAction;
 let launchReport,launchSequence=0,launchController;
-const workbench=createDesignWorkbench({getProject:()=>project,getPage:()=>currentContent(),changed:()=>{markDirty();fillEditor();},navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}},editNavigation:()=>$('editNavigation').click(),notify:toast});
+const workbench=createDesignWorkbench({getProject:()=>project,getPage:()=>currentContent(),changed:()=>{markDirty();fillEditor();},previewTemplate:id=>templatePicker.open(id),navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}},editNavigation:()=>$('editNavigation').click(),notify:toast});
 function currentContent() { return project.pages?.[activePage] || project; }
 function fieldOwner(field) { return ['name','accent'].includes(field) ? project : currentContent(); }
 let draftKey = 'forslag-studio-draft-v1',selectionKey='forslag-studio-selected-project';
@@ -190,6 +191,7 @@ function updatePreview() {
         frame.contentWindow.scrollTo(0, top);
         installDemoNavigation(frame.contentDocument,frame.contentWindow);
         const previewDocument=frame.contentDocument;workbench.attach(previewDocument);
+        previewDocument.addEventListener('keydown',exitFocusedPreview);
         previewDocument.fonts.ready.then(()=>{
           if(frame.contentDocument!==previewDocument)return;
           if([...previewDocument.fonts].some(face=>face.status==='error'))$('typographyStatus').textContent='Minst en originalfont kunde inte laddas. Förhandsvisningen använder en reservfont. Välj ett annat typsnitt eller försök igen före delning.';
@@ -340,29 +342,16 @@ function updateTemplateLabel() {
   $('previewTemplate').textContent = template.name;
   $('templateDescription').textContent = template.description;
 }
-function fitTemplatePreviews() {
-  document.querySelectorAll('.template-sample').forEach(sample=>{
-    sample.querySelector('iframe').style.transform = `scale(${sample.clientWidth/1100})`;
-  });
-}
-function showTemplates() {
-  $('templateGallery').innerHTML = templates.map(template=>`<article class="template-option ${project.templateId===template.id?'is-selected':''}"><div class="template-sample" aria-hidden="true"><iframe title="${e(template.name)} miniatyr" tabindex="-1" inert sandbox srcdoc="${e(renderTemplateThumbnail(project,currentContent(),template.id))}"></iframe></div><div class="template-option-copy"><p class="overline">${e(template.reference)}</p><h3>${e(template.name)}</h3><p>${e(template.description)}</p><button class="button ${project.templateId===template.id?'primary':'secondary'}" data-template="${template.id}" aria-pressed="${project.templateId===template.id}">${project.templateId===template.id?'Vald mall':'Använd '+e(template.name)}</button></div></article>`).join('');
-  $('templateDialog').showModal();
-  fitTemplatePreviews();
-}
-$('chooseTemplate').addEventListener('click',showTemplates);
-$('templateGallery').addEventListener('click',event=>{
-  const button = event.target.closest('[data-template]');
-  if(!button)return;
-  if(project.templateId!==button.dataset.template){
-    project.templateId = getTemplate(button.dataset.template).id;
+const templatePicker=createTemplatePicker({getProject:()=>project,getPage:()=>currentContent(),onApply:templateId=>{
+  if(project.templateId!==templateId){
+    project.templateId=templateId;
     markDirty(); updateTemplateLabel(); updatePreview();
     toast(getTemplate(project.templateId).name + ' är vald. Ditt innehåll finns kvar.');
   }
-  $('templateDialog').close();
-});
-new ResizeObserver(fitTemplatePreviews).observe($('templateGallery'));
+}});
+$('chooseTemplate').addEventListener('click',()=>templatePicker.open());
 function fillEditor(keepPreview = false) {
+  $('chooseTemplate').disabled=false;$('designDirections').disabled=false;
   if(editingSite!==project){activePage=-1;editingSite=project;}
   if(activePage>=(project.pages?.length||0))activePage=-1;
   let socialSource=false;try{socialProfileURL(project.source);socialSource=true;}catch{}
@@ -667,6 +656,19 @@ for(const id of ['imageUpload','logoUpload']) $(id).addEventListener('change',as
 });
 $('desktopButton').addEventListener('click',()=>{device='desktop';$('desktopButton').classList.add('selected');$('mobileButton').classList.remove('selected');$('desktopButton').setAttribute('aria-pressed','true');$('mobileButton').setAttribute('aria-pressed','false');fitPreview();});
 $('mobileButton').addEventListener('click',()=>{device='mobile';$('mobileButton').classList.add('selected');$('desktopButton').classList.remove('selected');$('mobileButton').setAttribute('aria-pressed','true');$('desktopButton').setAttribute('aria-pressed','false');fitPreview();});
+function focusPreview(focused) {
+  document.querySelector('.workspace').classList.toggle('preview-focus',focused);
+  $('focusPreview').setAttribute('aria-pressed',String(focused));
+  $('focusPreview').textContent=focused?'Tillbaka till redigering':'Utöka vyn';
+  $('previewStage').scrollIntoView({block:'nearest'});fitPreview();
+}
+$('focusPreview').addEventListener('click',()=>focusPreview($('focusPreview').getAttribute('aria-pressed')!=='true'));
+function exitFocusedPreview(event) {
+  if(event.key==='Escape'&&!document.querySelector('dialog[open]')&&$('focusPreview').getAttribute('aria-pressed')==='true'){
+    focusPreview(false);$('focusPreview').focus();
+  }
+}
+document.addEventListener('keydown',exitFocusedPreview);
 $('saveButton').addEventListener('click',()=>save().catch(error=>toast(error.message)));
 $('shareButton').addEventListener('click',reviewBeforeShare);
 $('downloadButton').addEventListener('click',downloadDemo);
