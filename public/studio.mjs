@@ -1,3 +1,4 @@
+import {createEditorNavigation} from './editor-navigation.mjs';
 import {createSocialStudio} from './social-studio.mjs';
 import {socialProfileURL} from './social-content.mjs';
 import {sectionKinds,detectSectionKind} from './section-design.mjs';
@@ -25,7 +26,9 @@ let project, config = {}, dirty = false, device = 'desktop', toastTimer, preview
 let activePage = -1, editingSite, previewSource;
 let pendingImportQualityAction;
 let launchReport,launchSequence=0,launchController;
-const workbench=createDesignWorkbench({getProject:()=>project,getPage:()=>currentContent(),changed:()=>{markDirty();fillEditor();},previewTemplate:id=>templatePicker.open(id),navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}},editNavigation:()=>$('editNavigation').click(),notify:toast});
+const editorNavigation=createEditorNavigation();
+const expandedCards=new WeakSet();
+const workbench=createDesignWorkbench({getProject:()=>project,getPage:()=>currentContent(),changed:()=>{markDirty();fillEditor();},previewTemplate:id=>templatePicker.open(id),navigate:editorNavigation.reveal,editNavigation:()=>$('editNavigation').click(),notify:toast});
 function currentContent() { return project.pages?.[activePage] || project; }
 function fieldOwner(field) { return ['name','accent'].includes(field) ? project : currentContent(); }
 let draftKey = 'forslag-studio-draft-v1',selectionKey='forslag-studio-selected-project';
@@ -48,7 +51,7 @@ const importStudio=createImportStudio({getProject:()=>project,getSource:()=>$('s
   if(dirty){await save(false);if(!isCurrent())throw new Error('Importen stängdes. Ditt öppna förslag är sparat.');if(project!==previous||dirty)throw new Error('Förslaget ändrades under sparningen. Dina senaste ändringar finns kvar. Öppna importen igen.');}
   ++projectLoadSequence;project=next;workbench.captureOriginal(project);dirty=true;fillEditor();markDirty();showEditor();refreshProjects().catch(()=>{});
 }});
-const connectionsStudio=createConnectionsStudio({getProject:()=>project,openPilot:()=>pilotSetup.open(),editFunctions:()=>customerFunctions.open(),review:()=>reviewBeforeShare(),navigate:(tab,id)=>{document.querySelector(`[data-tab="${tab}"]`).click();const field=$(id);if(field){(field.hidden?field.previousElementSibling:field).scrollIntoView({block:'center'});if(!field.hidden)field.focus();}}});
+const connectionsStudio=createConnectionsStudio({getProject:()=>project,openPilot:()=>pilotSetup.open(),editFunctions:()=>customerFunctions.open(),review:()=>reviewBeforeShare(),navigate:editorNavigation.reveal});
 const cloudStudio=createCloudStudio({getProject:()=>project,save,notify:toast,onForm:form=>{
   const old=project.requestForm;if(form){project.requestForm=form;project.ctaHref=form.url;project.cta=form.kind==='booking'?'Skicka bokningsförfrågan':'Kontakta oss';}
   else{delete project.requestForm;if(project.ctaHref===old?.url){project.ctaHref=project.email?'mailto:'+project.email:project.phone?'tel:'+project.phone.replace(/[^+\d]/g,''):'#kontakt';project.cta='Kontakta oss';}}
@@ -161,7 +164,7 @@ $('continueImportQuality').addEventListener('click',()=>{const action=pendingImp
 $('importQualityDialog').addEventListener('close',()=>{pendingImportQualityAction=null;});
 $('inspectImportQuality').addEventListener('click',()=>{
   const issue=importQualityIssues(project)[0];$('importQualityDialog').close();showEditor();activePage=issue?.pageIndex??-1;fillEditor();
-  document.querySelector('[data-tab="content"]').click();$('description').scrollIntoView({block:'center'});$('description').focus({preventScroll:true});
+  editorNavigation.reveal('content','description');
 });
 $('recoverImport').addEventListener('click',()=>importCompany({recover:true}));
 $('recoverImportDialog').addEventListener('click',()=>{$('importQualityDialog').close();importCompany({recover:true});});
@@ -275,9 +278,15 @@ function handleGallery(event) {
 }
 for(const container of ['cardsEditor','heroGalleryEditor'])for(const type of ['click','change','input'])$(container).addEventListener(type,handleGallery);
 function renderCards() {
-  $('cardsEditor').innerHTML = currentContent().cards.map((card, i) => `<div class="card-editor"><div class="card-editor-header"><span>BLOCK ${String(i+1).padStart(2,'0')}</span><div class="card-actions"><button data-move-card="${i}" data-direction="-1" aria-label="Flytta block ${i+1} upp" ${i===0?'disabled':''}>↑</button><button data-move-card="${i}" data-direction="1" aria-label="Flytta block ${i+1} ned" ${i===currentContent().cards.length-1?'disabled':''}>↓</button><button data-remove-card="${i}" aria-label="Ta bort block ${i+1}">×</button></div></div><label for="card-title-${i}">Rubrik</label><input id="card-title-${i}" data-card="${i}" data-property="title" maxlength="300" value="${e(card.title)}"><label for="card-kind-${i}">Sektionstyp</label><select id="card-kind-${i}" data-card="${i}" data-property="kind"><option value="">Automatiskt · ${e(sectionKinds[detectSectionKind({...card,kind:undefined})])}</option>${Object.entries(sectionKinds).map(([kind,label])=>`<option value="${kind}" ${card.kind===kind?'selected':''}>${e(label)}</option>`).join('')}</select><label for="card-description-${i}">Beskrivning</label><textarea id="card-description-${i}" data-card="${i}" data-property="description" rows="2" maxlength="6000">${e(card.description)}</textarea><div class="field-heading">Bild <button type="button" class="text-button" data-open-media="${i}">Välj visuellt</button></div><label for="card-image-${i}" class="field-help">Vald bild</label><select id="card-image-${i}" data-card="${i}" data-property="image">${imageOptions(card.image)}</select>${galleryEditor(String(i))}<label for="card-href-${i}">Länk <span>Valfri, på rubriken</span></label><input id="card-href-${i}" data-card="${i}" data-property="href" value="${e(card.href||'')}" maxlength="2000" placeholder="https://företaget.se/tjänst"></div>`).join('') || '<p class="empty-state">Inga bildkort ännu. Lägg till ett kort för en tjänst, produkt eller plats.</p>';
+  $('cardsEditor').innerHTML = currentContent().cards.map((card, i) => `<details class="card-editor" data-card-panel="${i}" ${expandedCards.has(card)?'open':''}><summary id="card-summary-${i}"><span class="section-number">${String(i+1).padStart(2,'0')}</span><span class="section-copy"><strong id="card-summary-title-${i}">${e(card.title||'Namnlös sektion')}</strong><small id="card-summary-kind-${i}">${e(sectionKinds[detectSectionKind(card)])}</small></span><span class="disclosure-arrow" aria-hidden="true">⌄</span></summary><div class="card-editor-body"><div class="card-editor-header"><span>SEKTION ${String(i+1).padStart(2,'0')}</span><div class="card-actions"><button data-move-card="${i}" data-direction="-1" aria-label="Flytta block ${i+1} upp" ${i===0?'disabled':''}>↑</button><button data-move-card="${i}" data-direction="1" aria-label="Flytta block ${i+1} ned" ${i===currentContent().cards.length-1?'disabled':''}>↓</button><button data-remove-card="${i}" aria-label="Ta bort block ${i+1}">×</button></div></div><label for="card-title-${i}">Rubrik</label><input id="card-title-${i}" data-card="${i}" data-property="title" maxlength="300" value="${e(card.title)}"><label for="card-kind-${i}">Sektionstyp</label><select id="card-kind-${i}" data-card="${i}" data-property="kind"><option value="">Automatiskt · ${e(sectionKinds[detectSectionKind({...card,kind:undefined})])}</option>${Object.entries(sectionKinds).map(([kind,label])=>`<option value="${kind}" ${card.kind===kind?'selected':''}>${e(label)}</option>`).join('')}</select><label for="card-description-${i}">Beskrivning</label><textarea id="card-description-${i}" data-card="${i}" data-property="description" rows="2" maxlength="6000">${e(card.description)}</textarea><div class="field-heading">Bild <button type="button" class="text-button" data-open-media="${i}">Välj visuellt</button></div><label for="card-image-${i}" class="field-help">Vald bild</label><select id="card-image-${i}" data-card="${i}" data-property="image">${imageOptions(card.image)}</select>${galleryEditor(String(i))}<label for="card-href-${i}">Länk <span>Valfri, på rubriken</span></label><input id="card-href-${i}" data-card="${i}" data-property="href" value="${e(card.href||'')}" maxlength="2000" placeholder="https://företaget.se/tjänst"></div></details>`).join('') || '<div class="empty-state section-empty"><strong>Ge sidan mer innehåll.</strong><p>Lägg till en tjänst, produkt, meny eller kundberättelse med ＋ Lägg till.</p></div>';
   $('addCard').disabled = currentContent().cards.length >= 40;
+  $('sectionCount').textContent=currentContent().cards.length+' av 40 sektioner · Öppna för att redigera eller ändra ordning.';
 }
+$('cardsEditor').addEventListener('toggle',event=>{
+  const index=event.target.dataset.cardPanel,card=currentContent().cards[Number(index)];
+  if(index===undefined||!event.target.isConnected||!card)return;
+  if(event.target.open)expandedCards.add(card);else expandedCards.delete(card);
+},true);
 function renderTypography() {
   const t=project.typography||{},names=[...new Set([t.heading,t.body,...(t.faces||[]).map(f=>f.family),'Arial','Georgia','Verdana'].filter(Boolean))];
   for(const [id,key] of [['headingFont','heading'],['bodyFont','body']]){
@@ -352,7 +361,7 @@ const templatePicker=createTemplatePicker({getProject:()=>project,getPage:()=>cu
 $('chooseTemplate').addEventListener('click',()=>templatePicker.open());
 function fillEditor(keepPreview = false) {
   $('chooseTemplate').disabled=false;$('designDirections').disabled=false;
-  if(editingSite!==project){activePage=-1;editingSite=project;}
+  if(editingSite!==project){activePage=-1;editingSite=project;$('importDisclosure').open=!project.id&&!project.importedAt&&!project.source;}
   if(activePage>=(project.pages?.length||0))activePage=-1;
   let socialSource=false;try{socialProfileURL(project.source);socialSource=true;}catch{}
   updateTemplateLabel();
@@ -370,6 +379,7 @@ function fillEditor(keepPreview = false) {
   $('importButton').innerHTML=socialSource?'Nytt förslag från profil <span>→</span>':'Hämta innehåll <span>→</span>';
   $('warnings').textContent = currentContent().warnings.join(' ');
   $('warnings').hidden = !currentContent().warnings.length;
+  $('importSummary').textContent=currentContent().warnings.length?currentContent().warnings.length+' importnotiser att granska':project.source?'Visa källa eller hämta nytt innehåll':'Hämta från hemsida eller sociala medier';
   $('savedState').textContent = dirty ? 'OSPARAT' : 'SPARAT';
   $('importStatus').className = 'import-status';
   $('importStatus').textContent = socialSource ? 'Ny hemsida från sociala medier. Redigera innehåll och design nedan; faktauppgifter behöver granskas före delning.' : project.id === 'vegavista' ? 'Vegavista-pilot. Granska eventuella ändringar innan du delar.' : project.importedAt ? 'Importerat innehåll. Granska text och bildval innan du delar.' : 'Klistra in en företagslänk eller fyll i innehållet själv.';
@@ -491,12 +501,8 @@ $('reviewDialog').addEventListener('close',()=>{launchController?.abort();++laun
 $('reviewChecks').addEventListener('click',event=>{
   const button=event.target.closest('[data-review-field]');if(!button)return;
   $('reviewDialog').close();showEditor();activePage=Number(button.dataset.reviewPage??-1);fillEditor();
-  document.querySelector(`[data-tab="${button.dataset.reviewTab}"]`).click();
-  const field=$(button.dataset.reviewField);
   if(button.dataset.reviewField==='showCloud'){cloudStudio.open();return;}
-  if(!field)return;
-  (field.hidden ? field.previousElementSibling : field).scrollIntoView({behavior:'smooth',block:'center'});
-  if(!field.hidden)field.focus({preventScroll:true});
+  editorNavigation.reveal(button.dataset.reviewTab,button.dataset.reviewField);
 });
 $('confirmShare').addEventListener('click',()=>{
   if(assessProject(project).some(c=>c.blocking&&!c.ok))return reviewBeforeShare();
@@ -597,20 +603,19 @@ document.querySelectorAll('[data-field]').forEach(input => input.addEventListene
   if(input.dataset.field==='heroPosition'){const page=fieldOwner('heroPosition'),image=page.heroGallery?.find(item=>item.url===page.hero);if(image?.presentation)image.presentation.y=Number(input.value);}
   markDirty(); updatePreview();
 }));
-document.querySelectorAll('[data-tab]').forEach(button => button.addEventListener('click', () => {
-  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b===button)));
-  for (const name of ['content','images','details']) $(name+'Tab').hidden = name !== button.dataset.tab;
-}));
 $('cardsEditor').addEventListener('input', event => {
   const {card, property} = event.target.dataset;
-  if (card !== undefined) { if(property==='kind'&&!event.target.value)delete currentContent().cards[Number(card)].kind;else if(property==='image'){const url=imageChoices.resolve(event.target.value);if(url===null)return;setPrimaryImage(currentContent().cards[Number(card)],'gallery','image',url);}else currentContent().cards[Number(card)][property] = event.target.value; markDirty(); updatePreview(); }
+  if (card !== undefined) { if(property==='kind'&&!event.target.value)delete currentContent().cards[Number(card)].kind;else if(property==='image'){const url=imageChoices.resolve(event.target.value);if(url===null)return;setPrimaryImage(currentContent().cards[Number(card)],'gallery','image',url);}else currentContent().cards[Number(card)][property] = event.target.value; markDirty(); updatePreview();
+    $('card-summary-title-'+card).textContent=currentContent().cards[Number(card)].title||'Namnlös sektion';
+    $('card-summary-kind-'+card).textContent=sectionKinds[detectSectionKind(currentContent().cards[Number(card)])];
+  }
 });
 $('cardsEditor').addEventListener('change',event=>{if(event.target.dataset.property==='image')renderCards();});
 $('cardsEditor').addEventListener('click', event => {
   const move = event.target.closest('[data-move-card]');
-  if(move){const index=Number(move.dataset.moveCard),next=index+Number(move.dataset.direction);if(next<0||next>=currentContent().cards.length)return;[currentContent().cards[index],currentContent().cards[next]]=[currentContent().cards[next],currentContent().cards[index]];renderCards();markDirty();updatePreview();$('card-title-'+next).focus();return;}
+  if(move){const index=Number(move.dataset.moveCard),next=index+Number(move.dataset.direction);if(next<0||next>=currentContent().cards.length)return;expandedCards.add(currentContent().cards[index]);[currentContent().cards[index],currentContent().cards[next]]=[currentContent().cards[next],currentContent().cards[index]];renderCards();markDirty();updatePreview();$('card-title-'+next).focus();return;}
   const button = event.target.closest('[data-remove-card]');
-  if (button) { currentContent().cards.splice(Number(button.dataset.removeCard),1); renderCards(); markDirty(); updatePreview(); }
+  if (button) { const index=Number(button.dataset.removeCard);currentContent().cards.splice(index,1); renderCards(); markDirty(); updatePreview();($('card-summary-'+Math.min(index,currentContent().cards.length-1))||$('addCard')).focus(); }
 });
 $('benefitsEditor').addEventListener('input', event => {
   const {benefit, property} = event.target.dataset;
@@ -619,7 +624,7 @@ $('benefitsEditor').addEventListener('input', event => {
     currentContent().benefits[Number(benefit)][property] = event.target.value; markDirty(); updatePreview();
   }
 });
-$('addCard').addEventListener('click', () => { if(currentContent().cards.length<40) { currentContent().cards.push({title:'',description:'',image:''}); renderCards(); markDirty(); } });
+$('addCard').addEventListener('click', () => { if(currentContent().cards.length<40) { const card={title:'',description:'',image:''};currentContent().cards.push(card);expandedCards.add(card);renderCards();markDirty();updatePreview();$('card-title-'+(currentContent().cards.length-1)).focus(); } });
 $('imageGrid').addEventListener('click', event => { const b=event.target.closest('[data-image]'); if(b){ setPrimaryImage(currentContent(),'heroGallery','hero',currentContent().images[Number(b.dataset.image)].url); renderImages(); markDirty(); updatePreview(); } });
 $('clearHero').addEventListener('click', ()=>{currentContent().hero='';currentContent().heroGallery=[];renderImages();markDirty();updatePreview();});
 $('clearLogo').addEventListener('click', ()=>{project.logo='';if(project.branding){delete project.branding.logoLight;delete project.branding.logoDark;}renderImages();markDirty();updatePreview();});

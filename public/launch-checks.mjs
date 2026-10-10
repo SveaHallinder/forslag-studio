@@ -59,7 +59,7 @@ export function importLaunchChecks(project) {
   const checks=importQualityIssues(project).map(issue=>({id:'import',label:(issue.pageIndex<0?'Startsidan':issue.name)+': innehållsblock',ok:false,blocking:false,field:'description',tab:'content',pageIndex:issue.pageIndex,help:'Introduktionen har '+issue.characters+' tecken men inga sektioner. Hämta om med webbläsare eller dela upp texten.'}));
   for(const [index,page] of [project,...(project.pages||[])].entries())for(const warning of page.warnings||[]){
     if(!/inte.*(?:bedömas|kontrolleras)|osäkr|varierar|ingen säker|inte.*fontfil|Flera.*(?:logo|färg)|delvis identifierad|Kunde inte hämta/i.test(warning))continue;
-    checks.push({id:'branding',label:(index?'Sida '+(index+1)+': ':'')+'Varumärkesunderlaget behöver kompletteras',ok:false,blocking:false,field:/logo/i.test(warning)?'logoUpload':/font|typsnitt/i.test(warning)?'headFont':'accent',tab:/logo/i.test(warning)?'images':'content',pageIndex:index-1,help:warning});
+    checks.push({id:'branding',label:(index?'Sida '+(index+1)+': ':'')+'Varumärkesunderlaget behöver kompletteras',ok:false,blocking:false,field:/logo/i.test(warning)?'logoUpload':/font|typsnitt/i.test(warning)?'headingFont':'accent',tab:/logo/i.test(warning)?'images':'content',pageIndex:index-1,help:warning});
   }
   return checks;
 }
