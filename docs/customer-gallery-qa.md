@@ -10,8 +10,8 @@
 
 ## Verifierat
 
-- 426 Node-tester och fem tester av webbläsarimport passerar.
-- 68 bildflöden: 17 designer i 320, 375, 820 och 1280 px. Öppning, hela bilden, bildtext, bläddring, fokusåterställning, undersidor, enstaka bild, redigeringsläge och reducerad rörelse kontrolleras.
+- 427 Node-tester och fem tester av webbläsarimport passerar.
+- 70 bildflöden: 17 designer i 320, 375, 820 och 1280 px samt verkliga komprimerade delningslänkar med och utan undersidor. Öppning, hela bilden, bildtext, bläddring, fokusåterställning, undersidor, enstaka bild, redigeringsläge och reducerad rörelse kontrolleras.
 - Trasig bild visar ett felmeddelande. Bilder och bildtexter visas även utan JavaScript; webbläsare utan stöd för native dialog får inga inaktiva öppningsknappar.
 - 136 befintliga kontroller av hela kundsidan och 252 layoutfall passerar: meny, mobilhandlingar, sidfot, originaltext, bildutsnitt, branding och typsnitt.
 - Enter, piltangent och Escape är kontrollerade genom faktisk tangentbordsinmatning. Escape återför fokus till öppningsknappen.

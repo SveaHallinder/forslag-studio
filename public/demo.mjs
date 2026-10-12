@@ -1,5 +1,6 @@
 import {decodeProject} from './share.mjs';
 import {renderDemo,installDemoNavigation} from './render.mjs';
+import {installCustomerGallery} from './customer-gallery.mjs';
 let loadSequence=0,requestedHash;
 const seenPayloads=new Set([location.hash]);
 async function loadDemo(){
@@ -19,9 +20,11 @@ async function loadDemo(){
     document.body.setAttribute('style',doc.body.getAttribute('style'));
     Object.assign(document.body.dataset,doc.body.dataset);
     installDemoNavigation(document,window);
+    installCustomerGallery(document);
   } catch(error){
     if(sequence!==loadSequence||location.hash!==hash)return;
     document.__disposeDemoNavigation?.();
+    document.__disposeCustomerGallery?.();
     document.body.textContent=error.message+' Be avsändaren skicka en ny, fullständig demolänk.';
   }
 }
