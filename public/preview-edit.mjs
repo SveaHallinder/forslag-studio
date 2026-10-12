@@ -1,7 +1,7 @@
 // Editor-only decoration. Customer HTML never includes these controls.
 export function installPreviewEditing(doc,{onSelect,onExit=()=>{},cardIndexes=[]}) {
   const nodes=new Map(),style=doc.createElement('style');
-  style.textContent='[data-studio-edit]{cursor:pointer!important;position:relative;outline:1px dashed #437446;outline-offset:5px}[data-studio-edit]:hover,[data-studio-edit]:focus-visible{outline:3px solid #437446;outline-offset:5px;background-color:#cdeb6022}[data-studio-edit] a{pointer-events:none}';doc.head.append(style);
+  style.textContent='.customer-image-open{display:none!important}[data-studio-edit]{cursor:pointer!important;position:relative;outline:1px dashed #437446;outline-offset:5px}[data-studio-edit]:hover,[data-studio-edit]:focus-visible{outline:3px solid #437446;outline-offset:5px;background-color:#cdeb6022}[data-studio-edit] a{pointer-events:none}';doc.head.append(style);
   const add=(element,target,label)=>{if(!element)return;const attrs={};for(const key of ['tabindex','role','aria-label','title'])attrs[key]=element.getAttribute(key);nodes.set(element,{target,attrs});element.dataset.studioEdit='';element.tabIndex=0;element.setAttribute('role','button');element.setAttribute('aria-label','Redigera '+label);element.title='Redigera '+label;};
   const one=(selector,target,label)=>add(doc.querySelector(selector),target,label);
   one('.nav .brand',{type:'logo'},'logotyp');one('.nav-links',{type:'navigation'},'menyn');one('.mobile-menu summary',{type:'navigation'},'menyn');

@@ -5,6 +5,7 @@ import {tradeAdviceDesignCSS} from './trade-advice-design.mjs';
 import {commerceTechDesignCSS} from './commerce-tech-design.mjs';
 import {signatureDesignCSS} from './signature-design.mjs';
 import {installSiteMotion,siteMotionCSS} from './site-motion.mjs';
+import {installCustomerGallery,customerGalleryCSS} from './customer-gallery.mjs';
 import {customerJourney,renderMobileJourney,customerJourneyCSS} from './customer-journey.mjs';
 import {diningCardRole,diningMenuContent,diningDesignCSS,diningSections} from './dining-design.mjs';
 import {personalProfile,publicationCard,personalDesignCSS} from './personal-design.mjs';
@@ -122,8 +123,8 @@ function faqEntries(card) {
   }
   return entries.length>=2&&entries.every(entry=>entry.answer)?entries:[];
 }
-function renderGallery(items,pic,title) {
-  return `<div class="section-gallery" data-image-count="${items.length}">${items.map(item=>`<figure>${pic(item.url,item.label||title,'',true,item.presentation)}${item.caption?`<figcaption>${escapeHTML(item.caption)}</figcaption>`:''}</figure>`).join('')}</div>`;
+function renderGallery(items,pic,title,hero=false) {
+  return `<div class="section-gallery" data-gallery-title="${escapeHTML(title)}" data-image-count="${items.length}">${items.map((item,index)=>`<figure>${pic(item.url,item.label||title,'',!hero||index>0,item.presentation,hero&&index===0)}${item.caption?`<figcaption>${escapeHTML(item.caption)}</figcaption>`:''}</figure>`).join('')}</div>`;
 }
 function renderContentCard(card,index,pic,imported,compact=false,textCompact=false,flow={}) {
   const semantic=Object.hasOwn(sectionKinds,card.kind)?card.kind:imported?detectSectionKind(card):'generic';
@@ -146,10 +147,10 @@ function renderSingleDemo(raw, options = {}) {
   }
   p.benefits = p.benefits.filter(b => b.title);
   const src = value => e(options.resolveImage ? options.resolveImage(value) : value);
-  const pic = (url, alt, cls = '', lazy = true, presentation) => `<img src="${src(url)}" alt="${e(alt)}" class="${cls}" ${presentationStyle(presentation)?`style="${presentationStyle(presentation)}"`:""} ${lazy?'loading="lazy"':''} decoding="async" referrerpolicy="no-referrer">`;
+  const pic = (url, alt, cls = '', lazy = true, presentation, priority = false) => `<img src="${src(url)}" alt="${e(alt)}" class="${cls}" ${presentationStyle(presentation)?`style="${presentationStyle(presentation)}"`:""} ${lazy?'loading="lazy"':'loading="eager"'}${priority?' fetchpriority="high"':''} decoding="async" referrerpolicy="no-referrer">`;
   const ending=renderSiteEnding(p,e,pic);
   const benefits = `${p.benefits.length?`<div class="benefits" style="--benefit-count:${p.benefits.length}">${p.benefits.map(b=>`<div class="benefit"><h3>${e(b.title)}</h3><i></i><p>${e(b.description)}</p></div>`).join('')}</div>`:''}`;
-  const visual = `<div class="visual ${p.hero?'':'no-image'}">${p.templateId==='story'?benefits:''}${p.heroGallery?.length>1||p.heroGallery?.some(i=>i.caption)?renderGallery(p.heroGallery,pic,p.name):p.hero?`${pic(p.hero,p.name+' – verksamhetsbild','hero-image',false,p.heroGallery?.find(item=>item.url===p.hero)?.presentation)}<div class="image-label">${e(p.name)}</div>`:''}</div>`;
+  const visual = `<div class="visual ${p.hero?'':'no-image'}">${p.templateId==='story'?benefits:''}${p.heroGallery?.length>1||p.heroGallery?.some(i=>i.caption)?renderGallery(p.heroGallery,pic,p.name,true):p.hero?`${pic(p.hero,p.name+' – verksamhetsbild','hero-image',false,p.heroGallery?.find(item=>item.url===p.hero)?.presentation,true)}<div class="image-label">${e(p.name)}</div>`:''}</div>`;
   // Legacy proposals include authored overview/about/benefit sections. Keep their
   // layout when editing navigation; a plain imported homepage stays imported even
   // after its last menu link is removed. Older customer links omit importedAt,
@@ -164,7 +165,7 @@ function renderSingleDemo(raw, options = {}) {
   const renderCard=(c,i)=>renderContentCard(c,i,pic,imported||!!c.kind,compact.has(i),textCompact.has(i),{...sectionPlan[i],...(p.templateId==='dining'?{dining:diningCardRole(c,i)}:{})});
   if(p.templateId==='cafe'){
     const cafe=cafeBody(p,{e,pic,header:renderHeader(p,imported,e,pic),renderCard});
-    return `<!doctype html><html lang="${cafe.lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><style>${demoCSS}${sectionDesignCSS}${navigationCSS}${cafeDesignCSS(p)}${customerJourneyCSS}${siteMotionCSS}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="cafe" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${cafe.body}${renderMobileJourney(p,e)}<script data-header-navigation>(${installHeaderNavigation.toString()})(document);</script><script data-site-motion>(${installSiteMotion.toString()})(document);</script></body></html>`;
+    return `<!doctype html><html lang="${cafe.lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><style>${demoCSS}${sectionDesignCSS}${navigationCSS}${cafeDesignCSS(p)}${customerJourneyCSS}${siteMotionCSS}${customerGalleryCSS}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="cafe" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${cafe.body}${renderMobileJourney(p,e)}<script data-header-navigation>(${installHeaderNavigation.toString()})(document);</script><script data-site-motion>(${installSiteMotion.toString()})(document);</script><script data-customer-gallery>(${installCustomerGallery.toString()})(document);</script></body></html>`;
   }
   const cardsHTML=p.templateId==='dining'?diningSections(p.cards,renderCard,e):p.cards.map(renderCard).join('');
   const body = `<div class="demo-note">Designförslag · Framtagen för ${e(p.name)}</div>
@@ -175,7 +176,7 @@ function renderSingleDemo(raw, options = {}) {
   ${p.about?`<section class="section about" id="om"><div><p class="section-kicker">Om ${e(p.name)}</p><h2>${e(p.aboutTitle || p.name)}</h2></div><p>${paragraphContent(p.about,e)}</p></section>`:''}
   ${ending.contact}</main>
   ${ending.footer}</div>`;
-  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${p.templateId==='atelier'?atelierCSS(p):`${templateCSS}${homepageCSS}${templateContentCSS}${sectionDesignCSS}${compositionCSS}${personalDesignCSS}${brandingCSS(p.branding)}${artDirectionCSS(p)}`}${p.templateId==='dining'?'':pageDesignCSS(p)}${siteEndingCSS(p)}${navigationCSS}${diningDesignCSS(p)}${careTravelDesignCSS(p)}${tradeAdviceDesignCSS(p)}${commerceTechDesignCSS(p)}${signatureDesignCSS(p)}${customerJourneyCSS}${siteMotionCSS}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" data-page-design="${pageDesignFamily(p.templateId)}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}${renderMobileJourney(p,e)}<script data-header-navigation>(${installHeaderNavigation.toString()})(document);</script><script data-site-motion>(${installSiteMotion.toString()})(document);</script></body></html>`;
+  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${p.templateId==='atelier'?atelierCSS(p):`${templateCSS}${homepageCSS}${templateContentCSS}${sectionDesignCSS}${compositionCSS}${personalDesignCSS}${brandingCSS(p.branding)}${artDirectionCSS(p)}`}${p.templateId==='dining'?'':pageDesignCSS(p)}${siteEndingCSS(p)}${navigationCSS}${diningDesignCSS(p)}${careTravelDesignCSS(p)}${tradeAdviceDesignCSS(p)}${commerceTechDesignCSS(p)}${signatureDesignCSS(p)}${customerJourneyCSS}${siteMotionCSS}${customerGalleryCSS}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" data-page-design="${pageDesignFamily(p.templateId)}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}${renderMobileJourney(p,e)}<script data-header-navigation>(${installHeaderNavigation.toString()})(document);</script><script data-site-motion>(${installSiteMotion.toString()})(document);</script><script data-customer-gallery>(${installCustomerGallery.toString()})(document);</script></body></html>`;
 }
 
 export function resolveDemoRoute(href,source,pages) {
@@ -233,10 +234,10 @@ export function renderDemo(raw,options = {}) {
   const pages=[root,...root.pages],initial=Math.max(0,pages.findIndex(page=>page.source===options.pageSource)),documents=pages.map((page,index)=>renderSingleDemo({...page,name:root.name,logo:root.logo,accent:root.accent,typography:root.typography,branding:root.branding,templateId:root.templateId,navigation:root.navigation,requestForm:root.requestForm,email:page.email||root.email,phone:page.phone||root.phone,address:page.address||root.address},{...options,autoDiningCTA:index===0}));
   const bodies=documents.map(html=>html.match(/<body[^>]*>([\s\S]*)<\/body>/)[1]);
   const rootHref=escapeHTML(root.source||'#start');
-  const contents=bodies.map(body=>body.replace(/<script data-site-motion>[\s\S]*?<\/script>/g,'').replace('<a class="brand" href="#"','<a class="brand" href="'+rootHref+'"'));
+  const contents=bodies.map(body=>body.replace(/<script data-(?:site-motion|customer-gallery)>[\s\S]*?<\/script>/g,'').replace('<a class="brand" href="#"','<a class="brand" href="'+rootHref+'"'));
   const metadata=pages.map((page,i)=>({source:page.source,title:root.name+' – '+page.headline,heroPosition:page.heroPosition,imported:documents[i].includes('<body data-imported="true"')}));
   const json=JSON.stringify(metadata).replace(/</g,'\\u003c');
-  const body='<div data-demo-stage data-demo-initial="'+initial+'">'+contents[initial]+'</div>'+contents.map((html,i)=>'<template data-demo-page="'+i+'">'+html+'</template>').join('')+'<script type="application/json" data-demo-pages>'+json+'</script><script>('+installDemoNavigation.toString()+')(document,window,'+resolveDemoRoute.toString()+');</script><script data-site-motion>('+installSiteMotion.toString()+')(document);</script>';
+  const body='<div data-demo-stage data-demo-initial="'+initial+'">'+contents[initial]+'</div>'+contents.map((html,i)=>'<template data-demo-page="'+i+'">'+html+'</template>').join('')+'<script type="application/json" data-demo-pages>'+json+'</script><script>('+installDemoNavigation.toString()+')(document,window,'+resolveDemoRoute.toString()+');</script><script data-site-motion>('+installSiteMotion.toString()+')(document);</script><script data-customer-gallery>('+installCustomerGallery.toString()+')(document);</script>';
   return documents[initial].replace(/(<body[^>]*>)[\s\S]*(<\/body>)/,(_,start,end)=>start+body+end);
 }
 
