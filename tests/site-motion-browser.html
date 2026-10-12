@@ -1,0 +1,39 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rörelse · browser-QA</title>
+<style>body{font:16px system-ui;background:#f5f3ed;color:#242a24;margin:32px}button{font:inherit;padding:12px 20px}pre{white-space:pre-wrap}iframe{width:100%;height:680px;border:1px solid #ccc}</style>
+<h1>Kundsidans rörelse</h1><p>Kontrollerar riktiga HTML-exporter och förhandsvisningar. Inga kundprojekt sparas.</p><button id="run">Testa rörelse</button><pre id="results">Redo.</pre><iframe id="preview" title="Animerad kundförhandsvisning"></iframe>
+<script type="module">
+import {renderDemo,installDemoNavigation} from '/render.mjs';
+const frame=document.getElementById('preview'),out=document.getElementById('results'),run=document.getElementById('run');
+const base={name:'QA Studio',headline:'Plats för det viktiga.',description:'Illustrativt testinnehåll.',templateId:'gallery',importedAt:'today',source:'https://example.com/',navigation:[{label:'Om oss',href:'https://example.com/about'},{label:'Kontakt',href:'#kontakt'}],email:'qa@example.com',cards:[{title:'Vårt arbete',description:'Innehåll ska vara synligt även när rörelsen avbryts.'}]};
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms)),assert=(condition,message)=>{if(!condition)throw Error(message);};
+async function load(input=base,{staticEditor=false,sandbox=false}={}){
+  sandbox?frame.setAttribute('sandbox','allow-same-origin'):frame.removeAttribute('sandbox');
+  const ready=new Promise(resolve=>frame.onload=()=>{
+    if(sandbox){if(staticEditor)frame.contentDocument.body.dataset.motion='static';installDemoNavigation(frame.contentDocument,frame.contentWindow);}
+    resolve();
+  });frame.srcdoc=renderDemo(input);await ready;await wait(35);return frame.contentDocument;
+}
+run.onclick=async()=>{
+  run.disabled=true;const report=[];
+  try{
+    const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;let doc=await load();
+    let animations=doc.getAnimations();assert(animations.length>0,'HTML-exportens entré saknas.');
+    assert(animations.every(a=>a.effect.getTiming().duration===(reduced?120:500)),'Fel tempo i Galleri.');
+    if(reduced)assert(animations.every(a=>a.effect.getKeyframes().every(k=>!k.transform||k.transform==='none')),'Reducerad rörelse får inte flytta innehåll.');
+    report.push('PASS HTML-export · '+(reduced?'reducerad rörelse, endast 120 ms toning':'mjuk entré, 500 ms'));
+    doc.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true}));assert(doc.getAnimations().length===0,'Tangentbordet måste stoppa rörelsen.');
+    assert(getComputedStyle(doc.querySelector('h1')).opacity==='1','Rubriken blev dold efter avbrott.');report.push('PASS tangentbord · innehållet förblir synligt');
+    doc=await load({...base,templateId:'poster'});assert(doc.getAnimations().every(a=>a.effect.getTiming().duration===(reduced?120:400)),'Fel tempo i Affisch.');report.push('PASS Affisch · eget tempo');
+    doc=await load(base,{sandbox:true,staticEditor:true});assert(doc.getAnimations().length===0,'Redigeringsvyn får inte röra sig.');report.push('PASS sandboxad redigeringsvy · helt stilla');
+    doc=await load(base,{sandbox:true});assert(doc.getAnimations().length>0,'Betrodd kundförhandsvisning saknar rörelse.');report.push('PASS sandboxad kundförhandsvisning · rörelse installerad');
+    doc=await load({...base,pages:[{source:'https://example.com/about',headline:'En andra sida.',cards:[{title:'Vårt team',description:'Originalinnehåll på sida två.'}]}]});
+    await wait(700);doc.querySelector('.nav-links a').click();await wait(35);
+    assert(doc.querySelector('h1').textContent==='En andra sida.','Flersidigt förslag bytte inte sida.');
+    assert(doc.getAnimations().length>0,'Den andra sidan saknar entré.');report.push('PASS flersidigt förslag · rörelse efter sidbyte');
+    await wait(700);assert(doc.getAnimations().length===0,'Entrén avslutades inte.');
+    assert(getComputedStyle(doc.querySelector('h1')).opacity==='1','Innehåll försvann efter entrén.');report.push('PASS avslutad rörelse · stabil layout och synligt innehåll');
+    out.textContent=report.join('\n');document.title='PASS · Rörelse · browser-QA';
+  }catch(error){out.textContent=report.join('\n')+'\nFAIL '+error.message;document.title='FAIL · Rörelse · browser-QA';}
+  finally{run.disabled=false;}
+};
+</script></html>

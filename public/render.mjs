@@ -4,6 +4,7 @@ import {careTravelDesignCSS} from './care-travel-design.mjs';
 import {tradeAdviceDesignCSS} from './trade-advice-design.mjs';
 import {commerceTechDesignCSS} from './commerce-tech-design.mjs';
 import {signatureDesignCSS} from './signature-design.mjs';
+import {installSiteMotion,siteMotionCSS} from './site-motion.mjs';
 import {diningCardRole,diningMenuContent,diningDesignCSS,diningSections} from './dining-design.mjs';
 import {personalProfile,publicationCard,personalDesignCSS} from './personal-design.mjs';
 import {atelierHero,atelierCSS} from './atelier.mjs';
@@ -160,7 +161,7 @@ function renderSingleDemo(raw, options = {}) {
   const renderCard=(c,i)=>renderContentCard(c,i,pic,imported||!!c.kind,compact.has(i),textCompact.has(i),{...sectionPlan[i],...(p.templateId==='dining'?{dining:diningCardRole(c,i)}:{})});
   if(p.templateId==='cafe'){
     const cafe=cafeBody(p,{e,pic,header:renderHeader(p,imported,e,pic),renderCard});
-    return `<!doctype html><html lang="${cafe.lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><style>${demoCSS}${sectionDesignCSS}${navigationCSS}${cafeDesignCSS(p)}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="cafe" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${cafe.body}<script data-header-navigation>(${installHeaderNavigation.toString()})(document);</script></body></html>`;
+    return `<!doctype html><html lang="${cafe.lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><style>${demoCSS}${sectionDesignCSS}${navigationCSS}${cafeDesignCSS(p)}${siteMotionCSS}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="cafe" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${cafe.body}<script data-header-navigation>(${installHeaderNavigation.toString()})(document);</script><script data-site-motion>(${installSiteMotion.toString()})(document);</script></body></html>`;
   }
   const cardsHTML=p.templateId==='dining'?diningSections(p.cards,renderCard,e):p.cards.map(renderCard).join('');
   const body = `<div class="demo-note">Designförslag · Framtagen för ${e(p.name)}</div>
@@ -171,7 +172,7 @@ function renderSingleDemo(raw, options = {}) {
   ${p.about?`<section class="section about" id="om"><div><p class="section-kicker">Om ${e(p.name)}</p><h2>${e(p.aboutTitle || p.name)}</h2></div><p>${e(p.about)}</p></section>`:''}
   ${ending.contact}</main>
   ${ending.footer}</div>`;
-  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${p.templateId==='atelier'?atelierCSS(p):`${templateCSS}${homepageCSS}${templateContentCSS}${sectionDesignCSS}${compositionCSS}${personalDesignCSS}${brandingCSS(p.branding)}${artDirectionCSS(p)}`}${p.templateId==='dining'?'':pageDesignCSS(p)}${siteEndingCSS(p)}${navigationCSS}${diningDesignCSS(p)}${careTravelDesignCSS(p)}${tradeAdviceDesignCSS(p)}${commerceTechDesignCSS(p)}${signatureDesignCSS(p)}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" data-page-design="${pageDesignFamily(p.templateId)}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}<script data-header-navigation>(${installHeaderNavigation.toString()})(document);</script></body></html>`;
+  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${e(p.name)} – Designförslag</title><meta name="description" content="Ett nytt designförslag för ${e(p.name)}."><style>${demoCSS}${p.templateId==='atelier'?atelierCSS(p):`${templateCSS}${homepageCSS}${templateContentCSS}${sectionDesignCSS}${compositionCSS}${personalDesignCSS}${brandingCSS(p.branding)}${artDirectionCSS(p)}`}${p.templateId==='dining'?'':pageDesignCSS(p)}${siteEndingCSS(p)}${navigationCSS}${diningDesignCSS(p)}${careTravelDesignCSS(p)}${tradeAdviceDesignCSS(p)}${commerceTechDesignCSS(p)}${signatureDesignCSS(p)}${siteMotionCSS}${typographyCSS(p.typography)}</style></head><body data-imported="${imported}" data-template="${p.templateId}" data-page-design="${pageDesignFamily(p.templateId)}" style="--accent:${p.accent};--accent-ink:${accentInk(p.accent)};--hero-position:${p.heroPosition}%">${body}<script data-header-navigation>(${installHeaderNavigation.toString()})(document);</script><script data-site-motion>(${installSiteMotion.toString()})(document);</script></body></html>`;
 }
 
 export function resolveDemoRoute(href,source,pages) {
@@ -190,8 +191,8 @@ export function installDemoNavigation(doc=document,win=window,resolveRoute=resol
   if(doc.__disposeDemoNavigation)doc.__disposeDemoNavigation();
   const stage=doc.querySelector('[data-demo-stage]'),data=doc.querySelector('script[data-demo-pages]');
   if(!stage||!data){
-    const click=event=>{const link=event.target.closest?.('a[href^="#"]');if(!link||event.defaultPrevented||event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();const id=link.getAttribute('href').slice(1);if(id)doc.getElementById(id)?.scrollIntoView({behavior:'smooth'});else win.scrollTo(0,0);};
-    doc.addEventListener('click',click);doc.__disposeDemoNavigation=()=>doc.removeEventListener('click',click);return;
+    const click=event=>{const link=event.target.closest?.('a[href^="#"]');if(!link||event.defaultPrevented||event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();const id=link.getAttribute('href').slice(1),behavior=event.detail===0||win.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'instant':'smooth';if(id)doc.getElementById(id)?.scrollIntoView({behavior});else win.scrollTo(0,0);};
+    doc.addEventListener('click',click);doc.__disposeDemoNavigation=()=>doc.removeEventListener('click',click);if(typeof installSiteMotion==='function')installSiteMotion(doc);return;
   }
   const pages=JSON.parse(data.textContent),templates=[...doc.querySelectorAll('template[data-demo-page]')],initial=Number(stage.dataset.demoInitial)||0;let active=initial;
   const localURL=route=>{const url=new URL(win.location.href);url.searchParams.set('demo-page',String(route.page));if(route.anchor)url.searchParams.set('demo-anchor',route.anchor);else url.searchParams.delete('demo-anchor');return url;};
@@ -220,6 +221,7 @@ export function installDemoNavigation(doc=document,win=window,resolveRoute=resol
   const pop=()=>show(fromURL());doc.addEventListener('click',click);win.addEventListener('popstate',pop);
   doc.__disposeDemoNavigation=()=>{doc.removeEventListener('click',click);win.removeEventListener('popstate',pop);};
   show(fromURL(),!!new URL(win.location.href).searchParams.get('demo-anchor'));
+  if(typeof installSiteMotion==='function')installSiteMotion(doc);
 }
 
 export function renderDemo(raw,options = {}) {
@@ -228,10 +230,10 @@ export function renderDemo(raw,options = {}) {
   const pages=[root,...root.pages],initial=Math.max(0,pages.findIndex(page=>page.source===options.pageSource)),documents=pages.map((page,index)=>renderSingleDemo({...page,name:root.name,logo:root.logo,accent:root.accent,typography:root.typography,branding:root.branding,templateId:root.templateId,navigation:root.navigation,requestForm:root.requestForm},{...options,autoDiningCTA:index===0}));
   const bodies=documents.map(html=>html.match(/<body[^>]*>([\s\S]*)<\/body>/)[1]);
   const rootHref=escapeHTML(root.source||'#start');
-  const contents=bodies.map(body=>body.replace('<a class="brand" href="#"','<a class="brand" href="'+rootHref+'"'));
+  const contents=bodies.map(body=>body.replace(/<script data-site-motion>[\s\S]*?<\/script>/g,'').replace('<a class="brand" href="#"','<a class="brand" href="'+rootHref+'"'));
   const metadata=pages.map((page,i)=>({source:page.source,title:root.name+' – '+page.headline,heroPosition:page.heroPosition,imported:documents[i].includes('<body data-imported="true"')}));
   const json=JSON.stringify(metadata).replace(/</g,'\\u003c');
-  const body='<div data-demo-stage data-demo-initial="'+initial+'">'+contents[initial]+'</div>'+contents.map((html,i)=>'<template data-demo-page="'+i+'">'+html+'</template>').join('')+'<script type="application/json" data-demo-pages>'+json+'</script><script>('+installDemoNavigation.toString()+')(document,window,'+resolveDemoRoute.toString()+');</script>';
+  const body='<div data-demo-stage data-demo-initial="'+initial+'">'+contents[initial]+'</div>'+contents.map((html,i)=>'<template data-demo-page="'+i+'">'+html+'</template>').join('')+'<script type="application/json" data-demo-pages>'+json+'</script><script>('+installDemoNavigation.toString()+')(document,window,'+resolveDemoRoute.toString()+');</script><script data-site-motion>('+installSiteMotion.toString()+')(document);</script>';
   return documents[initial].replace(/(<body[^>]*>)[\s\S]*(<\/body>)/,(_,start,end)=>start+body+end);
 }
 

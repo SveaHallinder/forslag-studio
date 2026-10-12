@@ -1,4 +1,6 @@
 export const templates = Object.freeze([
+  {id:'gallery',name:'Galleri',description:'En stilla entré med bilden först, fin seriftypografi och välkomponerade bildserier. För design, kultur, inredning och personliga varumärken.',reference:'Lugnt · bild & hantverk'},
+  {id:'poster',name:'Affisch',description:'Grafisk typografi, tydliga linjer och stora bildfält. Ett sammanhållet uttryck från meny till kontakt och sidfot. För kreativa företag, mat och kultur.',reference:'Grafiskt · typografi & kontrast'},
   {id:'cafe',name:'Little Café',description:'Pebble-uttrycket: en varm entré, välvald typografi, personliga bildberättelser och en genomarbetad sidfot.',reference:'Café · vår Pebble-pilot'},
   {id:'cinema',name:'Cinema',description:'Filmiskt första intryck, matta färger och stora bildberättelser. Lugn meny och ett elegant avslut. För restauranger, hotell och arkitektur.',reference:'Filmiskt · panoramabilder'},
   {id:'pop',name:'Pop',description:'Grafisk, lekfull och full av karaktär. Formade bildytor, färgstarka produktkort och ett tydligt mörkt avslut. För mat, produkter och kreativa varumärken.',reference:'Lekfullt · färg & form'},

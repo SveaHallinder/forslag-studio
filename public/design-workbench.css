@@ -32,6 +32,8 @@
 .glyph-cinema,.glyph-studio{background:#25312e;color:#faf3e6}
 .glyph-pop{background:#efbd68;color:#1c513c;font:800 23px 'Avenir Next',sans-serif;letter-spacing:-2px;border-radius:12px}
 .glyph-atelier,.glyph-retail{background:#ece8e3;color:#302925;font-style:italic}
+.glyph-gallery{background:#faf9f5;color:#202320;font-weight:400;border-radius:0}
+.glyph-poster{background:#eee8dc;color:#212321;font:850 23px 'Avenir Next',sans-serif;letter-spacing:-1px;border-radius:0;border-block:2px solid currentColor}
 .glyph-precision,.glyph-services{background:#e7ecf2;color:#355064;font:600 23px 'Avenir Next',sans-serif}
 .glyph-wellness{background:#e7eee1;color:#576e4c;border-radius:24px 24px 6px 6px}
 .glyph-construction{background:#e6a56c;color:#232b2a;font:800 23px 'Avenir Next',sans-serif}

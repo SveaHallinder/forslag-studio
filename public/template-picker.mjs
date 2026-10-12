@@ -7,7 +7,7 @@ export const templateGroups=Object.freeze([
   {id:'recommended',label:'För ditt företag'},
   {id:'hospitality',label:'Mat & resor',ids:['cafe','dining','cinema','pop','hospitality']},
   {id:'services',label:'Tjänster & hälsa',ids:['precision','services','wellness','construction','consulting','story']},
-  {id:'creative',label:'Butik & kreativa',ids:['atelier','retail','editorial','studio','pop','story']},
+  {id:'creative',label:'Butik & kreativa',ids:['gallery','poster','atelier','retail','editorial','studio','pop','story']},
 ]);
 const searchText=value=>String(value||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 export function findTemplates({query='',group='all',project={}}={}) {

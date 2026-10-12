@@ -192,6 +192,7 @@ function updatePreview() {
     frame.onload = () => {
       try {
         frame.contentWindow.scrollTo(0, top);
+        frame.contentDocument.body.dataset.motion='static';
         installDemoNavigation(frame.contentDocument,frame.contentWindow);
         const previewDocument=frame.contentDocument;workbench.attach(previewDocument);
         previewDocument.addEventListener('keydown',exitFocusedPreview);

@@ -5,10 +5,10 @@ import { encodeProject, decodeProject } from '../public/share.mjs';
 import { restoreProject } from '../public/project-tools.mjs';
 import { templates } from '../public/templates.mjs';
 
-test('fifteen distinct industry templates are available',()=>{
-  assert.equal(templates.length,15);
-  assert.equal(new Set(templates.map(t=>t.id)).size,15);
-  for(const id of ['editorial','construction','hospitality','consulting'])assert.ok(templates.some(t=>t.id===id));
+test('seventeen distinct industry templates are available',()=>{
+  assert.equal(templates.length,17);
+  assert.equal(new Set(templates.map(t=>t.id)).size,17);
+  for(const id of ['gallery','poster','editorial','construction','hospitality','consulting'])assert.ok(templates.some(t=>t.id===id));
 });
 
 test('art directions are selectable, preserve source copy and only ship their own style',()=>{

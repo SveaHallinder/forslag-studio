@@ -4,7 +4,7 @@ import {renderDemo,normalizeProject,escapeHTML} from '../public/render.mjs';
 import {signatureDesignCSS} from '../public/signature-design.mjs';
 import {templates} from '../public/templates.mjs';
 
-const ids=['story','studio','editorial','cinema','pop'];
+const ids=['story','studio','editorial','cinema','pop','gallery','poster'];
 const image='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 const original={name:'Kundens egna företag',headline:'En egen rubrik',description:'Kundens introduktion',importedAt:'today',hero:image,cta:'Fråga om projektet',ctaHref:'#kontakt',email:'hej@example.com',navigation:[{label:'Projekt',href:'#projekt'},{label:'Kontakt',href:'#kontakt'}],cards:[
   {title:'Projekt',anchor:'projekt'},
