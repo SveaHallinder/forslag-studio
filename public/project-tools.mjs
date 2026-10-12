@@ -57,7 +57,7 @@ export function assessProject(raw = {}) {
   const formIssue=requestFormIssue(raw);if(formIssue)checks.push({id:'form',label:'Formuläret är tillgängligt online',ok:false,blocking:true,field:'showCloud',tab:'details',help:formIssue});
   for(const [pageIndex,page] of (Array.isArray(raw.pages)?raw.pages:[]).slice(0,5).entries()){
     if(!page||typeof page!=='object')continue;
-    for(const check of assessPage(page)){
+    for(const check of assessPage({...page,email:page.email||raw.email,phone:page.phone||raw.phone,requestForm:raw.requestForm})){
       if(['name','navigation'].includes(check.id)||check.ok)continue;
       checks.push({...check,label:(page.name||'Sida '+(pageIndex+2))+': '+check.label,pageIndex});
     }

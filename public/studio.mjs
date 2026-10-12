@@ -19,6 +19,7 @@ import {createCustomerFunctions} from './customer-functions.mjs';
 import {cloudContext,selectCloudWorkspace,cloudRequest,refreshCloudSession,cloudDraftRevision,restoreCloudDraft} from './cloud-api.mjs';
 import {createCloudStudio} from './cloud-studio.mjs';
 import {createPilotSetup} from './pilot-setup.mjs';
+import {createWholePageQuality,wholePageChecks} from './whole-page-quality.mjs';
 
 const $ = id => document.getElementById(id);
 const imageChoices = createStudioImageOptions(e);
@@ -80,6 +81,8 @@ function updateStorageUI(){
   $('libraryStorageNote').textContent=workspace?'Projekten sparas i '+workspace.name+' och kan öppnas av arbetsytans medlemmar. Osparade utkast finns bara i den här webbläsaren. Ladda ner Projektkopia som backup.':'Dina projekt sparas bara i den här webbläsaren och delas inte med andra säljare. Ladda ner Projektkopia som backup. Rensad webbplatsdata eller privat läge kan ta bort projekten.';
   $('archiveDialog').querySelector('.dialog-intro').textContent='Förslaget flyttas från Aktiva till Arkiverade. Du kan återställa det när som helst. Dina delade kundlänkar fortsätter fungera.'+(workspace?' Formuläret tar inte emot nya förfrågningar medan projektet är arkiverat.':'');
 }
+const wholePageQuality=createWholePageQuality({getProject:()=>project,probe:probeLaunchImage,probeForms:probeLaunchForm,changed:next=>{project=next;markDirty();fillEditor();},notify:toast,edit:({pageIndex,field,tab})=>{showEditor();activePage=pageIndex;fillEditor();if(field==='editCustomerFunctions'){customerFunctions.open();return;}editorNavigation.reveal(tab,field);}});
+$('refineWholePage').addEventListener('click',()=>wholePageQuality.open());
 $('editCustomerFunctions').addEventListener('click',()=>customerFunctions.open());
 $('importFiles').addEventListener('click',()=>{if(project)importStudio.open();});
 $('showConnections').addEventListener('click',()=>{if(project)connectionsStudio.open();});
@@ -486,7 +489,7 @@ async function reviewBeforeShare() {
   launchController?.abort();const sequence=++launchSequence,current=project,signature=launchSignature(current);
   launchController=new AbortController();const controller=launchController,timer=setTimeout(()=>controller.abort(),25000);
   $('reviewTemplate').textContent = 'Vald design: ' + getTemplate(project.templateId).name;
-  launchReport=null;const checks=[...importLaunchChecks(current),...assessProject(current)];
+  launchReport=null;const checks=[...wholePageChecks(current),...importLaunchChecks(current),...assessProject(current)];
   renderLaunchReview(checks,true);
   if(!$('reviewDialog').open)$('reviewDialog').showModal();
   try{
@@ -502,6 +505,7 @@ $('reviewDialog').addEventListener('close',()=>{launchController?.abort();++laun
 $('reviewChecks').addEventListener('click',event=>{
   const button=event.target.closest('[data-review-field]');if(!button)return;
   $('reviewDialog').close();showEditor();activePage=Number(button.dataset.reviewPage??-1);fillEditor();
+  if(button.dataset.reviewField==='editCustomerFunctions'){customerFunctions.open();return;}
   if(button.dataset.reviewField==='showCloud'){cloudStudio.open();return;}
   editorNavigation.reveal(button.dataset.reviewTab,button.dataset.reviewField);
 });
@@ -588,7 +592,7 @@ async function share(allowIncomplete=false) {
     const base = publicReady ? config.publicBase : location.origin + '/viewer';
     const url = await encodeProject(shareSnapshot, base);
     $('shareUrl').value = url; $('shareUrl').dataset.companyName = shareSnapshot.name; $('visitLink').href = url;
-    const incomplete=importQualityIssues(shareSnapshot).length>0,reminders=[...importLaunchChecks(shareSnapshot),...assessProject(shareSnapshot),...reviewed.checks].some(check=>!check.ok);
+    const incomplete=importQualityIssues(shareSnapshot).length>0,reminders=[...wholePageChecks(shareSnapshot),...importLaunchChecks(shareSnapshot),...assessProject(shareSnapshot),...reviewed.checks].some(check=>!check.ok);
     $('shareReadiness').textContent=incomplete||reminders?'KONTROLLERA MARKERADE PUNKTER':'TEKNISKT KONTROLLERAD';
     $('shareIntro').textContent = incomplete||reminders?'Bild- och länkkontrollen är klar. Kontrollera återstående påminnelser om fakta, bildkvalitet och varumärke innan kundvisning.':publicReady ? 'Öppna länken på mobilen eller skicka den inför nästa samtal.' : 'Förhandsvisningen fungerar på den här datorn. Publik hosting är ännu inte ansluten.';
     $('shareWarning').hidden = publicReady;

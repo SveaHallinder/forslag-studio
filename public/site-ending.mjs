@@ -1,4 +1,5 @@
 import {brandPalette,bestInk} from './branding.mjs';
+import {customerJourney} from './customer-journey.mjs';
 
 const toneFor=id=>['atelier','editorial','story','wellness','retail'].includes(id)?'editorial':['cinema','studio','dining','hospitality'].includes(id)?'atmospheric':id==='pop'?'playful':'structured';
 const external=href=>/^https?:/.test(href)?' target="_blank" rel="noopener noreferrer"':'';
@@ -15,12 +16,12 @@ export function renderSiteEnding(p,e,picture) {
   const contactLink=p.navigation.find(item=>/^(kontakt|kontakta oss|contact|contact us)$/i.test(item.label.trim())&&item.href!=='#kontakt'&&!item.href.startsWith('#'));
   const direct=p.requestForm?{href:p.requestForm.url,label:nativeBooking?'Boka besök':p.requestForm.kind==='booking'?'Skicka bokningsförfrågan':'Skicka en förfrågan'}:p.email?{href:`mailto:${p.email}`,label:'Skicka ett mejl'}:phone?{href:phone,label:'Ring oss'}:contactLink?{href:contactLink.href,label:contactLink.label}:null;
   const mode=direct||p.address?'available':source?'website':'empty';
-  const route=direct||(source?{href:source,label:'Besök webbplatsen'}:null);
+  const journey=customerJourney(p),route=direct||journey.contact||(source?{href:source,label:'Besök webbplatsen'}:null);
   const rows=[
     p.requestForm?`<div class="ending-detail"><span class="ending-label">${nativeBooking?'Bokning':'Förfrågan'}</span><a href="${e(direct.href)}"${external(direct.href)}>${e(direct.label)}<span aria-hidden="true">↗</span></a></div>`:'',
     p.email?`<div class="ending-detail"><span class="ending-label">E-post</span><a href="mailto:${e(p.email)}">${e(p.email)}<span aria-hidden="true">↗</span></a></div>`:'',
     p.phone?`<div class="ending-detail"><span class="ending-label">Telefon</span><a href="${e(phone)}">${e(p.phone)}<span aria-hidden="true">↗</span></a></div>`:'',
-    p.address?`<div class="ending-detail"><span class="ending-label">Adress</span><span class="ending-address">${e(p.address)}</span></div>`:'',
+    p.address?`<div class="ending-detail"><span class="ending-label">Adress</span><span class="ending-address">${e(p.address)}</span><a class="ending-map" href="${e(journey.directions.href)}"${external(journey.directions.href)}>Hitta hit<span aria-hidden="true">↗</span></a></div>`:'',
     !p.email&&!p.phone&&contactLink?`<div class="ending-detail"><span class="ending-label">På webbplatsen</span><a href="${e(contactLink.href)}"${external(contactLink.href)}>${e(contactLink.label)}<span aria-hidden="true">↗</span></a></div>`:'',
     !direct&&!p.address?`<p class="contact-empty">${source?'Kontakt och mer information finns på företagets webbplats.':'Kontaktuppgifter saknas i det här designförslaget.'}</p>`:'',
   ].join('');

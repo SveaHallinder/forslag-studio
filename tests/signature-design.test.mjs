@@ -20,7 +20,7 @@ for(const templateId of ids)test(`${templateId} preserves content, image framing
   assert.equal(cards.length,project.cards.length);
   project.cards.forEach((card,index)=>{
     assert.ok(cards[index].includes(escapeHTML(card.title)));
-    if(card.description)assert.ok(cards[index].includes(escapeHTML(card.description)));
+    if(card.description)assert.ok(cards[index].replace(/<span class="copy-part">|<\/span>/g,'').includes(escapeHTML(card.description)));
     if(card.anchor)assert.ok(cards[index].includes(`id="${card.anchor}"`));
     if(card.href)assert.ok(cards[index].includes(`href="${card.href}"`));
     assert.deepEqual([...cards[index].matchAll(/<img src="([^"]+)"/g)].map(item=>item[1]),card.gallery?.map(item=>item.url)||[card.image].filter(Boolean));

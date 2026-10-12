@@ -27,7 +27,19 @@ export function compactTextIndices(cards) {
   return result;
 }
 export function paragraphContent(value,escape) {
-  if(!/\n\s*\n/.test(value))return escape(value);
+  if(!/\n\s*\n/.test(value)){
+    // Format long prose at sentence boundaries without rewriting or removing a
+    // character. Menus, lists and already authored line breaks stay untouched.
+    if(value.length<600||value.includes('\n'))return escape(value);
+    let start=0;const parts=[];
+    for(const match of value.matchAll(/[.!?][”"']?\s+(?=[A-ZÅÄÖ])/g)){
+      const end=match.index+match[0].length;
+      if(end-start<280||value.length-end<140||/\b(?:Dr|Mr|Mrs|Ms|Prof|St|vs|etc)\.$/.test(value.slice(0,match.index+1)))continue;
+      parts.push(value.slice(start,end));start=end;
+    }
+    if(!parts.length)return escape(value);
+    parts.push(value.slice(start));return parts.map(part=>`<span class="copy-part">${escape(part)}</span>`).join('');
+  }
   return String(value).split(/(\n\s*\n)/).map((part,i)=>i%2?part:`<span class="copy-part">${escape(part)}</span>`).join('');
 }
 
