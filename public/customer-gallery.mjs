@@ -52,7 +52,7 @@ export function installCustomerGallery(doc=document) {
     for(const group of doc.querySelectorAll('.section-gallery,.cafe-hero-visual,.visual:not(:has(.section-gallery))')){
       if(group.closest('[data-composition="logos"],.section-logos'))continue;
       const hosts=group.matches('.section-gallery')?[...group.querySelectorAll(':scope>figure')]:[group];
-      const items=hosts.flatMap(host=>{const image=host.querySelector(':scope>img');return image?[{host,image,caption:host.querySelector('figcaption')?.textContent.trim()||''}]:[];});
+      const items=hosts.flatMap(host=>{const image=host.querySelector(':scope>img'),label=host.querySelector('figcaption')?.cloneNode(true);label?.querySelectorAll('[aria-hidden="true"]').forEach(node=>node.remove());return image?[{host,image,caption:label?.textContent.trim()||''}]:[];});
       for(const entry of items){
         const button=doc.createElement('button');button.type='button';button.className='customer-image-open';button.setAttribute('aria-label',t.open+': '+(entry.image.alt||t.title));button.setAttribute('aria-haspopup','dialog');button.innerHTML='<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4"/></svg>';
         entry.host.append(button);triggers.set(button,{...entry,items,title:group.dataset.galleryTitle||entry.image.alt||t.title});observer?.observe(entry.host);
