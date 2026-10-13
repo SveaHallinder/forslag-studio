@@ -1,6 +1,6 @@
 // Resolve repair links against the actual field so moving a control to another
 // tab cannot silently send the user to a hidden input.
-export function createEditorNavigation(root=document) {
+export function createEditorNavigation(root=document,onReveal=()=>{}) {
   const tabs=[...root.querySelectorAll('[data-tab]')];
   function select(name,focus=false) {
     const selected=tabs.find(tab=>tab.dataset.tab===name);
@@ -23,6 +23,7 @@ export function createEditorNavigation(root=document) {
     });
   }
   function reveal(name,id) {
+    onReveal();
     const field=root.getElementById(id);
     const panel=field?.closest('[role="tabpanel"]');
     select(panel?tabs.find(tab=>tab.getAttribute('aria-controls')===panel.id)?.dataset.tab:name);

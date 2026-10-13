@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
+import {isStarterDraft} from '../public/workspace-flow.mjs';
 const source=readFileSync(new URL('../public/studio.mjs',import.meta.url),'utf8');
 const block=source.slice(source.indexOf('const importStudio=createImportStudio('),source.indexOf('const connectionsStudio='));
 function harness(){
  let options,resolveSave;const saved=new Promise(resolve=>{resolveSave=resolve;});
  const original={id:'old',name:'Old business',headline:'Unsaved copy'},next={name:'New business',headline:'New copy'};
- const context={project:original,dirty:true,importBusy:false,projectLoadSequence:0,createImportStudio:opts=>{options=opts;return {};},$:()=>({value:'https://example.com/'}),toast(){},save:async()=>{await saved;context.dirty=false;},workbench:{captureOriginal(){}},fillEditor(){},markDirty(){context.dirty=true;},showEditor(){},refreshProjects:async()=>{}};
+ const context={project:original,dirty:true,importBusy:false,projectLoadSequence:0,isStarterDraft,createImportStudio:opts=>{options=opts;return {};},$:()=>({value:'https://example.com/'}),toast(){},save:async()=>{await saved;context.dirty=false;},workbench:{captureOriginal(){}},fillEditor(){},markDirty(){context.dirty=true;},showEditor(){},refreshProjects:async()=>{}};
  vm.createContext(context);vm.runInContext(block,context);
  return {context,original,next,create:(current=()=>true)=>options.onCreate(next,original,JSON.stringify(original),current),resolveSave};
 }

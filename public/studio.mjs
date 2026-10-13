@@ -1,4 +1,5 @@
 import {createEditorNavigation} from './editor-navigation.mjs';
+import {createWorkspaceFlow,isStarterDraft} from './workspace-flow.mjs';
 import {createSocialStudio} from './social-studio.mjs';
 import {socialProfileURL} from './social-content.mjs';
 import {sectionKinds,detectSectionKind} from './section-design.mjs';
@@ -27,7 +28,8 @@ let project, config = {}, dirty = false, device = 'desktop', toastTimer, preview
 let activePage = -1, editingSite, previewSource;
 let pendingImportQualityAction;
 let launchReport,launchSequence=0,launchController;
-const editorNavigation=createEditorNavigation();
+const workspaceFlow=createWorkspaceFlow({onFit:()=>requestAnimationFrame(fitPreview),onReview:()=>reviewBeforeShare()});
+const editorNavigation=createEditorNavigation(document,()=>workspaceFlow.select('design'));
 const expandedCards=new WeakSet();
 const workbench=createDesignWorkbench({getProject:()=>project,getPage:()=>currentContent(),changed:()=>{markDirty();fillEditor();},previewTemplate:id=>templatePicker.open(id),navigate:editorNavigation.reveal,editNavigation:()=>$('editNavigation').click(),notify:toast});
 function currentContent() { return project.pages?.[activePage] || project; }
@@ -38,7 +40,7 @@ const customerFunctions=createCustomerFunctions({getProject:()=>project,onApply:
 const socialStudio=createSocialStudio({getProject:()=>project,readImage,notify:toast,onCreate:async(next,previous,snapshot)=>{
   if(project!==previous||JSON.stringify(project)!==snapshot)throw new Error('Det öppna förslaget har ändrats. Stäng och öppna social-flödet igen; dina ändringar finns kvar.');
   if(importBusy)throw new Error('En webbplatsimport pågår. Vänta tills den är klar innan du skapar ett nytt förslag.');
-  if(dirty){
+  if(dirty&&!isStarterDraft(project)){
     await save(false);
     if(project!==previous||dirty)throw new Error('Förslaget ändrades under sparningen. Dina senaste ändringar finns kvar. Öppna social-flödet igen.');
   }
@@ -49,7 +51,7 @@ const importStudio=createImportStudio({getProject:()=>project,getSource:()=>$('s
   if(!isCurrent())throw new Error('Importen stängdes. Ditt öppna förslag är kvar.');
   if(project!==previous||JSON.stringify(project)!==snapshot)throw new Error('Det öppna förslaget har ändrats. Dina ändringar finns kvar. Öppna importen igen.');
   if(importBusy)throw new Error('En import pågår. Vänta tills den är klar.');
-  if(dirty){await save(false);if(!isCurrent())throw new Error('Importen stängdes. Ditt öppna förslag är sparat.');if(project!==previous||dirty)throw new Error('Förslaget ändrades under sparningen. Dina senaste ändringar finns kvar. Öppna importen igen.');}
+  if(dirty&&!isStarterDraft(project)){await save(false);if(!isCurrent())throw new Error('Importen stängdes. Ditt öppna förslag är sparat.');if(project!==previous||dirty)throw new Error('Förslaget ändrades under sparningen. Dina senaste ändringar finns kvar. Öppna importen igen.');}
   ++projectLoadSequence;project=next;workbench.captureOriginal(project);dirty=true;fillEditor();markDirty();showEditor();refreshProjects().catch(()=>{});
 }});
 const connectionsStudio=createConnectionsStudio({getProject:()=>project,openPilot:()=>pilotSetup.open(),editFunctions:()=>customerFunctions.open(),review:()=>reviewBeforeShare(),navigate:editorNavigation.reveal});
@@ -173,13 +175,14 @@ $('recoverImport').addEventListener('click',()=>importCompany({recover:true}));
 $('recoverImportDialog').addEventListener('click',()=>{$('importQualityDialog').close();importCompany({recover:true});});
 function updateTitle() {
   $('projectTitle').textContent = project.name;
-  $('breadcrumbName').textContent = project.name;
+  $('breadcrumbName').textContent = $('editorView').hidden?'Översikt':project.name;
   try { $('previewDomain').textContent = new URL(project.source).hostname + ' · designförslag'; } catch { $('previewDomain').textContent = 'Ditt designförslag'; }
   $('colorValue').textContent = project.accent;
 }
 function fitPreview() {
   const stage = $('previewStage');
   const availableWidth = stage.clientWidth - (window.innerWidth <= 1100 ? 26 : 46);
+  if(availableWidth<=0||!stage.clientHeight)return;
   const width = device === 'mobile' ? 390 : 1100;
   const scale = Math.min(1, availableWidth / width);
   $('previewFrameWrap').style.width = width + 'px';
@@ -365,12 +368,15 @@ const templatePicker=createTemplatePicker({getProject:()=>project,getPage:()=>cu
 $('chooseTemplate').addEventListener('click',()=>templatePicker.open());
 function fillEditor(keepPreview = false) {
   $('chooseTemplate').disabled=false;$('designDirections').disabled=false;
-  if(editingSite!==project){activePage=-1;editingSite=project;$('importDisclosure').open=!project.id&&!project.importedAt&&!project.source;}
+  if(editingSite!==project){activePage=-1;editingSite=project;workspaceFlow.select(isStarterDraft(project)?'source':'design');}
   if(activePage>=(project.pages?.length||0))activePage=-1;
   let socialSource=false;try{socialProfileURL(project.source);socialSource=true;}catch{}
   updateTemplateLabel();
   $('pageSelect').innerHTML='<option value="-1">Startsida</option>'+(project.pages||[]).map((p,i)=>`<option value="${i}">${e(p.name||'Sida '+(i+2))}</option>`).join('');
   $('pageSelect').value=String(activePage);
+  $('pageSelect').closest('.page-bar').hidden=!project.pages?.length;
+  $('dashboardResume').hidden=isStarterDraft(project);
+  $('dashboardResume').textContent=dirty?'Fortsätt med utkastet':'Fortsätt med '+project.name;
   $('pageHelp').textContent=activePage<0?'Du redigerar startsidan. Namn, meny, logotyp och design gäller hela webbplatsen.':'Du redigerar '+currentContent().name+'. Namn, meny, logotyp och design gäller hela webbplatsen.';
   $('pageOriginal').hidden=!currentContent().source;
   $('pageOriginal').href=currentContent().source||'#';
@@ -380,7 +386,7 @@ function fillEditor(keepPreview = false) {
   $('sourceUrl').value = project.source;
   document.querySelector('label[for="sourceUrl"]').textContent=socialSource?'Företagets profil':'Företagets hemsida';
   $('includePages').closest('label').hidden=socialSource;
-  $('importButton').innerHTML=socialSource?'Nytt förslag från profil <span>→</span>':'Hämta innehåll <span>→</span>';
+  $('importButton').innerHTML=socialSource?'Nytt förslag från profil <span>→</span>':'Skapa förslag <span>→</span>';
   $('warnings').textContent = currentContent().warnings.join(' ');
   $('warnings').hidden = !currentContent().warnings.length;
   $('importSummary').textContent=currentContent().warnings.length?currentContent().warnings.length+' importnotiser att granska':project.source?'Visa källa eller hämta nytt innehåll':'Hämta från hemsida eller sociala medier';
@@ -409,7 +415,15 @@ async function refreshProjects() {
 function showEditor() {
   $('projectsView').hidden = true; $('editorView').hidden = false;
   $('showProjects').classList.remove('side-active');
+  updateTitle();
   requestAnimationFrame(fitPreview);
+}
+function showProjects() {
+  document.querySelector('.workspace').classList.remove('preview-focus');
+  $('focusPreview').setAttribute('aria-pressed','false');$('focusPreview').textContent='Utöka vyn';
+  $('editorView').hidden=true;$('projectsView').hidden=false;$('showProjects').classList.add('side-active');
+  $('dashboardResume').hidden=isStarterDraft(project);$('dashboardResume').textContent=dirty?'Fortsätt med utkastet':'Fortsätt med '+project.name;
+  updateTitle();
 }
 function renderProjectCards() {
   const archived = libraryView === 'archived';
@@ -461,7 +475,7 @@ $('confirmArchive').addEventListener('click',()=>changeArchive(archiveTarget));
 $('activeProjects').addEventListener('click',()=>{libraryView='active';renderProjectCards();});
 $('archivedProjects').addEventListener('click',()=>{libraryView='archived';renderProjectCards();});
 async function openSavedProject(id, duplicate = false) {
-  if(dirty && !await confirmDraftChange('Öppna det valda förslaget? De osparade ändringarna i ditt nuvarande utkast försvinner.'))return;
+  if(dirty && !isStarterDraft(project) && !await confirmDraftChange('Öppna det valda förslaget? De osparade ändringarna i ditt nuvarande utkast försvinner.'))return;
   const sequence = ++projectLoadSequence;
   const previous = project, snapshot = JSON.stringify(project);
   try {
@@ -697,19 +711,25 @@ $('openPreview').addEventListener('click',async()=>{
   catch(error){if(win)win.close();toast(error.message);}
 });
 $('projectList').addEventListener('click',event=>{const button=event.target.closest('[data-project]');if(button)openSavedProject(button.dataset.project);});
-$('newProject').addEventListener('click',async()=>{
+async function startProject(mode='website') {
   if(!project)return toast('Dina förslag öppnas. Försök igen om ett ögonblick.');
-  if(dirty&&!await confirmDraftChange('Skapa ett nytt förslag? De osparade ändringarna i ditt nuvarande utkast försvinner.'))return;
-  ++projectLoadSequence;showEditor();project=normalizeProject({name:'Nytt förslag',headline:'Här börjar nästa kunds hemsida.'});dirty=true;fillEditor();markDirty();$('sourceUrl').value='';$('sourceUrl').focus();$('importStatus').textContent='Klistra in en företagslänk för att komma igång.';refreshProjects().catch(()=>{});
-});
-$('showProjects').addEventListener('click',async()=>{ $('editorView').hidden=true;$('projectsView').hidden=false;$('dashboardResume').textContent=dirty?'Fortsätt med utkastet':'Fortsätt redigera';$('showProjects').classList.add('side-active');try{await refreshProjects();}catch(error){toast(error.message);} });
+  if(importBusy||$('saveButton').disabled||archiveBusy)return toast('Vänta tills import, sparning eller arkivering är klar. Ditt förslag finns kvar.');
+  if(dirty&&!isStarterDraft(project)&&!await confirmDraftChange('Skapa ett nytt förslag? De osparade ändringarna i ditt nuvarande utkast försvinner.'))return;
+  ++projectLoadSequence;project=normalizeProject({name:'Nytt förslag',headline:'Här börjar nästa kunds hemsida.'});dirty=true;fillEditor();markDirty();showEditor();$('sourceUrl').value='';
+  workspaceFlow.select(mode==='blank'?'design':'source',true);
+  if(mode==='social')socialStudio.open();
+  $('importStatus').textContent='Klistra in företagets webbadress för att skapa ett förslag.';refreshProjects().catch(()=>{});
+}
+$('newProject').addEventListener('click',()=>startProject());
+for(const [id,mode]of [['startWebsite','website'],['startSocial','social'],['startBlank','blank']])$(id).addEventListener('click',()=>startProject(mode));
+$('showProjects').addEventListener('click',async()=>{showProjects();try{await refreshProjects();}catch(error){toast(error.message);} });
 $('importButton').addEventListener('click',()=>importCompany());
 async function importCompany({recover=false,renderFirst=false}={}) {
   if(importBusy||!project)return;
   const url=(recover?project.source:$('sourceUrl').value).trim();if(!url){$('sourceUrl').focus();return toast('Klistra in företagets webbadress.');}
   let social;try{social=socialProfileURL(url);}catch{}
   if(social){socialStudio.open(social.url);return;}
-  if(!recover&&dirty&&!await confirmDraftChange('Hämta ett nytt företag? Det ersätter ditt utkast och de osparade ändringarna försvinner.'))return;
+  if(!recover&&dirty&&!isStarterDraft(project)&&!await confirmDraftChange('Hämta ett nytt företag? Det ersätter ditt utkast och de osparade ändringarna försvinner.'))return;
   const importProject = project;
   importBusy=true;$('importButton').disabled=true;$('importButton').textContent='Hämtar hemsidan…';
   renderImportQuality();
@@ -733,7 +753,7 @@ async function importCompany({recover=false,renderFirst=false}={}) {
     $('importStatus').className='import-status'+(quality.length?' error':'');$('importStatus').textContent=quality.length?'Importen behöver granskas: '+importQualitySummary(quality):`Startsida${project.pages?.length?' + '+project.pages.length+' undersidor':''} hämtad. ${project.images.length} bildkandidater och ${project.cards.length} innehållsblock på startsidan. Granska varje sida nedan.`+(recover?' Din valda design är kvar. Jämför rekommenderade mallar med Tre designförslag.':'');
     toast(quality.length?'Importen verkar ha samlat sidans innehåll i introduktionen. Granska varningen.':recover?'Ny import öppnad. Din tidigare version finns i Mina förslag.':'Företagets innehåll är inlagt.');
   }catch(error){$('importStatus').className='import-status error';$('importStatus').textContent=error.name==='TimeoutError'?'Hämtningen tog för lång tid. Ditt utkast finns kvar; försök igen eller fortsätt manuellt.':error.message;}
-  finally{importBusy=false;$('importButton').disabled=false;$('importButton').innerHTML='Hämta innehåll <span>→</span>';renderImportQuality();}
+  finally{importBusy=false;$('importButton').disabled=false;$('importButton').innerHTML='Skapa förslag <span>→</span>';renderImportQuality();}
 }
 window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
 new ResizeObserver(fitPreview).observe($('previewStage'));
@@ -742,8 +762,10 @@ if(location.protocol !== 'file:')try {
   config = await (await api('/api/config')).json();
   updateStorageUI();
   project = await loadInitialProject();
-  fillEditor();await refreshProjects();fitPreview();
+  fillEditor();await refreshProjects();showProjects();
+  $('workspaceStatus').hidden=true;
   $('sourceUrl').disabled=false;$('importButton').disabled=false;
+  if(window.innerWidth<=900)$('mobileButton').click();
   if(dirty)toast('Ditt senaste osparade utkast har återställts.');
   const invite=new URL(location.href).searchParams.get('invite');
   if(invite){
@@ -751,6 +773,7 @@ if(location.protocol !== 'file:')try {
     else if(confirm('Gå med i arbetsytan som den här personliga inbjudan gäller? Du får tillgång till dess projekt och inkorg.')){try{const joined=await cloudRequest('/join',{token:invite});await refreshCloudSession();selectCloudWorkspace(joined.workspace);location.href='/?workspace-open=1';}catch(error){toast(error.message);cloudStudio.open();}}
   }else if(new URL(location.href).searchParams.has('workspace-open'))cloudStudio.open();
 } catch(error) {
+  $('workspaceStatus').hidden=false;$('workspaceStatus').className='workspace-status error';$('workspaceStatus').textContent=error.message+' Ladda om sidan för att försöka igen. Dina sparade förslag finns kvar.';
   $('importStatus').textContent=error.message + ' Ladda om sidan eller prova en vanlig webbläsarflik.';
   $('importStatus').className='import-status error';
   document.querySelectorAll('button').forEach(b=>b.disabled=true);

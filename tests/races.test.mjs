@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { normalizeProject } from '../public/render.mjs';
 import {importQualityIssues} from '../public/import-quality.mjs';
+import {isStarterDraft} from '../public/workspace-flow.mjs';
 
 const source = readFileSync(new URL('../public/studio.mjs', import.meta.url), 'utf8');
 const saveSource = source.slice(source.indexOf('async function save('), source.indexOf('async function downloadDemo('));
@@ -26,7 +27,7 @@ function harness() {
       return elements.get(id);
     },
     api: () => pending,
-    normalizeProject,
+    normalizeProject,isStarterDraft,
     importQualityIssues,importQualitySummary:()=>'',renderImportQuality(){},
     workbench:{captureOriginal(){}},
     confirmDraftChange: async () => true,

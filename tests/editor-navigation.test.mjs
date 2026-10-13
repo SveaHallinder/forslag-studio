@@ -15,7 +15,8 @@ function harness() {
     const tab=node(name+'Button',{dataset:{tab:name}});tab.attributes['aria-controls']=name+'Tab';tabs.push(tab);
   }
   const root={querySelectorAll:()=>tabs,getElementById:id=>nodes.get(id),querySelector:selector=>nodes.get(selector)};
-  return {navigation:createEditorNavigation(root),nodes,tabs,node,get focused(){return focused;}};
+  let revealed=0;
+  return {navigation:createEditorNavigation(root,()=>revealed++),nodes,tabs,node,get focused(){return focused;},get revealed(){return revealed;}};
 }
 
 test('tabs support wrapping arrow keys and Home/End with one keyboard stop',()=>{
@@ -35,6 +36,7 @@ test('a review link reveals the actual relocated field and any collapsed parent'
   const h=harness(),disclosure={tagName:'DETAILS',open:false,parentElement:null};
   const field=h.node('accent',{closest:()=>h.nodes.get('brandTab'),parentElement:disclosure});
   assert.equal(h.navigation.reveal('content','accent'),true);
+  assert.equal(h.revealed,1);
   assert.equal(h.nodes.get('brandTab').hidden,false);
   assert.equal(h.nodes.get('contentTab').hidden,true);
   assert.equal(disclosure.open,true);assert.equal(h.focused,'accent');assert.equal(field.scrolled,true);
