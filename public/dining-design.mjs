@@ -60,7 +60,7 @@ ${s}{background:${paper};color:${ink};--dining-paper:${paper};--dining-ink:${ink
 ${s} .shell{max-width:1600px;padding:0 clamp(24px,5vw,88px)}
 ${s} .demo-note{font-size:9px;letter-spacing:.15em;padding:8px 16px}
 ${s} .nav[data-header]{min-height:100px;padding:12px 36px;margin:0;border:0;background:${b.headerBackground};color:${headerInk}}
-${s} .nav[data-header] .brand-mark img{max-height:76px;max-width:200px}
+${s} .nav[data-header] .brand-mark img{max-height:42px;max-width:156px}
 ${s} .nav[data-header] .nav-links{font-size:12px;letter-spacing:.08em;text-transform:uppercase;gap:32px}
 ${s} .nav[data-header] .nav-links .nav-action{border:1px solid currentColor;padding:14px 22px;white-space:nowrap;max-width:none}
 ${s} .hero-layout[data-hero]{display:grid!important;grid-template-columns:minmax(0,1fr);position:relative;min-height:610px;gap:0;padding:0;margin:0;background:${ink};color:${paper};isolation:isolate}
@@ -188,7 +188,7 @@ ${s} #erbjudande:has(.card[data-dining=contact]:last-child)+.site-contact[data-c
 @media(max-width:900px){
 ${s} .shell{padding:0 24px}
 ${s} .nav[data-header]{padding:12px 20px;min-height:88px}
-${s} .nav[data-header] .brand-mark img{max-height:60px}
+${s} .nav[data-header] .brand-mark img{max-height:36px}
 ${s} .hero-layout[data-hero]{min-height:540px}
 ${s} .cards{gap:44px 28px}
 ${c}[data-dining=story]{gap:32px}
