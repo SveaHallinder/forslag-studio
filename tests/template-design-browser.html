@@ -21,9 +21,9 @@ for(const {id} of templates)for(const width of [375,1200])for(const [variant,log
  const img=d.querySelector('.brand img');
  if(logo){const rect=img.getBoundingClientRect(),mark=style(img.parentElement);assert(rect.width>0&&rect.height>0&&Math.abs(rect.width/rect.height-img.naturalWidth/img.naturalHeight)<.02,'logotypens proportioner');assert(mark.backgroundColor==='rgba(0, 0, 0, 0)'&&mark.borderTopWidth==='0px'&&mark.paddingTop==='0px','inramad logotyp');assert(rect.width<=180&&rect.height<=52,'för stor logotyp');}
  else assert(d.querySelector('.brand').textContent==='Ateljé Nord','namn saknas utan logo');
- if(width===1200&&variant==='wide'){const copy=d.querySelector('.hero-copy').getBoundingClientRect(),visual=d.querySelector('.visual').getBoundingClientRect();signatures.add([Math.round(copy.x),Math.round(copy.y),Math.round(copy.width),Math.round(visual.x),Math.round(visual.y),style(d.querySelector('.hero-image')).borderRadius].join(','));}
+ if(width===1200&&variant==='wide'){const copy=d.querySelector('.hero-copy').getBoundingClientRect(),visual=d.querySelector('.visual,.cafe-hero-visual').getBoundingClientRect();signatures.add([Math.round(copy.x),Math.round(copy.y),Math.round(copy.width),Math.round(visual.x),Math.round(visual.y),style(d.querySelector('.hero-image,.cafe-hero-photo')).borderRadius].join(','));}
  results.textContent=`${checks} kontroller körda…`;
 }
 checks++;if(signatures.size<8)failures.push('För lika hero-layouter: '+signatures.size);
-results.textContent=failures.length?'FAIL\n'+failures.join('\n'):`PASS ${checks} kontroller · 10 mallar · 375/1200 px · bred, kvadratisk, hög och ingen logotyp · ${signatures.size} olika hero-layouter`;
+results.textContent=failures.length?'FAIL\n'+failures.join('\n'):`PASS ${checks} kontroller · ${templates.length} mallar · 375/1200 px · bred, kvadratisk, hög och ingen logotyp · ${signatures.size} olika hero-layouter`;
 </script></html>
