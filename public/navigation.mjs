@@ -5,13 +5,14 @@ export function renderHeader(project,imported,escape,picture) {
   const selectedAction=p.ctaHref?items.findIndex(item=>item.href===p.ctaHref):-1;
   const action=selectedAction>=0?selectedAction:items.findIndex(item=>/^(kontakt|kontakta oss|contact|contact us|boka|boka bord|boka tid|book|book now)$/i.test(item.label.trim()));
   let remaining=42,visible=0;
+  const secondary=item=>/^(annat|other|more|mer)$/i.test(item.label.trim());
   const links=items.map((item,i)=>{
-    const priority=i===selectedAction||visible<(selectedAction>=0?2:3)&&item.label.length<=Math.min(30,remaining);if(priority&&i!==selectedAction){remaining-=item.label.length;visible++;}
+    const priority=i===selectedAction||!secondary(item)&&visible<(selectedAction>=0?2:3)&&item.label.length<=Math.min(30,remaining);if(priority&&i!==selectedAction){remaining-=item.label.length;visible++;}
     return `<a${i===action?' class="nav-action"':''} href="${e(item.href)}"${priority?' data-nav-priority="true"':''} ${/^https?:/.test(item.href)?'target="_blank" rel="noopener noreferrer" title="Öppnar företagets original"':''}>${e(item.label)}${i===action?'<span aria-hidden="true">↗</span>':''}</a>`;
   }).join('');
   const menuLinks=items.map((item,i)=>`<a href="${e(item.href)}" ${/^https?:/.test(item.href)?'target="_blank" rel="noopener noreferrer" title="Öppnar företagets original"':''}><span class="menu-index" aria-hidden="true">${String(i+1).padStart(2,'0')}</span><span class="menu-label">${e(item.label)}</span><span class="menu-arrow" aria-hidden="true">↗</span></a>`).join('');
   const variant=['cinema','studio'].includes(p.templateId)?'immersive':p.templateId==='pop'?'playful':p.templateId==='precision'?'technical':['story','wellness','retail'].includes(p.templateId)?'floating':['atelier','editorial','dining'].includes(p.templateId)?'editorial':'structured';
-  const density=items.length>5||items.reduce((sum,item)=>sum+item.label.length,0)>64?'overflow':'regular';
+  const density=items.length>5||items.reduce((sum,item)=>sum+item.label.length,0)>64||items.some((item,i)=>secondary(item)&&i!==selectedAction)?'overflow':'regular';
   const sourceColor=!!(p.branding?.headerBackground||p.branding?.background||p.branding?.logoLight);
   return `<header class="nav" data-header="${variant}" data-menu-density="${density}" data-header-color="${sourceColor?'source':'default'}" data-brand="${p.logo?'image':'text'}"><a class="brand" href="#" aria-label="${e(p.name)} startsida">${p.logo?`<span class="brand-mark">${picture(p.logo,p.name,'',false)}</span>`:e(p.name)}</a><nav class="nav-links" aria-label="Huvudmeny">${links}</nav>${links?`<details class="mobile-menu"><summary aria-label="Öppna eller stäng menyn" aria-expanded="false"><span>Meny</span><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 8h16M4 16h16"/></svg></summary><button class="menu-backdrop" type="button" tabindex="-1" aria-label="Stäng menyn"></button><nav class="mobile-links" aria-label="Alla menylänkar">${menuLinks}</nav></details>`:''}</header>`;
 }

@@ -2,6 +2,7 @@ import {extractBrand} from './brand-content.mjs';
 import {prepareLegacyContent} from './legacy-content.mjs';
 import {logoScore,structuredLogo} from './import-assets.mjs';
 import {discoverCustomerFunctions} from './customer-functions.mjs';
+import {websiteContactDetails} from './website-redesign.mjs';
 const clean=value=>String(value||'').replace(/\s+/g,' ').replace(/([.!?])(?=[A-ZÅÄÖ])/g,'$1 ').trim();
 const headings='h1,h2,h3,h4';
 const imageSelector='img,[data-background],[data-bg-image],[style*="background"],[data-current-styles],video[poster],[data-import-background]';
@@ -271,8 +272,9 @@ export function extractContent(html, source, styles='',runtimeBrand=false) {
   if(!headerImage&&schemaLogo&&logo)warnings.push('Logotypen kommer från företagets strukturerade uppgifter. Kontrollera att den är rätt variant under Bilder.');
   if(rankedLogos.length>1&&rankedLogos[0].score===rankedLogos[1].score&&rankedLogos[0].image.url!==rankedLogos[1].image.url)warnings.push('Flera logovarianter hittades i sidhuvudet. Granska valet under Bilder innan delning.');
   if(!hero)warnings.push('Ingen säker huvudbild hittades vid huvudrubriken. Välj huvudbild under Bilder.');
-  if(!email&&!phone)warnings.push('Kontaktuppgifter saknas. Lägg till dem under Detaljer.');
+  const importedContact=websiteContactDetails({cards,email,phone});
+  if(!importedContact.email&&!importedContact.phone)warnings.push('Kontaktuppgifter saknas. Lägg till dem under Detaljer.');
   if(!headline&&!description&&!cards.length&&!email&&!phone)throw Object.assign(new Error('Hemsidan gav inget läsbart innehåll. Den kan kräva JavaScript eller blockera hämtning. Prova adressen till själva innehållssidan. Ditt öppna förslag är kvar.'),{code:'EMPTY_CONTENT'});
   if(contentHeadings.length>41||description.length>6000||cards.some(c=>c.description.length>6000))warnings.push('Startsidan är mycket lång. Delar har kortats; jämför med originalet före delning.');
-  return {sourceAnchors:Object.fromEntries(anchors),...(inlineLogo?{inlineLogo}:{}),name,source,headline:headline||name,description,logo,hero,...(heroGallery.length?{heroGallery}:{}),email,phone,address,accent,...(branding.branding?{branding:branding.branding}:{}),...(branding.typography?{typography:branding.typography}:{}),cards,navigation,cta:cta||'Kontakta oss',ctaHref,images:[...new Map(imageNodes.map(i=>[i.url,{url:i.url,label:i.label}])).values()].slice(0,80),warnings,links,stylesheets,sectionTitle:'',importedAt:new Date().toISOString()};
+  return {sourceAnchors:Object.fromEntries(anchors),...(inlineLogo?{inlineLogo}:{}),name,source,headline:headline||name,description,logo,hero,...(heroGallery.length?{heroGallery}:{}),email:importedContact.email,phone:importedContact.phone,address,accent,...(branding.branding?{branding:branding.branding}:{}),...(branding.typography?{typography:branding.typography}:{}),cards,navigation,cta:cta||'Kontakta oss',ctaHref,images:[...new Map(imageNodes.map(i=>[i.url,{url:i.url,label:i.label}])).values()].slice(0,80),warnings,links,stylesheets,sectionTitle:'',importedAt:new Date().toISOString()};
 }

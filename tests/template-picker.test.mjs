@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {templates} from '../public/templates.mjs';
 import {recommendDirections} from '../public/design-directions.mjs';
-import {templateGroups,findTemplates,templateThumbnail} from '../public/template-picker.mjs';
+import {templateGroups,findTemplates,templateThumbnail,templateProject} from '../public/template-picker.mjs';
 
 test('every existing design remains discoverable in the library and a relevant group',()=>{
   assert.deepEqual(findTemplates().map(template=>template.id),templates.map(template=>template.id));
@@ -40,5 +40,15 @@ test('library thumbnails show real customer content without scripts or interacti
   const project={name:'Kund <script>',headline:'Företagets egna ord',templateId:'story',hero:'https://example.com/customer.jpg'};
   const before=JSON.stringify(project);
   for(const template of templates){const html=templateThumbnail(project,template.id);assert.match(html,/<body inert/);assert.doesNotMatch(html,/<script\b/i);assert.match(html,/Företagets egna ord/);assert.match(html,/Kund &lt;script&gt;/);}
+  assert.equal(JSON.stringify(project),before);
+});
+
+test('template fonts are an explicit preview choice and never mutate the open draft',()=>{
+  const typography={heading:'Georgia',body:'Verdana',faces:[]},project={name:'Nord',typography,pages:[{source:'https://example.com/team',typography}],original:{headline:'Original',typography}};
+  const before=JSON.stringify(project);
+  assert.deepEqual(templateProject(project,'precision').typography,typography);
+  const proposed=templateProject(project,'precision',true);
+  assert.equal(proposed.typography,undefined);assert.equal(proposed.pages[0].typography,undefined);
+  assert.deepEqual(proposed.original.typography,typography);
   assert.equal(JSON.stringify(project),before);
 });

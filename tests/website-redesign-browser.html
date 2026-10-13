@@ -1,0 +1,42 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hela hemsidan – designkontroll</title>
+<style>body{font:14px system-ui;background:#e9e9e7;margin:16px}button,select{font:inherit;padding:10px;border:1px solid #ccc;background:white;border-radius:6px}header{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}iframe{display:block;border:0;background:white;width:1280px;height:900px}pre{white-space:pre-wrap}#proof{display:none}</style>
+<header><strong>Hela hemsidan</strong><select id="company" aria-label="Företag"><option value="hallinc">HallInc · riktig import</option><option value="pebble">Pebble · sparat underlag</option><option value="nord">Ateljé Nord · testföretag</option></select><select id="design" aria-label="Design"></select><select id="width" aria-label="Bredd"><option>1280</option><option>820</option><option>375</option><option>320</option></select><button id="check">Kontrollera alla mallar</button></header>
+<pre id="results">Hämtar HallInc…</pre><iframe title="Hel hemsida" id="page"></iframe><pre id="proof"></pre>
+<script type="module">
+import {browserAPI} from '/browser-api.mjs';
+import {renderDemo} from '/render.mjs';
+import {templates} from '/templates.mjs';
+import {templateProject} from '/template-picker.mjs';
+import {createSocialProject} from '/social-project.mjs';
+const results=document.querySelector('#results'),frame=document.querySelector('#page'),company=document.querySelector('#company'),design=document.querySelector('#design'),width=document.querySelector('#width');
+design.innerHTML=templates.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');design.value='story';
+const projects={};
+const pilot=await fetch('/pebble-social-pilot.json').then(r=>r.json());
+projects.pebble=createSocialProject(pilot);
+projects.nord={name:'Ateljé Nord',source:'https://example.com/',templateId:'editorial',headline:'Rum för livet som pågår.',description:'Vi formar miljöer där människor trivs. Från den första idén till den sista detaljen arbetar vi nära dig.',eyebrow:'Arkitektur · Göteborg',hero:projects.pebble.hero,accent:'#596652',email:'hej@example.com',importedAt:'today',navigation:[{label:'Projekt',href:'#projekt'},{label:'Om oss',href:'#om'},{label:'Kontakt',href:'#kontakt'}],cards:[{title:'Omsorg i varje detalj',anchor:'projekt',description:'Ett illustrativt exempel för att kontrollera kompositionen. Fotot kommer från Pebble-underlaget.',image:projects.pebble.hero},{title:'Plats för det personliga',description:'Testinnehåll, inte ett riktigt arkitekturprojekt.',image:projects.pebble.cards.find(c=>c.image)?.image},{title:'Om ateljén',anchor:'om',description:'Vi arbetar med miljöer för människor.'}]};
+function show(){const p=projects[company.value];if(!p)return;frame.style.width=width.value+'px';frame.srcdoc=renderDemo(templateProject(p,design.value,true));}
+company.onchange=show;design.onchange=show;width.onchange=show;
+try{const response=await browserAPI('/api/import',{url:'https://hallinc.se/',includePages:false}),p=await response.json();if(!response.ok)throw Error(p.error);projects.hallinc=p;document.querySelector('#proof').textContent=JSON.stringify(p);results.textContent='Riktig HallInc-import · '+p.cards.length+' sektioner · sparar inga kundprojekt';show();}catch(error){results.textContent='Importkontroll: '+error.message;company.value='pebble';show();}
+document.querySelector('#check').onclick=async()=>{
+ let checks=0;const failures=[];document.querySelector('#check').disabled=true;
+ for(const [name,p] of Object.entries(projects))for(const template of templates)for(const size of [320,375,820,1280]){
+  const test=document.createElement('iframe');test.style.cssText='position:absolute;left:-10000px;width:'+size+'px;height:900px';document.body.append(test);
+  await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Iframe load timeout')),15000);test.onload=()=>{clearTimeout(timer);resolve();};test.srcdoc=renderDemo(templateProject(p,template.id,true));});
+  const d=test.contentDocument,w=test.contentWindow,assert=(ok,message)=>{checks++;if(!ok)failures.push(name+'/'+template.id+'/'+size+': '+message);};
+  assert(d.documentElement.scrollWidth===size,'overflow '+d.documentElement.scrollWidth);
+  const fold=value=>value.replace(/\s+/g,' ').trim();
+  assert(p.cards.every(card=>fold(d.body.textContent).includes(fold(card.title))),'alla sektioner finns kvar');
+  assert(d.querySelectorAll('h1').length===1,'en huvudrubrik');
+  assert(fold(d.body.textContent).includes(fold(p.headline)),'rubrik bevarad');
+  if(d.body.dataset.websiteDesign){
+   const hero=d.querySelector('.hero-copy'),h=hero.querySelector('h1');assert(h.getBoundingClientRect().width<=hero.getBoundingClientRect().width+2,'rubrik ryms');
+   const image=d.querySelector('.brand img');if(image)assert(image.getBoundingClientRect().width<=180&&image.getBoundingClientRect().height<=52,'logotyp ryms');
+   for(const contact of d.querySelectorAll('[data-redesign-role=source-contact]'))assert(!contact.querySelector('details').open,'importerad legaltext är kompakt');
+   const heroStyle=w.getComputedStyle(hero),background=heroStyle.backgroundColor==='rgba(0, 0, 0, 0)'?w.getComputedStyle(d.body).backgroundColor:heroStyle.backgroundColor;
+   assert(heroStyle.color!==background,'synlig text');
+  }
+  test.remove();results.textContent=checks+' kontroller körda…';
+ }
+ results.textContent=failures.length?'FAIL '+checks+'\n'+failures.join('\n'):'PASS '+checks+' · 3 företag · 17 mallar · 320/375/820/1280 px';document.querySelector('#check').disabled=false;
+};
+</script></html>

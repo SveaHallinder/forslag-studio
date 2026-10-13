@@ -295,14 +295,14 @@ $('cardsEditor').addEventListener('toggle',event=>{
   if(event.target.open)expandedCards.add(card);else expandedCards.delete(card);
 },true);
 function renderTypography() {
-  const t=project.typography||{},names=[...new Set([t.heading,t.body,...(t.faces||[]).map(f=>f.family),'Arial','Georgia','Verdana'].filter(Boolean))];
+  const t=project.typography||{},original=project.original?.typography||{},names=[...new Set([t.heading,t.body,...(t.faces||[]).map(f=>f.family),original.heading,original.body,...(original.faces||[]).map(f=>f.family),'Arial','Georgia','Verdana'].filter(Boolean))];
   for(const [id,key] of [['headingFont','heading'],['bodyFont','body']]){
     $(id).innerHTML='<option value="">Mallens typsnitt</option>'+names.map(name=>`<option value="${e(name)}">${e(name)}</option>`).join('');$(id).value=t[key]||'';
   }
   $('typographyStatus').textContent=t.heading||t.body?'Valda typsnitt: '+(t.heading||'mallens rubriker')+' / '+(t.body||'mallens brödtext')+'. '+(t.faces?.length?'Fontfiler hämtas från originalet.':'Ingen extern fontfil hittades; kontrollera utseendet eller välj en systemfont.'):'Mallens typsnitt används. Originalets font kan identifieras vid ny import.';
 }
 for(const [id,key] of [['headingFont','heading'],['bodyFont','body']])$(id).addEventListener('change',()=>{
-  project.typography={heading:'',body:'',faces:[],...project.typography,[key]:$(id).value};renderTypography();markDirty();updatePreview();
+  project.typography={heading:'',body:'',faces:project.original?.typography?.faces||[],...project.typography,[key]:$(id).value};renderTypography();markDirty();updatePreview();
 });
 function renderBranding() {
   const profile=project.branding||{},palette=brandPalette(profile);
@@ -358,9 +358,10 @@ function updateTemplateLabel() {
   $('previewTemplate').textContent = template.name;
   $('templateDescription').textContent = template.description;
 }
-const templatePicker=createTemplatePicker({getProject:()=>project,getPage:()=>currentContent(),onApply:templateId=>{
-  if(project.templateId!==templateId){
+const templatePicker=createTemplatePicker({getProject:()=>project,getPage:()=>currentContent(),onApply:(templateId,{useTemplateFonts=false}={})=>{
+  if(project.templateId!==templateId||useTemplateFonts&&project.typography){
     project.templateId=templateId;
+    if(useTemplateFonts){delete project.typography;for(const page of project.pages||[])delete page.typography;renderTypography();}
     markDirty(); updateTemplateLabel(); updatePreview();
     toast(getTemplate(project.templateId).name + ' är vald. Ditt innehåll finns kvar.');
   }

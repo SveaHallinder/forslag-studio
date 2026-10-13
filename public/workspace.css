@@ -348,3 +348,5 @@ dialog[open]{animation:workspace-sheet-in 180ms cubic-bezier(.2,.8,.2,1)}
 }
 @media(prefers-reduced-motion:reduce){button{transition:none}}
 @media(prefers-reduced-transparency:reduce){.project-menu>div{background:#fff;backdrop-filter:none}dialog::backdrop{backdrop-filter:none}}
+
+#templateDialog .template-fonts{display:flex;align-items:center;gap:9px;min-height:44px;margin:4px 0 0;font-size:11px;font-weight:400;line-height:1.5}#templateDialog .template-fonts input{flex:none;width:16px;height:16px;margin:0;padding:0;accent-color:#293d54}

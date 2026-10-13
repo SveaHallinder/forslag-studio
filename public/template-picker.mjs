@@ -18,8 +18,11 @@ export function findTemplates({query='',group='all',project={}}={}) {
 }
 
 // A quiet, inert crop of the actual design, using this customer's content.
-export function templateThumbnail(project,id,pageSource) {
-  return renderDemo({...project,templateId:id},{pageSource}).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace('</head>','<style>html{overflow:hidden}*{animation:none!important;transition:none!important}.demo-note{display:none!important}</style></head>').replace(/<body\b/,'<body inert');
+export function templateProject(project,id,useTemplateFonts=false) {
+  return {...project,templateId:id,...(useTemplateFonts?{typography:undefined}:{}),...(project.pages?{pages:project.pages.map(page=>({...page,...(useTemplateFonts?{typography:undefined}:{})}))}:{})};
+}
+export function templateThumbnail(project,id,pageSource,useTemplateFonts=false) {
+  return renderDemo(templateProject(project,id,useTemplateFonts),{pageSource}).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace('</head>','<style>html{overflow:hidden}*{animation:none!important;transition:none!important}.demo-note{display:none!important}</style></head>').replace(/<body\b/,'<body inert');
 }
 
 export function createTemplatePicker({getProject,getPage,onApply}) {
@@ -30,7 +33,7 @@ export function createTemplatePicker({getProject,getPage,onApply}) {
     for(const entry of entries){
       if(!entry.isIntersecting||!dialog.open||!original||!entry.target.isConnected)continue;
       const thumb=entry.target.querySelector('iframe'),id=entry.target.dataset.templatePreview;
-      if(!samples.has(id))samples.set(id,templateThumbnail(original,id,page.source));
+      if(!samples.has(id))samples.set(id,templateThumbnail(original,id,page.source,$('templateFonts').checked));
       thumb.srcdoc=samples.get(id);thumbnailObserver.unobserve(entry.target);
     }
   },{root:$('templateGallery'),rootMargin:'100px'});
@@ -61,10 +64,11 @@ export function createTemplatePicker({getProject,getPage,onApply}) {
     const template=getTemplate(candidate);
     $('templatePreviewName').textContent=template.name;
     $('templatePreviewDescription').textContent=template.description;
-    $('applyTemplate').textContent=candidate===original.templateId?'Behåll denna design':'Använd '+template.name;
-    $('templatePreviewStatus').textContent=candidate===original.templateId?'Nuvarande design':'Förhandsval · utkastet är oförändrat';
+    const unchanged=candidate===original.templateId&&!($('templateFonts').checked&&original.typography);
+    $('applyTemplate').textContent=unchanged?'Behåll denna design':'Använd '+template.name;
+    $('templatePreviewStatus').textContent=unchanged?'Nuvarande design':'Förhandsval · utkastet är oförändrat';
     $('templatePickerError').hidden=true;
-    frame.srcdoc=renderDemo({...original,templateId:candidate},{pageSource:page.source});
+    frame.srcdoc=renderDemo(templateProject(original,candidate,$('templateFonts').checked),{pageSource:page.source});
     selection();fit();
   }
   frame.addEventListener('load',()=>{
@@ -93,14 +97,16 @@ export function createTemplatePicker({getProject,getPage,onApply}) {
       $('templatePickerError').textContent='Förslaget har ändrats medan du jämförde. Stäng designväljaren och öppna den igen. Dina ändringar finns kvar.';
       $('templatePickerError').hidden=false;return;
     }
-    onApply(candidate);dialog.close();
+    onApply(candidate,{useTemplateFonts:$('templateFonts').checked});dialog.close();
   });
   $('cancelTemplate').addEventListener('click',()=>dialog.close());
+  $('templateFonts').addEventListener('change',()=>{samples.clear();list();preview(candidate);});
   dialog.addEventListener('close',()=>{thumbnailObserver.disconnect();frame.removeAttribute('srcdoc');$('templateGallery').innerHTML='';samples.clear();original=page=null;});
   new ResizeObserver(fit).observe($('templatePreviewStage'));
   return {open(id){
     original=getProject();if(!original)return;
     page=getPage();snapshot=JSON.stringify(original);
+    $('templateFonts').checked=true;
     $('templateSearch').value='';$('templateGroup').value='recommended';
     $('templateCompany').textContent=original.name+' · '+templates.length+' designer med ditt innehåll';
     candidate=getTemplate(id||original.templateId).id;dialog.showModal();dialog.scrollTop=0;list();preview(candidate);
