@@ -183,6 +183,25 @@ body:has(#editPreview[aria-pressed=true]) #previewModeHelp{display:block}
 #editorView .social-entry button{font-size:13px;color:var(--blue);font-weight:500;min-height:44px;padding:4px 0}
 .source-continue{font-size:11px;color:#95a1b1;padding-left:0}
 #editorView[data-step=design] .import-panel{display:none}
+/* Keep the site's canvas and the editing fields above the fold. */
+#editorView[data-step=design]>.project-header{padding-top:14px;padding-bottom:14px}
+#editorView[data-step=design] .project-header h1{font-size:23px;margin:6px 0 0}
+#editorView[data-step=design] .project-header p{display:none}
+#editorView[data-step=design] .workflow{padding:8px 0;margin-bottom:12px}
+#editorView[data-step=design] .workflow p{margin-top:2px}
+#editorView[data-step=design] .editor-context{margin-bottom:12px}
+#editorView[data-step=design] .template-bar{padding:9px 14px}
+.editor-panel .editor-tabs{margin:0 0 18px}
+.workflow-steps button,.workflow p,.editor-context .overline,.preview-footer,.browser-bar{color:#65717f}
+.workflow-steps button>span{color:#65717f}
+.import-alternatives .text-button,.source-continue{color:#627084;font-size:12px}
+.editor-context .template-bar strong{overflow-wrap:anywhere}
+.workspace.preview-focus #editorView>.workflow{display:none}
+@media(min-width:901px){
+ #editorView[data-step=design] .template-bar>div:first-child{display:flex;align-items:center;gap:10px;min-width:0}
+ #editorView[data-step=design] .template-bar strong{margin:0}
+ .workspace:has(#editorView[data-step=design]:not([hidden])) .topbar{height:48px;min-height:48px}
+}
 dialog{background:#fff;color:#303944;border-color:#e3e7ec;border-radius:20px;box-shadow:0 24px 90px #17283b26;font-family:inherit}
 dialog::backdrop{background:#1e293951;backdrop-filter:blur(4px)}
 dialog h2{letter-spacing:-.9px;font-weight:550;color:#343e4b}
@@ -211,6 +230,12 @@ dialog .review-check>span{background:#e8f0f8;color:#5a7ba0}
  #editorView[data-step=source] .editor{margin:12px auto 28px;max-width:560px}#editorView[data-step=source] .import-panel{padding:26px}
  .tab-content input,.tab-content textarea,.url-field input,dialog :is(input,textarea,select){font-size:16px}
  .workspace.preview-focus .work-grid .preview-panel{height:75dvh}
+ #editorView[data-step=design]>.project-header{padding:14px 20px 12px}
+ #editorView[data-step=design] .header-actions{margin-top:12px}
+ #editorView[data-step=design] .workflow p{display:none}
+ #editorView[data-step=design] .mobile-workspace-view{position:sticky;top:0;z-index:5;box-shadow:0 -8px 0 8px #fafafa}
+ .mobile-workspace-view button{color:#637185}
+ .workspace.preview-focus #editorView>.mobile-workspace-view{display:none}
 }
 @media(max-width:520px){
  .projects-view{padding:0 20px 28px}.home-intro{padding:32px 0 24px}.home-intro h1{font-size:32px;letter-spacing:-1.35px}.home-intro>p:last-child{font-size:13px}.home-intro br:not(h1 br){display:none}
@@ -219,6 +244,11 @@ dialog .review-check>span{background:#e8f0f8;color:#5a7ba0}
  .projects-controls{display:flex;flex-wrap:wrap;margin:0 0 16px}.project-search{max-width:none;flex:1 1 100%;margin:0}.projects-controls>div:last-child{margin-left:auto}.project-cards{grid-template-columns:1fr;margin:0}.project-tile-open{padding:22px}.tile-actions button{font-size:12px}.project-monogram{margin-bottom:16px}
  .sidebar{gap:6px}.sidebar .side-link{padding:8px;font-size:10px}.sidebar .wordmark{font-size:20px;gap:7px}.workflow-steps{gap:8px}.workflow-line{width:14px}.workflow-steps button{font-size:11px;gap:6px}.workflow-steps button>span{width:21px;height:21px}.workflow p{font-size:10px}.project-header .header-actions{gap:8px}
  .editor-context .template-bar{display:block}.editor-context .workbench-actions{margin-top:12px;display:flex;gap:6px}.editor-context .workbench-actions .button{flex:initial;font-size:10px;padding:8px 10px}#refineWholePage{border:1px solid #e0e6ed}
+ #editorView[data-step=design] .template-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+ #editorView[data-step=design] .template-bar>div:first-child{flex:1;min-width:90px}
+ #editorView[data-step=design] .workbench-actions{margin-top:0;width:auto!important;gap:6px}
+ #editorView[data-step=design] .design-tools summary{padding:0 8px;font-size:10px;gap:4px}
+ #editorView[data-step=design] .template-bar .overline{display:none}
  .import-summary strong{font-size:17px}.import-summary small{font-size:11px}.import-alternatives{gap:12px}.import-alternatives .text-button{font-size:10px}.source-continue{font-size:10px}.editor-tabs button{min-height:40px;font-size:11px}.header-actions .button{min-height:42px}.dialog-actions{align-items:stretch}.dialog-actions .button{justify-content:center}
 }
 @media(prefers-reduced-motion:reduce){button{transition:none}}

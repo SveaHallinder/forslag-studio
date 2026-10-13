@@ -413,9 +413,11 @@ async function refreshProjects() {
   $('projectList').innerHTML = list.map(p => `<button class="project-item ${project?.id===p.id?'active':''}" data-project="${e(p.id)}"><span class="project-avatar">${e(p.name.slice(0,1).toUpperCase())}</span><span class="project-name">${e(p.name)}</span></button>`).join('') || '<p class="field-help">Sparade förslag visas här.</p>';
 }
 function showEditor() {
+  const opening=$('editorView').hidden;
   $('projectsView').hidden = true; $('editorView').hidden = false;
   $('showProjects').classList.remove('side-active');
   updateTitle();
+  if(opening){window.scrollTo({top:0,behavior:'instant'});$('projectTitle').focus({preventScroll:true});}
   requestAnimationFrame(fitPreview);
 }
 function showProjects() {
@@ -424,6 +426,7 @@ function showProjects() {
   $('editorView').hidden=true;$('projectsView').hidden=false;$('showProjects').classList.add('side-active');
   $('dashboardResume').hidden=isStarterDraft(project);$('dashboardResume').textContent=dirty?'Fortsätt med utkastet':'Fortsätt med '+project.name;
   updateTitle();
+  window.scrollTo({top:0,behavior:'instant'});$('projectsTitle').focus({preventScroll:true});
 }
 function renderProjectCards() {
   const archived = libraryView === 'archived';
@@ -688,7 +691,7 @@ function focusPreview(focused) {
 }
 $('focusPreview').addEventListener('click',()=>focusPreview($('focusPreview').getAttribute('aria-pressed')!=='true'));
 function exitFocusedPreview(event) {
-  if(event.key==='Escape'&&!document.querySelector('dialog[open]')&&$('focusPreview').getAttribute('aria-pressed')==='true'){
+  if(event.key==='Escape'&&!event.defaultPrevented&&!document.querySelector('dialog[open]')&&$('focusPreview').getAttribute('aria-pressed')==='true'){
     focusPreview(false);$('focusPreview').focus();
   }
 }

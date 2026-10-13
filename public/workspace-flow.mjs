@@ -30,7 +30,17 @@ export function createWorkspaceFlow({root=document,onFit=()=>{},onReview=()=>{}}
   $('sourceContinue').addEventListener('click',()=>select('design',true));
   $('editorViewButton').addEventListener('click',()=>view('edit'));
   $('previewViewButton').addEventListener('click',()=>view('preview'));
-  root.addEventListener('click',event=>{const menu=event.target.closest?.('.project-menu');if(menu&&event.target.closest?.('button'))menu.open=false;});
-  root.addEventListener('keydown',event=>{if(event.key!=='Escape'||root.querySelector('dialog[open]'))return;const menu=root.querySelector('.project-menu[open]');if(menu){menu.open=false;menu.querySelector('summary').focus();}});
+  const menuSelector='.project-menu, .workspace-settings';
+  const closeMenus=except=>{for(const menu of root.querySelectorAll(menuSelector))if(menu!==except)menu.open=false;};
+  root.addEventListener('click',event=>{
+    const menu=event.target.closest?.(menuSelector);
+    if(!menu||event.target.closest?.('button'))closeMenus();
+    else if(event.target.closest?.('summary'))closeMenus(menu);
+  });
+  root.addEventListener('keydown',event=>{
+    if(event.key!=='Escape'||root.querySelector('dialog[open]'))return;
+    const menu=root.querySelector('.project-menu[open], .workspace-settings[open]');
+    if(menu){event.preventDefault();closeMenus();menu.querySelector('summary').focus();}
+  });
   return {select,view};
 }
