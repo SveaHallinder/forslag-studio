@@ -5,7 +5,7 @@ const profiles = [
   {cues:/^(webblosning|webbplats|hemsidor|mjukvara|software|webbutveckl|digitalbyra)/,ids:['precision','consulting','studio']},
   {cues:/^(annons|annonser|annonsera|dooh$|utomhusreklam|storbildsskarm)/,ids:['editorial','story','studio']},
   {cues:/^(butik|sortiment|produkt|retail|shop$)/,ids:['retail','atelier','pop']},
-  {cues:/^(restaurang|cafe|bageri|lunch|restaurant|bakery|dining)/,ids:['dining','cinema','pop']},
+  {cues:/^(restaurang|cafe|bageri|lunch|restaurant|bakery|dining|coffee|espresso|kaffe)/,ids:['dining','cinema','pop']},
   {cues:/^(salong|behandling|klinik|traning|frisor|halsa|wellness|yoga|spa$)/,ids:['wellness','story','studio']},
   {cues:/^(bygg$|byggforetag|byggfirma|byggbolag|byggtjanst|hantverk|verkstad|snickeri|renover|construction)/,ids:['construction','services','studio']},
   {cues:/^(hotell|hotel|boende|resa$|resor|upplevelse|hospitality)/,ids:['hospitality','story','cinema']},
@@ -32,6 +32,7 @@ const reasons = {
 
 const list = value=>Array.isArray(value)?value:[];
 const text = value=>typeof value==='string'?value:'';
+const sectorDirections={cafe:['dining','cinema','pop'],dining:['dining','cinema','pop'],wellness:['wellness','story','studio'],construction:['construction','services','studio'],hospitality:['hospitality','story','cinema'],consulting:['consulting','story','services'],retail:['retail','atelier','pop'],precision:['precision','consulting','studio']};
 
 export function recommendDirections(project={}) {
   const p=project&&typeof project==='object'?project:{};
@@ -47,7 +48,8 @@ export function recommendDirections(project={}) {
   const visualCards=cards.filter(card=>!['team','testimonial'].includes(detectSectionKind(card))&&sectionComposition(card)!=='logos');
   const images=new Set([p.hero,...list(p.heroGallery).map(image=>image?.url),
     ...visualCards.flatMap(card=>[card.image,...list(card.gallery).map(image=>image?.url)])].map(value=>text(value).trim()).filter(Boolean));
-  let ids=selected?[...selected.ids]:['consulting',images.size>=3?'retail':'story','studio'];
+  const sector=typeof p.templateId==='string'&&Object.hasOwn(sectorDirections,p.templateId)?sectorDirections[p.templateId]:null;
+  let ids=selected?[...selected.ids]:sector?[...sector]:['consulting',images.size>=3?'retail':'story','studio'];
   const textFirst=!text(p.hero).trim()&&text(p.description).length>450;
   if(textFirst)ids=['consulting',...ids.filter(id=>id!=='consulting')].slice(0,3);
   return ids.map((templateId,index)=>({

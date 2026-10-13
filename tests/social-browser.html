@@ -1,4 +1,4 @@
-<!doctype html><html lang="sv"><meta charset="utf-8"><title>Social intake regression</title><link rel="stylesheet" href="../public/studio.css"><body>
+<!doctype html><html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Social intake regression</title><link rel="stylesheet" href="../public/studio.css"><link rel="stylesheet" href="../public/workspace.css"><body>
 <main style="padding:30px"><h1>Social intake regression</h1><button id="run">Run regression checks</button><p id="result" role="status">Ready</p><ol id="checks"></ol></main>
 <script type="module">
 import {createSocialStudio} from '../public/social-studio.mjs';
@@ -15,6 +15,20 @@ async function fixture(run){
   try{await run({studio,dialog,get,fill,company,upload,created});}finally{window.fetch=originalFetch;dialog.close();dialog.remove();}
 }
 const cases=[
+  ['Guided stages validate the first missing field and keep manual copy',()=>fixture(async({dialog,get,company,created})=>{
+    assert(dialog.dataset.socialStep==='profile'&&get('socialCompanyPanel').hidden,'Intake must begin with profiles only');get('socialNext').click();assert(document.activeElement===get('socialLinks'),'Missing profile must receive focus');
+    get('socialLinks').value='https://instagram.com/little.beans/';get('socialNext').click();assert(dialog.dataset.socialStep==='company'&&get('socialImagePanel').hidden,'Manual route must reveal company details');get('socialNext').click();assert(document.activeElement===get('socialName'),'Missing company must receive focus');
+    company();get('socialNext').click();assert(dialog.dataset.socialStep==='images'&&!get('socialCreate').hidden,'Only the final stage should expose creation');get('socialBack').click();assert(get('socialBio').value==='Our own coffee and conversation.','Back navigation erased text');get('socialNext').click();get('socialCreate').click();await settle();assert(created[0]?.name==='Little Beans','The guided intake did not create the complete project');
+  })],
+  ['A closed intake can resume its text and photos within this session',()=>fixture(async({studio,dialog,get,company,upload})=>{
+    company();get('socialNext').click();get('socialNext').click();upload('socialPhotoUpload',2);await settle();dialog.close();studio.open();assert(!get('socialResume').hidden,'Interrupted intake needs a recovery action');get('socialResume').click();assert(get('socialName').value==='Little Beans'&&dialog.querySelectorAll('.social-photo').length===2,'The intake was not restored');assert(dialog.dataset.socialStep==='images','Recovery should return to the prior stage');
+  })],
+  ['A blocked profile leads to visible manual fields without pretending success',()=>fixture(async({dialog,get})=>{
+    get('socialLinks').value='https://instagram.com/little.beans/';window.fetch=async()=>new Response(JSON.stringify({status:'blocked',warning:'Profilen blockerar hämtning. Fyll i själv.'}));get('socialRead').click();await until(()=>!get('socialRead').disabled);assert(dialog.dataset.socialStep==='company'&&!get('socialCompanyPanel').hidden,'Blocked import must reveal manual company fields');assert(/Klistra in|Fyll i|manuellt/i.test(get('socialStatus').textContent)&&get('socialStatus').classList.contains('error'),'The platform limit must remain visible');assert(!get('socialName').value,'Blocked import must not invent company facts');
+  })],
+  ['An invalid contact address opens its disclosure and receives focus',()=>fixture(async({dialog,get,company,created})=>{
+    company();get('socialEmail').value='invalid email';get('socialCreate').click();assert(created.length===0&&document.activeElement===get('socialEmail'),'Invalid email must prevent creation and receive focus');assert(get('socialEmail').closest('details').open&&dialog.dataset.socialStep==='images','The invalid field must be revealed');
+  })],
   ['Pilot preparation blocks premature creation',()=>fixture(async({get,created})=>{
     const wait=deferred();window.fetch=()=>wait.promise;
     get('socialPilot').click();assert(get('socialCreate').disabled,'Create must wait for the pilot');get('socialCreate').click();assert(created.length===0,'No half-loaded project may be created');

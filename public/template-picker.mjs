@@ -11,14 +11,29 @@ export const templateGroups=Object.freeze([
 ]);
 const searchText=value=>String(value||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 export function findTemplates({query='',group='all',project={}}={}) {
-  const ids=group==='recommended'?recommendDirections(project).map(direction=>direction.templateId):templateGroups.find(item=>item.id===group)?.ids;
+  const ids=group==='recommended'?[...new Set([project.templateId,...recommendDirections(project).map(direction=>direction.templateId)].filter(Boolean))]:templateGroups.find(item=>item.id===group)?.ids;
   const words=searchText(query).trim().split(/\s+/).filter(Boolean);
-  return templates.filter(template=>(!ids||ids.includes(template.id))&&words.every(word=>searchText([template.name,template.description,template.reference].join(' ')).includes(word)));
+  const choices=templates.filter(template=>(!ids||ids.includes(template.id))&&words.every(word=>searchText([template.name,template.description,template.reference].join(' ')).includes(word)));
+  return group==='recommended'?ids.map(id=>choices.find(template=>template.id===id)).filter(Boolean):choices;
+}
+
+// A quiet, inert crop of the actual design, using this customer's content.
+export function templateThumbnail(project,id,pageSource) {
+  return renderDemo({...project,templateId:id},{pageSource}).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace('</head>','<style>html{overflow:hidden}*{animation:none!important;transition:none!important}.demo-note{display:none!important}</style></head>').replace(/<body\b/,'<body inert');
 }
 
 export function createTemplatePicker({getProject,getPage,onApply}) {
   const $=id=>document.getElementById(id),dialog=$('templateDialog'),frame=$('templatePreview');
   let candidate,original,page,snapshot,device='desktop';
+  const samples=new Map();
+  const thumbnailObserver=new IntersectionObserver(entries=>{
+    for(const entry of entries){
+      if(!entry.isIntersecting||!dialog.open||!original||!entry.target.isConnected)continue;
+      const thumb=entry.target.querySelector('iframe'),id=entry.target.dataset.templatePreview;
+      if(!samples.has(id))samples.set(id,templateThumbnail(original,id,page.source));
+      thumb.srcdoc=samples.get(id);thumbnailObserver.unobserve(entry.target);
+    }
+  },{root:$('templateGallery'),rootMargin:'100px'});
   $('templateGroup').innerHTML=templateGroups.map(group=>`<option value="${group.id}">${e(group.label)}</option>`).join('');
   function fit() {
     if(!dialog.open)return;
@@ -27,12 +42,19 @@ export function createTemplatePicker({getProject,getPage,onApply}) {
     $('templatePreviewWrap').style.width=width+'px';
     $('templatePreviewWrap').style.transform=`scale(${scale})`;
     frame.style.height=Math.max(240,(stage.clientHeight-32)/scale)+'px';
+    for(const thumb of $('templateGallery').querySelectorAll('iframe'))thumb.style.transform=`scale(${thumb.parentElement.clientWidth/1100})`;
   }
+  function selection(){for(const choice of $('templateGallery').querySelectorAll('[data-template-preview]')){const id=choice.dataset.templatePreview;choice.setAttribute('aria-pressed',String(candidate===id));choice.querySelector('.template-choice-check').textContent=candidate===id?'✓':original.templateId===id?'•':'';}}
   function list() {
+    thumbnailObserver.disconnect();
     const choices=findTemplates({query:$('templateSearch').value,group:$('templateGroup').value,project:original});
     $('templateResults').textContent=choices.length+' av '+templates.length+' designer';
     $('templateEmpty').hidden=!!choices.length;
-    $('templateGallery').innerHTML=choices.map(template=>`<button type="button" class="template-choice" data-template-preview="${template.id}" aria-label="Förhandsvisa ${e(template.name)}" aria-pressed="${candidate===template.id}"><span class="template-glyph glyph-${template.id}" aria-hidden="true">Aa</span><span class="template-choice-copy"><strong>${e(template.name)}</strong><small>${e(template.reference==='Mall 17'?'Ljust · luftigt':template.reference)}</small></span><span class="template-choice-check" aria-hidden="true">${candidate===template.id?'✓':original.templateId===template.id?'•':''}</span></button>`).join('');
+    $('showAllTemplates').hidden=$('templateGroup').value==='all';
+    $('showAllTemplates').textContent='Visa alla '+templates.length+' designer →';
+    $('templateGallery').innerHTML=choices.map(template=>`<button type="button" class="template-choice" data-template-preview="${template.id}" aria-label="Förhandsvisa ${e(template.name)}" aria-pressed="${candidate===template.id}"><span class="template-thumbnail" aria-hidden="true"><iframe title="" tabindex="-1" sandbox></iframe></span><span class="template-choice-info"><span class="template-choice-copy"><strong>${e(template.name)}</strong><small>${e(template.reference==='Mall 17'?'Ljust · luftigt':template.reference)}${original.templateId===template.id?' · Nuvarande':''}</small></span><span class="template-choice-check" aria-hidden="true">${candidate===template.id?'✓':original.templateId===template.id?'•':''}</span></span></button>`).join('');
+    for(const choice of $('templateGallery').querySelectorAll('[data-template-preview]'))thumbnailObserver.observe(choice);
+    fit();
   }
   function preview(id) {
     candidate=getTemplate(id).id;
@@ -43,7 +65,7 @@ export function createTemplatePicker({getProject,getPage,onApply}) {
     $('templatePreviewStatus').textContent=candidate===original.templateId?'Nuvarande design':'Förhandsval · utkastet är oförändrat';
     $('templatePickerError').hidden=true;
     frame.srcdoc=renderDemo({...original,templateId:candidate},{pageSource:page.source});
-    list();fit();
+    selection();fit();
   }
   frame.addEventListener('load',()=>{
     if(!dialog.open)return;
@@ -59,6 +81,7 @@ export function createTemplatePicker({getProject,getPage,onApply}) {
   $('templateSearch').addEventListener('input',list);
   $('templateGroup').addEventListener('change',list);
   $('resetTemplateSearch').addEventListener('click',()=>{$('templateSearch').value='';$('templateGroup').value='all';list();$('templateSearch').focus();});
+  $('showAllTemplates').addEventListener('click',()=>{$('templateSearch').value='';$('templateGroup').value='all';list();$('templateGallery').scrollTop=0;});
   for(const mode of ['desktop','mobile'])$('template'+(mode==='desktop'?'Desktop':'Mobile')).addEventListener('click',()=>{
     device=mode;
     $('templateDesktop').setAttribute('aria-pressed',String(mode==='desktop'));
@@ -73,13 +96,13 @@ export function createTemplatePicker({getProject,getPage,onApply}) {
     onApply(candidate);dialog.close();
   });
   $('cancelTemplate').addEventListener('click',()=>dialog.close());
-  dialog.addEventListener('close',()=>{frame.removeAttribute('srcdoc');original=page=null;});
+  dialog.addEventListener('close',()=>{thumbnailObserver.disconnect();frame.removeAttribute('srcdoc');$('templateGallery').innerHTML='';samples.clear();original=page=null;});
   new ResizeObserver(fit).observe($('templatePreviewStage'));
   return {open(id){
     original=getProject();if(!original)return;
     page=getPage();snapshot=JSON.stringify(original);
-    $('templateSearch').value='';$('templateGroup').value='all';
+    $('templateSearch').value='';$('templateGroup').value='recommended';
     $('templateCompany').textContent=original.name+' · '+templates.length+' designer med ditt innehåll';
-    dialog.showModal();dialog.scrollTop=0;preview(id||original.templateId);
+    candidate=getTemplate(id||original.templateId).id;dialog.showModal();dialog.scrollTop=0;list();preview(candidate);
   }};
 }
