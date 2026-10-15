@@ -16,6 +16,7 @@ async function loadDemo(){
     if(sequence!==loadSequence||location.hash!==hash)return;
     const doc=new DOMParser().parseFromString(renderDemo(project),'text/html');
     document.title=doc.title;
+    document.documentElement.lang=doc.documentElement.lang;
     document.querySelector('style').textContent=doc.querySelector('style').textContent;
     document.body.replaceChildren(...doc.body.childNodes);
     document.body.setAttribute('style',doc.body.getAttribute('style'));

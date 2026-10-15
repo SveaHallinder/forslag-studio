@@ -2,6 +2,7 @@ import {brandPalette,bestInk,contrast} from './branding.mjs';
 import {paragraphContent,sectionComposition} from './composition.mjs';
 import {detectSectionKind} from './section-design.mjs';
 import {cafeFontCSS} from './cafe-fonts.mjs';
+import {customerText} from './customer-language.mjs';
 
 // A presentation layer, never a rewrite of the saved company source.
 export const redesignedTemplates=new Set(['gallery','poster','cinema','pop','precision','story','studio','services','wellness','editorial','construction','hospitality','consulting','retail']);
@@ -37,19 +38,19 @@ export function websiteContactDetails(p) {
   return {phone,email};
 }
 
-function readableCopy(value,e,limit=240) {
+function readableCopy(value,e,limit=240,more='Läs mer') {
   const lead=copyLead(value,limit),full=String(value||'').trim();
-  return `<p class="rd-lead">${paragraphContent(lead,e)}</p>${lead!==full?`<details class="rd-more"><summary>Läs mer<span aria-hidden="true"> +</span></summary><p>${paragraphContent(full,e)}</p></details>`:''}`;
+  return `<p class="rd-lead">${paragraphContent(lead,e)}</p>${lead!==full?`<details class="rd-more"><summary>${e(more)}<span aria-hidden="true"> +</span></summary><p>${paragraphContent(full,e)}</p></details>`:''}`;
 }
 
 export function renderWebsiteRedesign(p,{e,pic,header,renderCard,benefits,ending,imported,personal}) {
-  const external=href=>/^https?:/.test(href)?' target="_blank" rel="noopener noreferrer"':'';
+  const t=customerText(p),external=href=>/^https?:/.test(href)?' target="_blank" rel="noopener noreferrer"':'';
   const hero=p.heroGallery?.length?p.heroGallery:p.hero?[{url:p.hero,label:p.name}]:[];
   const pictures=hero.map((item,index)=>`<figure>${pic(item.url,item.label||p.name,'hero-image',index>0,item.presentation,index===0)}${item.caption?`<figcaption>${e(item.caption)}</figcaption>`:''}</figure>`).join('');
-  const primary=p.ctaHref||(!imported&&p.cards.length)?`<a class="button rd-primary" href="${e(p.ctaHref||'#erbjudande')}"${external(p.ctaHref)}>${p.ctaHref?e(p.cta):'Utforska vårt utbud'}<span aria-hidden="true">↗</span></a>`:'';
+  const primary=p.ctaHref||(!imported&&p.cards.length)?`<a class="button rd-primary" href="${e(p.ctaHref||'#erbjudande')}"${external(p.ctaHref)}>${p.ctaHref?e(p.cta):e(t.explore)}<span aria-hidden="true">↗</span></a>`:'';
   const local=p.cards.find(card=>card.anchor&&websiteSectionRole(card)!=='source-contact');
-  const secondary=local&&p.ctaHref&&p.ctaHref!=='#'+local.anchor?`<a class="rd-secondary" href="#${e(local.anchor)}">Upptäck mer<span aria-hidden="true">↓</span></a>`:'';
-  const heroHTML=`<div class="hero-layout"${personal?' data-profile="person"':''} data-hero="${hero.length?'image':'text'}"><section class="hero-copy"><div class="eyebrow">${e(p.eyebrow||p.name)}</div>${personal?`<p class="profile-name">${e(p.name)}</p>`:''}<h1 data-length="${p.headline.length>150?'extended':p.headline.length>80?'long':'short'}">${e(p.headline)}</h1>${p.description?readableCopy(p.description,e,160):''}<div class="rd-actions">${primary}${secondary}</div></section><div class="visual${hero.length?'':' no-image'}">${hero.length?`<div class="rd-image-frame" data-image-count="${hero.length}"${p.heroPosition!==50?' data-position="custom"':''}${hero.length>1?' data-gallery-title="'+e(p.name)+'"':''}>${pictures}</div>`:''}</div></div>`;
+  const secondary=local&&p.ctaHref&&p.ctaHref!=='#'+local.anchor?`<a class="rd-secondary" href="#${e(local.anchor)}">${e(t.discover)}<span aria-hidden="true">↓</span></a>`:'';
+  const heroHTML=`<div class="hero-layout"${personal?' data-profile="person"':''} data-hero="${hero.length?'image':'text'}"><section class="hero-copy"><div class="eyebrow">${e(p.eyebrow||p.name)}</div>${personal?`<p class="profile-name">${e(p.name)}</p>`:''}<h1 data-length="${p.headline.length>150?'extended':p.headline.length>80?'long':'short'}">${e(p.headline)}</h1>${p.description?readableCopy(p.description,e,160,t.more):''}<div class="rd-actions">${primary}${secondary}</div></section><div class="visual${hero.length?'':' no-image'}">${hero.length?`<div class="rd-image-frame" data-image-count="${hero.length}"${p.heroPosition!==50?' data-position="custom"':''}${hero.length>1?' data-gallery-title="'+e(p.name)+'"':''}>${pictures}</div>`:''}</div></div>`;
   let projectIndex=0;
   const roles=p.cards.map(websiteSectionRole);
   const cards=p.cards.map((card,index)=>{
@@ -62,11 +63,11 @@ export function renderWebsiteRedesign(p,{e,pic,header,renderCard,benefits,ending
     if(['project','product','team'].includes(role)){
       if(role==='project')html=html.replace('data-redesign-role="project"','data-redesign-role="project" data-redesign-position="'+projectIndex+'" data-redesign-side="'+(projectIndex++%2)+'"');
       // Limit reading load, with the full original retained in a native disclosure.
-      if(role==='project'&&card.description.length>240){const full=paragraphContent(card.description,e);html=html.replace('<p class="section-copy">'+full+'</p>',readableCopy(card.description,e,200));}
+      if(role==='project'&&card.description.length>240){const full=paragraphContent(card.description,e);html=html.replace('<p class="section-copy">'+full+'</p>',readableCopy(card.description,e,200,t.more));}
       if(card.image||card.gallery?.length)html=html.replace(/^(<article\b[^>]*>)([\s\S]*?)(<div class="card-meta")/,(_,open,images,meta)=>open+'<div class="rd-project-image">'+images+'</div>'+meta);
     }
     if(role==='faq')html=html.replaceAll('class="faq-item" open','class="faq-item"');
-    if(role==='text'&&card.description.length>360&&['generic','service','case'].includes(detectSectionKind(card))){const full=paragraphContent(card.description,e);html=html.replace('<p class="section-copy">'+full+'</p>',readableCopy(card.description,e,260));}
+    if(role==='text'&&card.description.length>360&&['generic','service','case'].includes(detectSectionKind(card))){const full=paragraphContent(card.description,e);html=html.replace('<p class="section-copy">'+full+'</p>',readableCopy(card.description,e,260,t.more));}
     if(role==='reference'){
       const parts=card.description.split(/\n\s*\n/),quote=parts[0];
       if(parts.length>1&&/^\s*["“«]/.test(quote)&&/["”»]\s*$/.test(quote)){
@@ -74,10 +75,10 @@ export function renderWebsiteRedesign(p,{e,pic,header,renderCard,benefits,ending
         html=html.replace('<p class="section-copy">'+full+'</p>',content).replace('<blockquote>'+full+'</blockquote>',content);
       }
     }
-    if(role==='source-contact')html=html.replace(/^(<article\b[^>]*>)([\s\S]*)(<\/article>)$/,(_,open,content,end)=>open+'<details class="rd-original-contact"><summary>Fler uppgifter</summary>'+content+'</details>'+end);
+    if(role==='source-contact')html=html.replace(/^(<article\b[^>]*>)([\s\S]*)(<\/article>)$/,(_,open,content,end)=>open+'<details class="rd-original-contact"><summary>'+e(t.details)+'</summary>'+content+'</details>'+end);
     return html;
   }).join('');
-  return `<div class="demo-note">Designförslag · Framtagen för ${e(p.name)}</div><div class="shell">${header}<main id="start">${heroHTML}${benefits}${p.cards.length?`<section class="section rd-content" id="erbjudande">${p.sectionIntro?`<div class="section-top"><h2>${e(p.sectionTitle)}</h2><p>${e(p.sectionIntro)}</p></div>`:''}<div class="cards">${cards}</div></section>`:''}${p.about?`<section class="section about" id="om"><div><p class="section-kicker">Om ${e(p.name)}</p><h2>${e(p.aboutTitle||p.name)}</h2></div><p>${paragraphContent(p.about,e)}</p></section>`:''}${ending.contact}</main>${ending.footer}</div>`;
+  return `<div class="demo-note">${e(t.proposal)} · ${e(t.prepared)} ${e(p.name)}</div><div class="shell">${header}<main id="start">${heroHTML}${benefits}${p.cards.length?`<section class="section rd-content" id="erbjudande">${p.sectionIntro?`<div class="section-top"><h2>${e(p.sectionTitle)}</h2><p>${e(p.sectionIntro)}</p></div>`:''}<div class="cards">${cards}</div></section>`:''}${p.about?`<section class="section about" id="om"><div><p class="section-kicker">${e(t.about)} ${e(p.name)}</p><h2>${e(p.aboutTitle||p.name)}</h2></div><p>${paragraphContent(p.about,e)}</p></section>`:''}${ending.contact}</main>${ending.footer}</div>`;
 }
 
 export function websiteRedesignCSS(p) {

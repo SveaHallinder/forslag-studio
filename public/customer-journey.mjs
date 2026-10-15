@@ -1,3 +1,4 @@
+import {customerText} from './customer-language.mjs';
 // Choose only destinations supplied by the business. Rendering never activates
 // a booking system or invents an order, price, availability or contact address.
 export function customerJourney(p) {
@@ -7,8 +8,7 @@ export function customerJourney(p) {
   const booking=navigation.filter(n=>/^(boka(?:\s+(?:bord|tid|besök|nu))?|bokning|book(?:\s+(?:a table|a visit|now))?|reservations?|reserve(?: a table)?|rezerv[aă](?:\s+(?:o mas[aă]|acum))?|rezerv[aă]ri|programare)$/i.test(n.label.trim()));
   const menu=navigation.find(n=>/^(meny|menu|meni[uú])$/i.test(n.label.trim()));
   const profile=navigation.find(n=>/^(Instagram|Facebook|TikTok)$/i.test(n.label.trim()));
-  const visit=navigation.find(n=>/^(?:kontakt|contact|unde|treci|find|come|visit)/i.test(n.label))?.label||'';
-  const words=/Unde|Treci/i.test(visit)?{booking:'Rezervă o vizită',request:'Trimite o solicitare de rezervare',enquiry:'Trimite o solicitare',email:'Scrie-ne',phone:'Sună-ne',directions:'Cum ajungi',next:'Pasul următor'}:/Find|Come|Visit/i.test(visit)?{booking:'Book a visit',request:'Send a booking request',enquiry:'Send an enquiry',email:'Send an email',phone:'Call us',directions:'Get directions',next:'Next step'}:{booking:'Boka besök',request:'Skicka bokningsförfrågan',enquiry:'Skicka en förfrågan',email:'Skicka ett mejl',phone:'Ring oss',directions:'Hitta hit',next:'Nästa steg'};
+  const words=customerText(p).journey;
   const contact=p.requestForm?{href:p.requestForm.url,label:p.requestForm.kind==='booking'?(p.requestForm.url.includes('/booking.html?')?words.booking:words.request):words.enquiry}:p.email?{href:'mailto:'+p.email,label:words.email}:p.phone?{href:'tel:'+p.phone.replace(/[^+\d]/g,''),label:words.phone}:navigation.find(n=>/^(kontakt|kontakta oss|contact|contact us)$/i.test(n.label.trim())&&!n.href.startsWith('#'))||profile;
   const primary=valid(p.ctaHref)?{href:p.ctaHref,label:p.cta}:p.requestForm&&contact?contact:booking.length===1?booking[0]:['cafe','dining'].includes(p.templateId)&&menu?menu:contact;
   const directions=p.address?{href:'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(p.address),label:words.directions}:null;

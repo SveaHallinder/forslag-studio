@@ -9,10 +9,10 @@ function harness(){
  const listeners={},pending=[],installed=[],galleries=[],images=[],style={textContent:''};
  const location=new URL('https://demo.example/demo.html?demo-page=1#d=old');
  const body={dataset:{},childNodes:[],replaceChildren(...nodes){this.childNodes=nodes;},setAttribute(){}};
- const document={body,querySelector:()=>style};
+ const document={body,documentElement:{lang:'sv'},querySelector:()=>style};
  const context={document,location,URL,window:{addEventListener:(name,fn)=>listeners[name]=fn},history:{replaceState:(state,title,url)=>{location.href=url.href;}},
   decodeProject:hash=>new Promise((resolve,reject)=>pending.push({hash,resolve,reject})),renderDemo:p=>p,
-  DOMParser:class{parseFromString(p){return {title:p.name,querySelector:()=>({textContent:'CSS'}),body:{childNodes:[p.name],dataset:{},getAttribute:()=>''}};}},
+  DOMParser:class{parseFromString(p){return {title:p.name,documentElement:{lang:p.lang||'sv'},querySelector:()=>({textContent:'CSS'}),body:{childNodes:[p.name],dataset:{},getAttribute:()=>''}};}},
   installDemoNavigation:()=>installed.push({name:document.title,page:location.searchParams.get('demo-page')}),
   installImageResolution:()=>images.push(document.title),
   installCustomerGallery:()=>galleries.push(document.title)};
@@ -24,10 +24,10 @@ function harness(){
 test('new shared payload renders without reload and keeps Back routing',async()=>{
  const h=harness();h.pending[0].resolve({name:'Old'});await h.initial;
  assert.equal(h.installed[0].page,'1');
- const changed=h.navigate('d=new');h.pending[1].resolve({name:'New'});await changed;
- assert.equal(h.document.title,'New');assert.equal(h.location.hash,'#d=new');assert.equal(h.location.searchParams.has('demo-page'),false);
+ const changed=h.navigate('d=new');h.pending[1].resolve({name:'New',lang:'en'});await changed;
+ assert.equal(h.document.title,'New');assert.equal(h.document.documentElement.lang,'en');assert.equal(h.location.hash,'#d=new');assert.equal(h.location.searchParams.has('demo-page'),false);
  h.location.searchParams.set('demo-page','1');const back=h.navigate('d=old');h.pending[2].resolve({name:'Old'});await back;
- assert.equal(h.document.title,'Old');assert.equal(h.installed.at(-1).page,'1');
+ assert.equal(h.document.title,'Old');assert.equal(h.document.documentElement.lang,'sv');assert.equal(h.installed.at(-1).page,'1');
  assert.deepEqual(h.galleries,['Old','New','Old']);
  assert.deepEqual(h.images,['Old','New','Old']);
 });
@@ -41,9 +41,9 @@ test('an invalid shared payload disposes the previous photo viewer',async()=>{
 
 test('late decode success or failure cannot replace the newest shared payload',async()=>{
  for(const staleFails of [false,true]){
-  const h=harness(),changed=h.navigate('d=new');h.pending[1].resolve({name:'Newest'});await changed;
+  const h=harness(),changed=h.navigate('d=new');h.pending[1].resolve({name:'Newest',lang:'ro'});await changed;
   if(staleFails)h.pending[0].reject(new Error('Old decode failed'));else h.pending[0].resolve({name:'Stale'});
-  await h.initial;assert.equal(h.document.title,'Newest');assert.deepEqual(h.document.body.childNodes,['Newest']);assert.equal(h.document.body.textContent,undefined);assert.deepEqual(h.images,['Newest']);
+  await h.initial;assert.equal(h.document.title,'Newest');assert.equal(h.document.documentElement.lang,'ro');assert.deepEqual(h.document.body.childNodes,['Newest']);assert.equal(h.document.body.textContent,undefined);assert.deepEqual(h.images,['Newest']);
  }
 });
 
@@ -52,7 +52,7 @@ test('late decode success or failure cannot replace the newest shared payload',a
 // share an anchor so routing to the wrong page cannot pass by matching an id.
 function routeHarness(){
  const listeners=new Map(),location=new URL('https://viewer.example/demo.html?demo-page=1#d=payload'),scrolled=[];
- const pages=[{source:'https://company.example/',title:'Startsida',imported:true,heroPosition:50},{source:'https://company.example/about',title:'Om oss',imported:true,heroPosition:50}];
+ const pages=[{source:'https://company.example/',title:'Startsida',lang:'sv',imported:true,heroPosition:50},{source:'https://company.example/about',title:'Om oss',lang:'en',imported:true,heroPosition:50}];
  const makeLink=(parent,href)=>({parent,href,dataset:{},attributes:{href},
   getAttribute(name){return name==='href'?this.href:this.attributes[name];},
   setAttribute(name,value){this.attributes[name]=value;},removeAttribute(name){delete this.attributes[name];},
@@ -63,7 +63,7 @@ function routeHarness(){
  }}));
  const stage={dataset:{demoInitial:'1'},index:1,links:[],replaceChildren(node){this.index=node.index;this.links=node.links;},contains(link){return this.links.includes(link);},
   querySelectorAll(selector){return selector==='a[href]'?this.links:[{id:'kontakt',scrollIntoView:()=>scrolled.push(this.index)}];}};
- const doc={__headerNavigation:true,body:{dataset:{},style:{setProperty(){}}},
+ const doc={documentElement:{lang:'sv'},__headerNavigation:true,body:{dataset:{},style:{setProperty(){}}},
   querySelector:selector=>selector==='[data-demo-stage]'?stage:selector==='script[data-demo-pages]'?{textContent:JSON.stringify(pages)}:null,
   querySelectorAll:selector=>selector==='template[data-demo-page]'?templates:[],
   addEventListener(name,fn){listeners.set(name,fn);},removeEventListener(name){listeners.delete(name);}};
@@ -76,11 +76,11 @@ function routeHarness(){
 test('mobile and footer source navigation return to the root anchor from an imported subpage',()=>{
  for(const parent of ['nav-links','mobile-links','ending-links']){
   const h=routeHarness(),link=h.stage.links.find(item=>item.parent===parent);
-  assert.equal(h.stage.index,1);assert.equal(h.doc.title,'Om oss');
+  assert.equal(h.stage.index,1);assert.equal(h.doc.title,'Om oss');assert.equal(h.doc.documentElement.lang,'en');
   assert.equal(link.dataset.demoTarget,'0',parent+' must target the root page');
   assert.equal(link.dataset.demoAnchor,'kontakt');
   const url=new URL(link.href);assert.equal(url.searchParams.get('demo-page'),'0');assert.equal(url.searchParams.get('demo-anchor'),'kontakt');assert.equal(url.hash,'#d=payload');
-  assert.equal(h.click(link).defaultPrevented,true);assert.equal(h.stage.index,0);assert.equal(h.doc.title,'Startsida');
+  assert.equal(h.click(link).defaultPrevented,true);assert.equal(h.stage.index,0);assert.equal(h.doc.title,'Startsida');assert.equal(h.doc.documentElement.lang,'sv');
   assert.equal(h.location.searchParams.get('demo-page'),'0');assert.deepEqual(h.scrolled,[0]);
  }
 });

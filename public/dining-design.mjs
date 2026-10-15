@@ -23,7 +23,7 @@ export function diningMenuContent(value,escape) {
   return diningMenuLines(value).map(line=>line.price?`<span class="menu-item"><span class="menu-item-name">${escape(line.label)}</span> <span class="menu-item-price">${escape(line.price)}</span></span>`:line.text?`<span class="menu-item-detail">${escape(line.text)}</span>`:'<span class="menu-item-space" aria-hidden="true"></span>').join('\n');
 }
 // Group consecutive source sections without changing their content or persisted shape.
-export function diningSections(cards,renderCard,escape) {
+export function diningSections(cards,renderCard,escape,categories='Menykategorier') {
   const roles=cards.map(diningCardRole),parts=[];
   for(let i=0;i<cards.length;){
     const start=i;
@@ -39,7 +39,7 @@ export function diningSections(cards,renderCard,escape) {
       while(roles[i]==='menu')i++;
       if(i-menuStart>=2){
         const menuCards=cards.slice(menuStart,i),links=menuCards.filter(card=>card.anchor).map(card=>`<a href="#${escape(card.anchor)}">${escape(card.title)}<span aria-hidden="true">↗</span></a>`).join('');
-        parts.push(`<div class="dining-menu-layout"${chapter&&cards[start].anchor?` id="${escape(cards[start].anchor)}"`:""}><aside class="dining-menu-index">${chapter?renderCard({...cards[start],anchor:""},start):''}${links?`<nav aria-label="Menykategorier">${links}</nav>`:''}</aside><div class="dining-menu-categories">${menuCards.map((card,n)=>renderCard(card,menuStart+n)).join('')}</div></div>`);
+        parts.push(`<div class="dining-menu-layout"${chapter&&cards[start].anchor?` id="${escape(cards[start].anchor)}"`:""}><aside class="dining-menu-index">${chapter?renderCard({...cards[start],anchor:""},start):''}${links?`<nav aria-label="${escape(categories)}">${links}</nav>`:''}</aside><div class="dining-menu-categories">${menuCards.map((card,n)=>renderCard(card,menuStart+n)).join('')}</div></div>`);
       }else parts.push(cards.slice(start,i).map((card,n)=>renderCard(card,start+n)).join(''));
       continue;
     }

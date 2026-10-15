@@ -1,5 +1,6 @@
 import {brandPalette,bestInk} from './branding.mjs';
 import {customerJourney} from './customer-journey.mjs';
+import {customerText,sourceLabel} from './customer-language.mjs';
 
 const toneFor=id=>['atelier','editorial','story','wellness','retail'].includes(id)?'editorial':['cinema','studio','dining','hospitality'].includes(id)?'atmospheric':id==='pop'?'playful':'structured';
 const external=href=>/^https?:/.test(href)?' target="_blank" rel="noopener noreferrer"':'';
@@ -10,28 +11,28 @@ function websiteURL(value) {
 // The ending uses actual contact routes and navigation. A missing import stays
 // compact rather than turning an empty contact section into the page's focal point.
 export function renderSiteEnding(p,e,picture) {
-  const source=websiteURL(p.source),tone=toneFor(p.templateId);
+  const source=websiteURL(p.source),tone=toneFor(p.templateId),t=customerText(p),journey=customerJourney(p);
   const nativeBooking=p.requestForm?.kind==='booking'&&p.requestForm.url.includes('/booking.html?');
   const phone=p.phone?`tel:${p.phone.replace(/[^+\d]/g,'')}`:'';
   const contactLink=p.navigation.find(item=>/^(kontakt|kontakta oss|contact|contact us)$/i.test(item.label.trim())&&item.href!=='#kontakt'&&!item.href.startsWith('#'));
-  const direct=p.requestForm?{href:p.requestForm.url,label:nativeBooking?'Boka besök':p.requestForm.kind==='booking'?'Skicka bokningsförfrågan':'Skicka en förfrågan'}:p.email?{href:`mailto:${p.email}`,label:'Skicka ett mejl'}:phone?{href:phone,label:'Ring oss'}:contactLink?{href:contactLink.href,label:contactLink.label}:null;
+  const direct=p.requestForm?{href:p.requestForm.url,label:nativeBooking?t.journey.booking:p.requestForm.kind==='booking'?t.journey.request:t.journey.enquiry}:p.email?{href:`mailto:${p.email}`,label:t.journey.email}:phone?{href:phone,label:t.journey.phone}:contactLink?{href:contactLink.href,label:contactLink.label}:null;
   const mode=direct||p.address?'available':source?'website':'empty';
-  const journey=customerJourney(p),route=direct||journey.contact||(source?{href:source,label:'Besök webbplatsen'}:null);
+  const route=direct||journey.contact||(source?{href:source,label:t.visitWebsite}:null);
   const rows=[
-    p.requestForm?`<div class="ending-detail"><span class="ending-label">${nativeBooking?'Bokning':'Förfrågan'}</span><a href="${e(direct.href)}"${external(direct.href)}>${e(direct.label)}<span aria-hidden="true">↗</span></a></div>`:'',
-    p.email?`<div class="ending-detail"><span class="ending-label">E-post</span><a href="mailto:${e(p.email)}">${e(p.email)}<span aria-hidden="true">↗</span></a></div>`:'',
-    p.phone?`<div class="ending-detail"><span class="ending-label">Telefon</span><a href="${e(phone)}">${e(p.phone)}<span aria-hidden="true">↗</span></a></div>`:'',
-    p.address?`<div class="ending-detail"><span class="ending-label">Adress</span><span class="ending-address">${e(p.address)}</span><a class="ending-map" href="${e(journey.directions.href)}"${external(journey.directions.href)}>Hitta hit<span aria-hidden="true">↗</span></a></div>`:'',
-    !p.email&&!p.phone&&contactLink?`<div class="ending-detail"><span class="ending-label">På webbplatsen</span><a href="${e(contactLink.href)}"${external(contactLink.href)}>${e(contactLink.label)}<span aria-hidden="true">↗</span></a></div>`:'',
-    !direct&&!p.address?`<p class="contact-empty">${source?'Kontakt och mer information finns på företagets webbplats.':'Kontaktuppgifter saknas i det här designförslaget.'}</p>`:'',
+    p.requestForm?`<div class="ending-detail"><span class="ending-label">${e(nativeBooking?t.booking:t.enquiry)}</span><a href="${e(direct.href)}"${external(direct.href)}>${e(direct.label)}<span aria-hidden="true">↗</span></a></div>`:'',
+    p.email?`<div class="ending-detail"><span class="ending-label">${e(t.email)}</span><a href="mailto:${e(p.email)}">${e(p.email)}<span aria-hidden="true">↗</span></a></div>`:'',
+    p.phone?`<div class="ending-detail"><span class="ending-label">${e(t.phone)}</span><a href="${e(phone)}">${e(p.phone)}<span aria-hidden="true">↗</span></a></div>`:'',
+    p.address?`<div class="ending-detail"><span class="ending-label">${e(t.address)}</span><span class="ending-address">${e(p.address)}</span><a class="ending-map" href="${e(journey.directions.href)}"${external(journey.directions.href)}>${e(t.journey.directions)}<span aria-hidden="true">↗</span></a></div>`:'',
+    !p.email&&!p.phone&&contactLink?`<div class="ending-detail"><span class="ending-label">${e(t.onWebsite)}</span><a href="${e(contactLink.href)}"${external(contactLink.href)}>${e(contactLink.label)}<span aria-hidden="true">↗</span></a></div>`:'',
+    !direct&&!p.address?`<p class="contact-empty">${e(source?t.contactOnWebsite:t.missingContact)}</p>`:'',
   ].join('');
-  const contact=`<section class="contact site-contact" id="kontakt" data-ending="${tone}" data-contact="${mode}" aria-label="Kontakt"><div class="ending-invitation"><h2>Kontakt<span aria-hidden="true">.</span></h2>${route?`<a class="ending-action" href="${e(route.href)}"${external(route.href)} aria-label="${e(route.label)}"><span class="ending-action-label">${e(route.label)}</span><svg viewBox="0 0 48 48" width="48" height="48" aria-hidden="true"><path d="M10 38 38 10M10 10h28v28"/></svg></a>`:''}</div><div class="contact-links">${rows}</div></section>`;
+  const contact=`<section class="contact site-contact" id="kontakt" data-ending="${tone}" data-contact="${mode}" aria-label="${e(t.contact)}"><div class="ending-invitation"><h2>${e(t.contact)}<span aria-hidden="true">.</span></h2>${route?`<a class="ending-action" href="${e(route.href)}"${external(route.href)} aria-label="${e(route.label)}"><span class="ending-action-label">${e(route.label)}</span><svg viewBox="0 0 48 48" width="48" height="48" aria-hidden="true"><path d="M10 38 38 10M10 10h28v28"/></svg></a>`:''}</div><div class="contact-links">${rows}</div></section>`;
   const links=p.navigation.map(item=>`<a href="${e(item.href)}"${external(item.href)}>${e(item.label)}</a>`).join('');
   const nameLength=p.name.length>45?'extended':p.name.length>24?'long':'short';
   // A known dark/light logo is shown on its matching imported header surface.
   // The large name below is type, so an opaque or white-only logo never disappears.
-  const footerLogo=p.logo?`<a class="ending-logo" href="#start" aria-label="${e(p.name)} – till toppen">${picture(p.logo,p.name,'',true)}</a>`:'';
-  const footer=`<footer class="footer site-footer" data-ending="${tone}"><div class="ending-index">${footerLogo}${links?`<nav class="ending-links" aria-label="Sidfotsmeny">${links}</nav>`:''}<a class="ending-top" href="#start">Till toppen<span aria-hidden="true">↑</span></a></div><p class="ending-wordmark" data-name-length="${nameLength}">${e(p.name)}</p><div class="ending-colophon"><span class="source">Designförslag · Innehåll och bilder från ${source?`<a href="${e(source)}" target="_blank" rel="noopener noreferrer">företagets webbplats</a>`:'företaget'}.</span><span class="ending-note">Designförslag för ${e(p.name)}</span></div></footer>`;
+  const footerLogo=p.logo?`<a class="ending-logo" href="#start" aria-label="${e(p.name)} – ${e(t.top.toLowerCase())}">${picture(p.logo,p.name,'',true)}</a>`:'';
+  const footer=`<footer class="footer site-footer" data-ending="${tone}"><div class="ending-index">${footerLogo}${links?`<nav class="ending-links" aria-label="${e(t.footer)}">${links}</nav>`:''}<a class="ending-top" href="#start">${e(t.top)}<span aria-hidden="true">↑</span></a></div><p class="ending-wordmark" data-name-length="${nameLength}">${e(p.name)}</p><div class="ending-colophon"><span class="source">${e(t.proposal)} · ${e(t.sourceIntro)} ${source?`<a href="${e(source)}" target="_blank" rel="noopener noreferrer">${e(sourceLabel(source,t))}</a>`:e(t.company)}.</span><span class="ending-note">${e(t.proposalFor)} ${e(p.name)}</span></div></footer>`;
   return {contact,footer};
 }
 

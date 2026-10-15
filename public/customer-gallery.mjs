@@ -8,7 +8,8 @@ export function installCustomerGallery(doc=document) {
     en:{title:'Photos',open:'Open photo',close:'Close photos',previous:'Previous photo',next:'Next photo',loading:'Loading photo…',error:'This photo could not be loaded. Try the next photo or close the viewer.',of:'of'},
     ro:{title:'Fotografii',open:'Deschide fotografia',close:'Închide fotografiile',previous:'Fotografia anterioară',next:'Fotografia următoare',loading:'Se încarcă fotografia…',error:'Fotografia nu a putut fi încărcată. Încearcă următoarea fotografie sau închide fereastra.',of:'din'},
   };
-  const t=translations[doc.documentElement.lang]||translations.sv,preference=win.matchMedia?.('(prefers-reduced-motion: reduce)');
+  let t=translations[doc.documentElement.lang]||translations.sv;
+  const preference=win.matchMedia?.('(prefers-reduced-motion: reduce)');
   dialog.className='customer-image-dialog';dialog.setAttribute('aria-label',t.title);
   dialog.innerHTML='<header class="customer-image-header"><h2></h2><button type="button" data-image-close autofocus><span aria-hidden="true">×</span></button></header><div class="customer-image-stage"><p role="status"></p></div><footer class="customer-image-footer"><div class="customer-image-description"><p data-image-caption></p><span data-image-count aria-live="polite" aria-atomic="true"></span></div><nav><button type="button" data-image-previous><span aria-hidden="true">←</span></button><button type="button" data-image-next><span aria-hidden="true">→</span></button></nav></footer>';
   const title=dialog.querySelector('h2'),stage=dialog.querySelector('.customer-image-stage'),status=stage.querySelector('p'),caption=dialog.querySelector('[data-image-caption]'),count=dialog.querySelector('[data-image-count]'),previous=dialog.querySelector('[data-image-previous]'),next=dialog.querySelector('[data-image-next]'),closeButton=dialog.querySelector('[data-image-close]');
@@ -48,6 +49,9 @@ export function installCustomerGallery(doc=document) {
     }
   }
   function refresh() {
+    t=translations[doc.documentElement.lang]||translations.sv;
+    dialog.setAttribute('aria-label',t.title);dialog.querySelector('nav').setAttribute('aria-label',t.title);
+    for(const [node,label]of [[previous,t.previous],[next,t.next],[closeButton,t.close]])node.setAttribute('aria-label',label);
     close();observer?.disconnect();for(const button of triggers.keys())button.remove();triggers.clear();
     for(const group of doc.querySelectorAll('.section-gallery,.cafe-hero-visual,.rd-image-frame,.rd-project-image:not(:has(.section-gallery)),.visual:not(:has(.section-gallery)):not(:has(.rd-image-frame))')){
       if(group.closest('[data-composition="logos"],.section-logos'))continue;

@@ -1,0 +1,40 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kundspråk · QA</title><style>body{font:14px/1.5 system-ui;margin:24px;background:#f4f1e8;color:#252820}header{display:flex;gap:12px;flex-wrap:wrap;align-items:center}button,select{font:inherit;padding:12px}iframe{border:0;display:block;margin-top:20px}pre{white-space:pre-wrap}a{color:inherit}</style><header><button id="run">Testa språk · 17 designer</button><select id="language" aria-label="Språk"><option value="en">English</option><option value="sv">Svenska</option><option value="ro">Română</option></select><select id="design" aria-label="Design"></select><select id="width" aria-label="Bredd"><option>375</option><option>320</option><option>820</option><option>1280</option></select><a id="shared" target="_blank">Öppna kundlänken</a></header><pre id="results" role="status">Illustrativt testföretag. Inga kundprojekt ändras.</pre><iframe id="preview" title="Kundsida" width="375" height="850"></iframe><script type="module">
+import {renderDemo} from '/render.mjs';import {templates} from '/templates.mjs';import {createSocialProject} from '/social-project.mjs';import {customerText} from '/customer-language.mjs';import {encodeProject} from '/share.mjs';
+const bios={sv:'Välkommen till vår plats. Vi skapar med omsorg för dig och dina vänner.',en:'Welcome to our place. We create with care for you and your friends.',ro:'Bun venit în locul nostru. Cafea pentru noi și pentru prieteni.'};
+function photo(color){const c=document.createElement('canvas');c.width=600;c.height=400;const x=c.getContext('2d');x.fillStyle=color;x.fillRect(0,0,600,400);x.fillStyle='#eee8d8';x.beginPath();x.arc(300,200,120,0,Math.PI*2);x.fill();return c.toDataURL('image/jpeg',.5);}
+const a=photo('#596c50'),b=photo('#91644f');
+const project=lang=>({...createSocialProject({name:'Form · QA',industry:'cafe',language:lang,links:'https://www.instagram.com/form.qa/',bio:(bios[lang]+' ').repeat(9),about:bios[lang],offer:'Coffee 25\nEspresso 20',address:'10 Test Street',email:'hello@example.com',photos:[{url:a,label:'Original photo A',role:'hero'},{url:a,label:'Original coffee',role:'offer'},{url:a,label:'Original photo A',caption:'Original caption A',role:'gallery'},{url:b,label:'Original photo B',caption:'Original caption B',role:'gallery'}]}),templateId:'editorial'});
+const language=document.querySelector('#language'),design=document.querySelector('#design'),width=document.querySelector('#width'),preview=document.querySelector('#preview'),out=document.querySelector('#results');
+design.innerHTML=templates.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');design.value='editorial';
+async function show(){const p={...project(language.value),templateId:design.value};preview.width=width.value;preview.srcdoc=renderDemo(p);document.querySelector('#shared').href=await encodeProject(p,new URL('/demo.html',location.href).href);}
+language.onchange=design.onchange=width.onchange=show;show();
+const loaded=frame=>new Promise(resolve=>frame.onload=resolve);
+const ready=async(frame,lang)=>{const start=performance.now();while((frame.contentDocument?.documentElement.lang!==lang||!frame.contentDocument?.querySelector('.customer-image-open'))&&performance.now()-start<10000)await new Promise(resolve=>requestAnimationFrame(resolve));};
+document.querySelector('#run').onclick=async()=>{
+ let checks=0;const failures=[];const assert=(ok,label)=>{checks++;if(!ok)failures.push(label);};document.querySelector('#run').disabled=true;
+ for(const lang of ['sv','en','ro'])for(const {id}of templates)for(const size of [320,375,820,1280]){
+  const f=document.createElement('iframe');f.style.cssText='position:absolute;left:-10000px;width:'+size+'px;height:900px';document.body.append(f);const p={...project(lang),templateId:id},t=customerText(p),wait=loaded(f);f.srcdoc=renderDemo(p);await wait;const d=f.contentDocument;await d.fonts.ready;
+  const check=(ok,label)=>assert(ok,lang+'/'+id+'/'+size+': '+label);
+  check(d.documentElement.lang===lang,'språk');check(d.documentElement.scrollWidth===size,'ingen horisontell scroll');
+  check(d.querySelector('.nav-links').getAttribute('aria-label')===t.mainMenu,'meny');check(d.querySelector('.mobile-menu summary').textContent.trim()===t.menu,'mobilmeny');
+  check(d.querySelector('footer nav').getAttribute('aria-label')===t.footer,'sidfot');check(d.querySelector('.customer-mobile-actions').getAttribute('aria-label')===t.journey.next,'mobilflöde');
+  check(d.querySelector('.demo-note').textContent.includes(t.proposal),'konceptetikett');check(!!d.querySelector('a[href="mailto:hello@example.com"]'),'rätt kontaktväg');
+  const photoButton=d.querySelector('.customer-image-open'),dialog=d.querySelector('dialog'),photoTitle={sv:'Bildvisning',en:'Photos',ro:'Fotografii'}[lang];
+  check(dialog?.getAttribute('aria-label')===photoTitle,'bildvisarens språk');photoButton?.click();check(dialog.open,'bilden går att öppna');dialog.querySelector('[data-image-close]').click();check(!dialog.open,'bilden går att stänga');
+  check(d.querySelector('.section-gallery figcaption')?.textContent==='Original caption A','bildtext bevarad');
+  const summary=d.querySelector('.rd-more summary');if(summary)check(summary.textContent.startsWith(t.more),'läs mer');
+  const contact=d.querySelector('.ending-detail .ending-label');if(contact)check(contact.textContent===t.email,'kontaktetikett');
+  f.remove();out.textContent=checks+' kontroller körda…';
+ }
+ const shared=document.createElement('iframe');shared.style.cssText='position:absolute;left:-10000px;width:375px;height:850px';document.body.append(shared);
+ for(const lang of ['en','ro','sv']){
+  const p=project(lang),url=await encodeProject(p,new URL('/demo.html',location.href).href);shared.src=url;await ready(shared,lang);const d=shared.contentDocument,t=customerText(p);assert(d.documentElement.lang===lang,'kundlänk byter till '+lang);assert(d.querySelector('footer nav')?.getAttribute('aria-label')===t.footer,'kundlänkens sidfot '+lang);assert(d.querySelector('dialog')?.getAttribute('aria-label')==={sv:'Bildvisning',en:'Photos',ro:'Fotografii'}[lang],'kundlänkens bildvisare '+lang);
+ }
+ const p={...project('en'),source:'https://company.example/',navigation:[{label:'Despre',href:'https://company.example/despre'},{label:'Contact us',href:'#kontakt'}],pages:[{headline:'Locul nostru',description:bios.ro,source:'https://company.example/despre',hero:a,heroGallery:[{url:a,label:'Photo'}],cards:[{title:'Photos',gallery:[{url:a,label:'Photo'}]}]}]};
+ shared.src=await encodeProject(p,new URL('/demo.html',location.href).href);await ready(shared,'en');let d=shared.contentDocument;d.querySelector('.nav-links a').click();await ready(shared,'ro');d=shared.contentDocument;
+ assert(d.documentElement.lang==='ro','undersidans dokument byter språk');assert(d.querySelector('dialog')?.getAttribute('aria-label')==='Fotografii','undersidans bildvisare byter språk');
+ d.querySelector('.customer-image-open').click();assert(d.querySelector('dialog').open,'undersidans bildvisare öppnas');assert(d.querySelector('[data-image-close]').getAttribute('aria-label')==='Închide fotografiile','undersidans stängknapp');assert(d.querySelector('dialog [data-image-count]').textContent.includes(' din '),'undersidans bildräknare');d.querySelector('[data-image-close]').click();
+ d.querySelector('.brand').click();await ready(shared,'en');assert(shared.contentDocument.documentElement.lang==='en','startsidan återställer språk');assert(shared.contentDocument.querySelector('dialog').getAttribute('aria-label')==='Photos','startsidan återställer bildvisaren');shared.remove();
+ out.textContent=failures.length?'FAIL '+checks+'\n'+failures.join('\n'):'PASS '+checks+' · 17 designer · 3 språk · 320/375/820/1280 · export · kundlänk · språkbyte · undersidor · bildvisare';document.querySelector('#run').disabled=false;
+};
+</script></html>
