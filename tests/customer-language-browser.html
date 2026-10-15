@@ -24,6 +24,7 @@ document.querySelector('#run').onclick=async()=>{
   check(d.querySelector('.section-gallery figcaption')?.textContent==='Original caption A','bildtext bevarad');
   const summary=d.querySelector('.rd-more summary');if(summary)check(summary.textContent.startsWith(t.more),'läs mer');
   const contact=d.querySelector('.ending-detail .ending-label');if(contact)check(contact.textContent===t.email,'kontaktetikett');
+  const action=d.querySelector('.ending-action-label');if(action)check(f.contentWindow.getComputedStyle(action).clipPath==='none'&&action.getBoundingClientRect().width>20,'kontaktknappens text är synlig');
   f.remove();out.textContent=checks+' kontroller körda…';
  }
  const shared=document.createElement('iframe');shared.style.cssText='position:absolute;left:-10000px;width:375px;height:850px';document.body.append(shared);
