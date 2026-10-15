@@ -1,6 +1,7 @@
 import {decodeProject} from './share.mjs';
 import {renderDemo,installDemoNavigation} from './render.mjs';
 import {installCustomerGallery} from './customer-gallery.mjs';
+import {installImageResolution} from './website-redesign.mjs';
 let loadSequence=0,requestedHash;
 const seenPayloads=new Set([location.hash]);
 async function loadDemo(){
@@ -20,6 +21,7 @@ async function loadDemo(){
     document.body.setAttribute('style',doc.body.getAttribute('style'));
     Object.assign(document.body.dataset,doc.body.dataset);
     installDemoNavigation(document,window);
+    installImageResolution(document);
     installCustomerGallery(document);
   } catch(error){
     if(sequence!==loadSequence||location.hash!==hash)return;

@@ -9,13 +9,14 @@
 | Nästan samma mobilöppning för alla nya designer | Cinema och Hotell visar bilden först; Studio och Hälsa behåller egna bildformat | Designens karaktär följer med till mobil |
 | Små huvudbilder och bildserier kunde förstoras | Intrinsiska bildmått begränsar automatisk uppskalning | Undviker onödig oskärpa; manuellt valda utsnitt behålls |
 | Stående huvudbilder kunde beskäras till ett panorama | Automatisk presentation visar stående bilder i sina proportioner | Minskar risken att beskära bort bildens motiv |
+| Kundlänken startade inte bildanpassningen efter att demon monterats | Samma bildanpassning startar även i kundlänken och uppdateras vid länkbyte | Kunden ser samma bildformat som i editorn |
 
-Ändringen är en presentationsförbättring i `public/website-redesign.mjs`. Befintliga projekt, originaltexter, priser, bildordning, bildtexter, destinationer och egna utsnitt finns kvar. Inga dependencies, databasscheman eller kundsystem ändras.
+Ändringen är en presentationsförbättring i `public/website-redesign.mjs`, med initiering av bildanpassningen i `public/demo.mjs`. Befintliga projekt, originaltexter, priser, bildordning, bildtexter, destinationer och egna utsnitt finns kvar. Inga dependencies, databasscheman eller kundsystem ändras.
 
 ## Verifiering
 
 - 455 kodtester, lint och build.
-- 1 526 kontroller av de 14 designer som använder den nya kompositionen: 320/390/820/1280 px, produktgrupper, team, priser, FAQ, loggor, bildserier, små bilder, manuella utsnitt och stående huvudbild.
+- 1 530 kontroller av de 14 designer som använder den nya kompositionen: 320/390/820/1280 px, produktgrupper, team, priser, FAQ, loggor, bildserier, små bilder, manuella utsnitt, stående huvudbild samt bildanpassning i den riktiga kundlänken vid öppning och länkbyte.
 - Alla 17 designer ingår även i befintlig layout- och bildvisarregression.
 - Testet av importerade/sparade underlag rapporterar nu antalet underlag som faktiskt kunde laddas. Om extern import misslyckas redovisas den begränsningen; ett saknat underlag räknas inte som testat.
 - Separat lokal QA-origin används. Inga publicerade kundprojekt ändras av kontrollerna.

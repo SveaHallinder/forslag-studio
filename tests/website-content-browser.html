@@ -5,6 +5,7 @@
 import {renderDemo} from '/render.mjs';
 import {redesignedTemplates} from '/website-redesign.mjs';
 import {templates} from '/templates.mjs';
+import {encodeProject} from '/share.mjs';
 function image(w,h,label,color='#bdbba8'){const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d');ctx.fillStyle=color;ctx.fillRect(0,0,w,h);ctx.fillStyle='#e6e1cf';ctx.beginPath();ctx.arc(w*.55,h*.5,Math.min(w,h)*.28,0,Math.PI*2);ctx.fill();ctx.fillStyle='#252820';ctx.font='18px sans-serif';ctx.fillText(label,20,40);return canvas.toDataURL();}
 const wide=image(1200,800,'Testbild A'),portrait=image(600,1000,'Testbild B','#aebcad'),small=image(80,60,'C'),mark=image(200,60,'Partner');
 const series=[{url:wide,label:'Liggande testbild',caption:'Bildtext A'},{url:portrait,label:'Stående testbild',caption:'Bildtext B'},{url:small,label:'Liten testbild',caption:'Bildtext C'}];
@@ -56,6 +57,15 @@ document.querySelector('#run').onclick=async()=>{
   if(Math.abs(r.width/r.height-.6)>.01||test.contentWindow.getComputedStyle(img).objectFit!=='contain')failures.push(templateId+': stående huvudbild beskärs automatiskt');
   test.remove();
  }
+ const shared=document.createElement('iframe');shared.style.cssText='position:absolute;left:-10000px;width:1280px;height:900px';document.body.append(shared);
+ for(const [photo,pixels] of [[portrait,600],[small,80]]){
+  const url=await encodeProject({...project,templateId:'editorial',hero:photo,heroGallery:[{url:photo,label:'Kundlänkens huvudbild'}]},new URL('/demo.html',location.href).href);
+  shared.src=url;const start=performance.now();let img;
+  do{await new Promise(resolve=>requestAnimationFrame(resolve));img=shared.contentDocument?.querySelector('.hero-image');}while((!img?.dataset.rdShape||img.naturalWidth!==pixels)&&performance.now()-start<10000);
+  checks++;if(!img?.dataset.rdShape||img.naturalWidth!==pixels)failures.push('Kundlänken eller ett byte av kundlänk saknar bildanpassning');
+  checks++;if(img?.getBoundingClientRect().width>pixels+1)failures.push('Kundlänken förstorar en liten huvudbild');
+ }
+ shared.remove();
  out.textContent=failures.length?'FAIL '+checks+'\n'+failures.join('\n'):'PASS '+checks+' · 14 designer · 320/390/820/1280 · bildserier · produkter · team · priser · FAQ · partnerloggor · manuella utsnitt';document.querySelector('#run').disabled=false;
 };
 </script></html>

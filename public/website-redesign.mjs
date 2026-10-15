@@ -416,7 +416,7 @@ ${id==='pop'?`${s} .hero-layout .hero-copy{padding:30px 24px!important;border-ra
 export function installImageResolution(doc=document) {
   // Intrinsic resolution bounds screenshots as well as any other small source image.
   // A customer can still explicitly choose image framing in the editor.
-  if(doc.__imageResolution)return;doc.__imageResolution=true;
+  if(doc.__refreshImageResolution){doc.__refreshImageResolution();return;}
   const apply=img=>{if(img.naturalWidth>0){
     const ratio=img.naturalWidth/img.naturalHeight;
     img.dataset.rdShape=ratio<1?'portrait':ratio>1.4?'landscape':'square';
@@ -428,5 +428,5 @@ export function installImageResolution(doc=document) {
   const refresh=()=>{for(const img of doc.querySelectorAll('.rd-project-image img,.rd-image-frame img,.card[data-redesign-role=collection] img')){
     if(img.complete)apply(img);else img.addEventListener('load',()=>apply(img),{once:true});
   }};
-  doc.addEventListener('demo-page-change',refresh);refresh();
+  doc.__refreshImageResolution=refresh;doc.addEventListener('demo-page-change',refresh);refresh();
 }

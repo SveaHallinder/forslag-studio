@@ -6,7 +6,7 @@ import {installDemoNavigation} from '../public/render.mjs';
 
 const source=readFileSync(new URL('../public/demo.mjs',import.meta.url),'utf8').replace(/^import .*\n/gm,'');
 function harness(){
- const listeners={},pending=[],installed=[],galleries=[],style={textContent:''};
+ const listeners={},pending=[],installed=[],galleries=[],images=[],style={textContent:''};
  const location=new URL('https://demo.example/demo.html?demo-page=1#d=old');
  const body={dataset:{},childNodes:[],replaceChildren(...nodes){this.childNodes=nodes;},setAttribute(){}};
  const document={body,querySelector:()=>style};
@@ -14,10 +14,11 @@ function harness(){
   decodeProject:hash=>new Promise((resolve,reject)=>pending.push({hash,resolve,reject})),renderDemo:p=>p,
   DOMParser:class{parseFromString(p){return {title:p.name,querySelector:()=>({textContent:'CSS'}),body:{childNodes:[p.name],dataset:{},getAttribute:()=>''}};}},
   installDemoNavigation:()=>installed.push({name:document.title,page:location.searchParams.get('demo-page')}),
+  installImageResolution:()=>images.push(document.title),
   installCustomerGallery:()=>galleries.push(document.title)};
  vm.createContext(context);const initial=vm.runInContext('(async()=>{'+source+'})()',context);
  const navigate=hash=>{location.hash=hash;assert.equal(typeof listeners.hashchange,'function');return listeners.hashchange();};
- return {context,location,document,pending,installed,galleries,initial,navigate};
+ return {context,location,document,pending,installed,galleries,images,initial,navigate};
 }
 
 test('new shared payload renders without reload and keeps Back routing',async()=>{
@@ -28,6 +29,7 @@ test('new shared payload renders without reload and keeps Back routing',async()=
  h.location.searchParams.set('demo-page','1');const back=h.navigate('d=old');h.pending[2].resolve({name:'Old'});await back;
  assert.equal(h.document.title,'Old');assert.equal(h.installed.at(-1).page,'1');
  assert.deepEqual(h.galleries,['Old','New','Old']);
+ assert.deepEqual(h.images,['Old','New','Old']);
 });
 
 test('an invalid shared payload disposes the previous photo viewer',async()=>{
@@ -41,7 +43,7 @@ test('late decode success or failure cannot replace the newest shared payload',a
  for(const staleFails of [false,true]){
   const h=harness(),changed=h.navigate('d=new');h.pending[1].resolve({name:'Newest'});await changed;
   if(staleFails)h.pending[0].reject(new Error('Old decode failed'));else h.pending[0].resolve({name:'Stale'});
-  await h.initial;assert.equal(h.document.title,'Newest');assert.deepEqual(h.document.body.childNodes,['Newest']);assert.equal(h.document.body.textContent,undefined);
+  await h.initial;assert.equal(h.document.title,'Newest');assert.deepEqual(h.document.body.childNodes,['Newest']);assert.equal(h.document.body.textContent,undefined);assert.deepEqual(h.images,['Newest']);
  }
 });
 
