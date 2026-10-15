@@ -37,6 +37,6 @@ document.querySelector('#check').onclick=async()=>{
   }
   test.remove();results.textContent=checks+' kontroller körda…';
  }
- results.textContent=failures.length?'FAIL '+checks+'\n'+failures.join('\n'):'PASS '+checks+' · 3 företag · 17 mallar · 320/375/820/1280 px';document.querySelector('#check').disabled=false;
+ results.textContent=failures.length?'FAIL '+checks+'\n'+failures.join('\n'):'PASS '+checks+' · '+Object.keys(projects).length+' underlag · 17 mallar · 320/375/820/1280 px';document.querySelector('#check').disabled=false;
 };
 </script></html>

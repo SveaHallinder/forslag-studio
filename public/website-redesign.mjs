@@ -1,5 +1,5 @@
 import {brandPalette,bestInk,contrast} from './branding.mjs';
-import {paragraphContent} from './composition.mjs';
+import {paragraphContent,sectionComposition} from './composition.mjs';
 import {detectSectionKind} from './section-design.mjs';
 import {cafeFontCSS} from './cafe-fonts.mjs';
 
@@ -18,7 +18,11 @@ export function copyLead(value,limit=240) {
 export function websiteSectionRole(card={}) {
   const title=String(card.title||''),description=String(card.description||'');
   if(/(?:kontakt|contact|hur kan vi hjälpa)/i.test(title)&&/(?:privacy policy|all rights reserved|\blegal\b|integritetspolicy)/i.test(description))return 'source-contact';
-  if(detectSectionKind(card)==='testimonial'||/^\s*["“”«]/.test(description))return 'reference';
+  const kind=detectSectionKind(card);
+  if(sectionComposition(card)==='logos')return 'logos';
+  if(kind==='product'&&(card.kind==='product'||card.image||card.gallery?.length))return card.gallery?.length>1?'collection':'product';
+  if(['team','pricing','faq'].includes(kind))return card.gallery?.length>1&&kind==='team'?'collection':kind;
+  if(kind==='testimonial'||/^\s*["“”«]/.test(description))return 'reference';
   if(card.gallery?.length>1)return 'collection';
   if(card.image||card.gallery?.length)return 'project';
   if(card.href&&!description)return 'index';
@@ -45,17 +49,23 @@ export function renderWebsiteRedesign(p,{e,pic,header,renderCard,benefits,ending
   const primary=p.ctaHref||(!imported&&p.cards.length)?`<a class="button rd-primary" href="${e(p.ctaHref||'#erbjudande')}"${external(p.ctaHref)}>${p.ctaHref?e(p.cta):'Utforska vårt utbud'}<span aria-hidden="true">↗</span></a>`:'';
   const local=p.cards.find(card=>card.anchor&&websiteSectionRole(card)!=='source-contact');
   const secondary=local&&p.ctaHref&&p.ctaHref!=='#'+local.anchor?`<a class="rd-secondary" href="#${e(local.anchor)}">Upptäck mer<span aria-hidden="true">↓</span></a>`:'';
-  const heroHTML=`<div class="hero-layout"${personal?' data-profile="person"':''} data-hero="${hero.length?'image':'text'}"><section class="hero-copy"><div class="eyebrow">${e(p.eyebrow||p.name)}</div>${personal?`<p class="profile-name">${e(p.name)}</p>`:''}<h1 data-length="${p.headline.length>150?'extended':p.headline.length>80?'long':'short'}">${e(p.headline)}</h1>${p.description?readableCopy(p.description,e,160):''}<div class="rd-actions">${primary}${secondary}</div></section><div class="visual${hero.length?'':' no-image'}">${hero.length?`<div class="rd-image-frame"${hero.length>1?' data-gallery-title="'+e(p.name)+'"':''}>${pictures}</div>`:''}</div></div>`;
+  const heroHTML=`<div class="hero-layout"${personal?' data-profile="person"':''} data-hero="${hero.length?'image':'text'}"><section class="hero-copy"><div class="eyebrow">${e(p.eyebrow||p.name)}</div>${personal?`<p class="profile-name">${e(p.name)}</p>`:''}<h1 data-length="${p.headline.length>150?'extended':p.headline.length>80?'long':'short'}">${e(p.headline)}</h1>${p.description?readableCopy(p.description,e,160):''}<div class="rd-actions">${primary}${secondary}</div></section><div class="visual${hero.length?'':' no-image'}">${hero.length?`<div class="rd-image-frame" data-image-count="${hero.length}"${p.heroPosition!==50?' data-position="custom"':''}${hero.length>1?' data-gallery-title="'+e(p.name)+'"':''}>${pictures}</div>`:''}</div></div>`;
   let projectIndex=0;
+  const roles=p.cards.map(websiteSectionRole);
   const cards=p.cards.map((card,index)=>{
-    const role=websiteSectionRole(card);
+    const role=roles[index];
     let html=renderCard(card,index).replace(/(<article\b[^>]*)(>)/,(_,open,end)=>open+' data-redesign-role="'+role+'"'+end);
-    if(role==='project'){
-      html=html.replace('data-redesign-role="project"','data-redesign-role="project" data-redesign-position="'+projectIndex+'" data-redesign-side="'+(projectIndex++%2)+'"');
-      // Limit reading load, with the full original retained in a native disclosure.
-      if(card.description.length>240){const full=paragraphContent(card.description,e);html=html.replace('<p class="section-copy">'+full+'</p>',readableCopy(card.description,e,200));}
-      html=html.replace(/^(<article\b[^>]*>)([\s\S]*?)(<div class="card-meta")/,(_,open,images,meta)=>open+'<div class="rd-project-image">'+images+'</div>'+meta);
+    if(['product','team'].includes(role)){
+      let start=index,end=index+1;while(start>0&&roles[start-1]===role)start--;while(end<roles.length&&roles[end]===role)end++;
+      html=html.replace('data-redesign-role="'+role+'"','data-redesign-role="'+role+'" data-redesign-group-count="'+(end-start)+'"'+(index===start?' data-redesign-group-start':''));
     }
+    if(['project','product','team'].includes(role)){
+      if(role==='project')html=html.replace('data-redesign-role="project"','data-redesign-role="project" data-redesign-position="'+projectIndex+'" data-redesign-side="'+(projectIndex++%2)+'"');
+      // Limit reading load, with the full original retained in a native disclosure.
+      if(role==='project'&&card.description.length>240){const full=paragraphContent(card.description,e);html=html.replace('<p class="section-copy">'+full+'</p>',readableCopy(card.description,e,200));}
+      if(card.image||card.gallery?.length)html=html.replace(/^(<article\b[^>]*>)([\s\S]*?)(<div class="card-meta")/,(_,open,images,meta)=>open+'<div class="rd-project-image">'+images+'</div>'+meta);
+    }
+    if(role==='faq')html=html.replaceAll('class="faq-item" open','class="faq-item"');
     if(role==='text'&&card.description.length>360&&['generic','service','case'].includes(detectSectionKind(card))){const full=paragraphContent(card.description,e);html=html.replace('<p class="section-copy">'+full+'</p>',readableCopy(card.description,e,260));}
     if(role==='reference'){
       const parts=card.description.split(/\n\s*\n/),quote=parts[0];
@@ -276,6 +286,59 @@ ${c}[data-redesign-role=project]:is([data-redesign-position="0"],[data-redesign-
 ${c}[data-redesign-role=project]:is([data-redesign-position="0"],[data-redesign-position="1"]) .rd-project-image{padding:26px;background:var(--rd-soft);border-radius:12px;min-height:330px}
 ${c}[data-redesign-role=project]:is([data-redesign-position="0"],[data-redesign-position="1"]) p{font-size:14px;line-height:1.75}
 `:''}
+/* Images belong to their authored group. A series is an editorial spread, not a wall of identical tiles. */
+${s} .rd-image-frame:has(figure+figure){padding:0;gap:16px;background:transparent;align-items:start;border-radius:0}
+${s} .rd-image-frame:has(figure+figure) figure{overflow:hidden;border-radius:10px;background:var(--rd-soft)}
+${s} .rd-image-frame[data-image-count="2"]{grid-template-columns:1.15fr .85fr}
+${s} .rd-image-frame[data-image-count="2"] figure+figure{margin-top:48px}
+${s} .rd-image-frame[data-image-count="3"]{grid-template-columns:1.3fr .85fr;align-items:stretch}
+${s} .rd-image-frame[data-image-count="3"] figure:first-child{grid-row:span 2}
+${s} .rd-image-frame[data-image-count="3"] figure:first-child .hero-image{aspect-ratio:3/5;max-height:none}
+${s} .rd-image-frame[data-image-count="3"] figure:not(:first-child) .hero-image{aspect-ratio:1/1;max-height:none}
+${s} .rd-image-frame .hero-image{max-inline-size:min(100%,var(--rd-image-width,100%))}
+${s} .rd-image-frame[data-image-count="1"]{max-width:min(100%,var(--rd-frame-width,100%));margin-inline:auto}
+${s} .rd-image-frame:not([data-position=custom]) .hero-image[data-rd-shape=portrait]:not([style*="object-fit"]){aspect-ratio:auto;width:auto;object-fit:contain}
+${id==='editorial'||id==='poster'?`@media(min-width:761px){
+${s} .hero-layout:has(.rd-image-frame[data-image-count="1"] .hero-image[data-rd-shape=portrait]){display:grid;grid-template-columns:1.25fr .75fr;gap:clamp(36px,6vw,80px);align-items:center;padding:64px 0}
+${s} .hero-layout:has(.rd-image-frame[data-image-count="1"] .hero-image[data-rd-shape=portrait]) .hero-copy{display:block;margin:0}
+${s} .hero-layout:has(.rd-image-frame[data-image-count="1"] .hero-image[data-rd-shape=portrait]) h1{font-size:clamp(48px,5.7vw,86px);margin-bottom:26px}
+}`:''}
+${c}[data-redesign-role=collection] .section-gallery{align-items:start;gap:28px;grid-template-columns:1.2fr .85fr}
+${c}[data-redesign-role=collection] .section-gallery[data-image-count="3"] figure:first-child{grid-column:1/-1}
+${c}[data-redesign-role=collection] .section-gallery:not([data-image-count="3"]) figure:nth-child(even){padding-top:64px}
+${c}[data-redesign-role=collection] .section-gallery img{width:auto;max-height:560px;margin-inline:auto}
+${c}[data-redesign-role=collection] .card-meta{max-width:740px!important;margin:32px 0 0}
+${c}[data-redesign-role=collection] figcaption{padding:12px 0 0;border-top:1px solid var(--rd-line);margin-top:16px;opacity:.75}
+/* Preserve semantic content: products, people, prices, answers and partner marks have different jobs. */
+${c}:is([data-redesign-role=product],[data-redesign-role=team]){grid-column:span 4;display:flex;flex-direction:column;gap:24px;padding:28px 0!important;align-items:stretch}
+${c}:is([data-redesign-role=product],[data-redesign-role=team]) .rd-project-image{padding:24px;min-height:240px;border:0;border-radius:10px}
+${c}:is([data-redesign-role=product],[data-redesign-role=team]) .card-meta{order:0!important}
+${c}:is([data-redesign-role=product],[data-redesign-role=team]) :is(h2,h3){font-size:26px;line-height:1.2;max-width:none;margin-bottom:12px}
+${c}:is([data-redesign-role=product],[data-redesign-role=team]) p{font-size:14px;line-height:1.75}
+${c}:is([data-redesign-role=product],[data-redesign-role=team]) img{width:auto;height:auto;max-height:340px;object-fit:contain;border-radius:0}
+${c}:is([data-redesign-role=product],[data-redesign-role=team])[data-redesign-group-start]{grid-column-start:1}
+${c}:is([data-redesign-role=product],[data-redesign-role=team])[data-redesign-group-count="2"]{grid-column-end:span 6}
+${c}:is([data-redesign-role=product],[data-redesign-role=team])[data-redesign-group-count="1"]{grid-column:1/-1}
+${c}:is([data-redesign-role=product],[data-redesign-role=team])[data-redesign-group-count="1"]:has(.rd-project-image){display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:clamp(28px,6vw,90px);align-items:center}
+${c}[data-redesign-role=team] .rd-project-image{padding:0;background:transparent;border-radius:0;min-height:0}
+${c}[data-redesign-role=team] img{max-height:380px}
+${c}[data-redesign-role=logos]{display:grid;grid-template-columns:minmax(140px,.4fr) minmax(0,1fr);align-items:center;gap:48px;padding:32px 0!important;border-block:1px solid var(--rd-line)}
+${c}[data-redesign-role=logos] .card-meta{order:-1}
+${c}[data-redesign-role=logos] :is(h2,h3){font:500 14px/1.5 'DM Sans',sans-serif!important;letter-spacing:0;margin:0}
+${c}[data-redesign-role=logos] p{font-size:12px;margin-top:10px}
+${c}[data-redesign-role=logos] .section-gallery{grid-template-columns:repeat(auto-fit,minmax(80px,1fr));align-items:center;gap:28px}
+${c}[data-redesign-role=logos] img{width:auto;height:52px;max-height:52px;max-width:140px;object-fit:contain;margin:auto;border-radius:0}
+${c}[data-redesign-role=logos] figcaption{font-size:10px;text-align:center}
+${c}:is([data-redesign-role=faq],[data-redesign-role=pricing]) .card-meta>div{display:grid;grid-template-columns:minmax(0,.75fr) minmax(0,1.25fr);gap:24px clamp(28px,6vw,90px)}
+${c}[data-redesign-role=faq] .faq-list:only-child{grid-column:1/-1}
+${c}[data-redesign-role=faq] .faq-item{padding:18px 0;border:0;border-bottom:1px solid var(--rd-line);margin:0;border-radius:0}
+${c}[data-redesign-role=faq] .faq-item:first-child{padding-top:0}
+${c}[data-redesign-role=faq] summary{font:500 18px/1.5 'DM Sans',sans-serif;min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:24px;list-style:none;cursor:pointer}
+${c}[data-redesign-role=faq] summary::-webkit-details-marker{display:none}
+${c}[data-redesign-role=faq] summary::after{content:'+';flex:none;font:400 24px/1 'DM Sans',sans-serif}
+${c}[data-redesign-role=faq] details[open] summary::after{content:'−'}
+${c}[data-redesign-role=faq] .faq-item p{font-size:14px;padding:14px 28px 6px 0;opacity:.8}
+${c}[data-redesign-role=pricing] .section-copy{font-variant-numeric:tabular-nums;padding:24px 28px;border:1px solid var(--rd-line);background:var(--rd-soft);border-radius:10px;font-size:15px;line-height:2.2;max-width:none}
 @media(max-width:900px){${s} .hero-layout{gap:32px}${s} .nav[data-header] .brand{max-width:calc(100% - 100px)}${s} .hero-layout h1{font-size:clamp(40px,6vw,64px)}${c}[data-redesign-role=project]{gap:32px}${s} .contact.site-contact{padding:36px!important;gap:36px}}
 @media(max-width:760px){
 ${s} .shell{padding:0 22px}
@@ -323,6 +386,26 @@ ${s} .footer.site-footer .ending-top{margin-top:12px}
 ${s} .footer.site-footer .ending-wordmark{font-size:clamp(36px,10vw,56px);margin-bottom:24px}
 ${s} .footer.site-footer .ending-colophon{display:block}
 ${s} .footer.site-footer .source,${s} .footer.site-footer .ending-note{display:block;max-width:none;text-align:left}
+${s} .rd-image-frame[data-image-count="2"] figure+figure{margin-top:26px}
+${s} .rd-image-frame[data-image-count="3"]{gap:10px}
+${s} .rd-image-frame[data-image-count="3"] figure{min-height:0}
+${s} .rd-image-frame:has(figure+figure) figcaption{font-size:10px;padding:10px 12px}
+${c}[data-redesign-role=collection] .section-gallery{grid-template-columns:minmax(0,1fr);gap:28px}
+${c}[data-redesign-role=collection] .section-gallery:not([data-image-count="3"]) figure:nth-child(even){padding-top:0}
+${c}[data-redesign-role=collection] .card-meta{margin-top:0}
+${c}:is([data-redesign-role=product],[data-redesign-role=team]) .rd-project-image{min-height:0;padding:20px}
+${c}:is([data-redesign-role=product],[data-redesign-role=team])[data-redesign-group-count]{grid-column:1/-1;display:flex;flex-direction:column;gap:24px}
+${c}[data-redesign-role=team] .rd-project-image{padding:0}
+${c}:is([data-redesign-role=faq],[data-redesign-role=pricing]) .card-meta>div{display:block}
+${c}[data-redesign-role=faq] .faq-list{margin-top:24px}
+${c}[data-redesign-role=faq] summary{font-size:16px}
+${c}[data-redesign-role=pricing] .section-copy{padding:20px}
+${c}[data-redesign-role=logos]{display:block}
+${c}[data-redesign-role=logos] .card-meta{margin-bottom:26px}
+${c}[data-redesign-role=logos] .section-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
+${['cinema','hospitality'].includes(id)?`${s} .hero-layout .visual{order:-1!important}${s} .hero-layout .hero-image{aspect-ratio:4/3}${s} .rd-image-frame{border-radius:0}${s} .hero-layout h1{font-size:clamp(42px,11vw,60px)}`:''}
+${id==='studio'?`${s} .hero-layout .visual{padding-top:0}${s} .hero-layout .hero-image{aspect-ratio:16/10}${s} .hero-layout h1{font-size:clamp(42px,11vw,60px)}`:''}
+${id==='wellness'?`${s} .rd-image-frame:not(:has(figure+figure)){border-radius:140px 140px 8px 8px}${s} .hero-layout .hero-image{aspect-ratio:4/5}`:''}
 ${id==='pop'?`${s} .hero-layout .hero-copy{padding:30px 24px!important;border-radius:16px}`:''}
 }
 @media(prefers-reduced-motion:reduce){${s} *{animation:none!important;transition:none!important;scroll-behavior:auto}}
@@ -334,8 +417,15 @@ export function installImageResolution(doc=document) {
   // Intrinsic resolution bounds screenshots as well as any other small source image.
   // A customer can still explicitly choose image framing in the editor.
   if(doc.__imageResolution)return;doc.__imageResolution=true;
-  const apply=img=>{if(img.naturalWidth>0)img.style.setProperty('--rd-image-width',img.naturalWidth+'px');};
-  const refresh=()=>{for(const img of doc.querySelectorAll('.rd-project-image img')){
+  const apply=img=>{if(img.naturalWidth>0){
+    const ratio=img.naturalWidth/img.naturalHeight;
+    img.dataset.rdShape=ratio<1?'portrait':ratio>1.4?'landscape':'square';
+    if(!img.style.objectFit){
+      img.style.setProperty('--rd-image-width',img.naturalWidth+'px');
+      const frame=img.closest('.rd-image-frame[data-image-count="1"]');if(frame)frame.style.setProperty('--rd-frame-width',img.naturalWidth+'px');
+    }
+  }};
+  const refresh=()=>{for(const img of doc.querySelectorAll('.rd-project-image img,.rd-image-frame img,.card[data-redesign-role=collection] img')){
     if(img.complete)apply(img);else img.addEventListener('load',()=>apply(img),{once:true});
   }};
   doc.addEventListener('demo-page-change',refresh);refresh();

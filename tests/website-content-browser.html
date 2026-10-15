@@ -1,0 +1,61 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Innehåll och bildkomposition – QA</title>
+<style>body{font:14px system-ui;margin:20px;background:#eeede8}header{display:flex;gap:16px;align-items:center;flex-wrap:wrap}button,select{font:inherit;padding:10px}iframe{display:block;border:0;margin-top:20px;width:1280px;height:900px}pre{white-space:pre-wrap}</style>
+<header><strong>Testföretag · illustrativt underlag</strong><select id="design" aria-label="Design"></select><select id="width" aria-label="Bredd"><option>1280</option><option>820</option><option>390</option><option>320</option></select><button id="run">Kontrollera innehållet</button></header><pre id="results">Välj design eller kör kontrollen.</pre><iframe id="preview" title="Innehållsförhandsvisning"></iframe>
+<script type="module">
+import {renderDemo} from '/render.mjs';
+import {redesignedTemplates} from '/website-redesign.mjs';
+import {templates} from '/templates.mjs';
+function image(w,h,label,color='#bdbba8'){const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d');ctx.fillStyle=color;ctx.fillRect(0,0,w,h);ctx.fillStyle='#e6e1cf';ctx.beginPath();ctx.arc(w*.55,h*.5,Math.min(w,h)*.28,0,Math.PI*2);ctx.fill();ctx.fillStyle='#252820';ctx.font='18px sans-serif';ctx.fillText(label,20,40);return canvas.toDataURL();}
+const wide=image(1200,800,'Testbild A'),portrait=image(600,1000,'Testbild B','#aebcad'),small=image(80,60,'C'),mark=image(200,60,'Partner');
+const series=[{url:wide,label:'Liggande testbild',caption:'Bildtext A'},{url:portrait,label:'Stående testbild',caption:'Bildtext B'},{url:small,label:'Liten testbild',caption:'Bildtext C'}];
+const project={name:'Form · testföretag',templateId:'editorial',headline:'Form för det vi omger oss med.',description:'Ett illustrativt test av bildserier, produkter och läsning.',hero:wide,heroGallery:series,importedAt:'today',email:'hej@example.com',accent:'#5c6652',cards:[
+ {title:'En serie i tre delar',anchor:'bilder',description:'Varje bildtext ska höra till rätt bild.',gallery:series},
+ {title:'Kanna',kind:'product',description:'450 kr\nHanddisk rekommenderas.',href:'https://example.com/kanna',image:wide},
+ {title:'Skål',kind:'product',description:'290 kr\nTillverkad i stengods.',image:portrait},
+ {title:'Anna · formgivare',kind:'team',description:'En illustrativ presentation, inte en verklig person.',image:portrait},
+ {title:'Priser',description:'Workshop 450 kr\nStudiebesök 900 kr'},
+ {title:'Vanliga frågor',description:'Hur beställer jag?\n\nBeställ från vår butik.\n\nVad kostar frakten?\n\nFrakten kostar 49 kr.'},
+ {title:'Samarbetspartners',gallery:[{url:mark,label:'Testpartner A'},{url:image(200,60,'Partner B'),label:'Testpartner B'}]},
+]};
+const design=document.querySelector('#design'),width=document.querySelector('#width'),frame=document.querySelector('#preview'),out=document.querySelector('#results');
+design.innerHTML=templates.filter(t=>redesignedTemplates.has(t.id)).map(t=>`<option value="${t.id}">${t.name}</option>`).join('');design.value='editorial';
+function show(){frame.style.width=width.value+'px';frame.srcdoc=renderDemo({...project,templateId:design.value});}design.onchange=width.onchange=show;show();
+document.querySelector('#run').onclick=async()=>{
+ let checks=0;const failures=[];document.querySelector('#run').disabled=true;
+ for(const templateId of redesignedTemplates)for(const size of [320,390,820,1280]){
+  const test=document.createElement('iframe');test.style.cssText='position:absolute;left:-10000px;width:'+size+'px;height:900px';document.body.append(test);
+  const manual={url:portrait,label:'Manuellt vald bild',presentation:{fit:'cover',x:20,y:80,ratio:'square'}};
+  await new Promise(resolve=>{test.onload=resolve;test.srcdoc=renderDemo({...project,templateId,heroGallery:[series[0],series[2],manual]});});
+  const d=test.contentDocument,w=test.contentWindow;await d.fonts.ready;
+  const assert=(ok,label)=>{checks++;if(!ok)failures.push(`${templateId}/${size}: ${label}`);};
+  const fold=s=>s.replace(/\s+/g,' ').trim();
+  assert(d.documentElement.scrollWidth===size,'horisontell scroll');
+  const cards=[...d.querySelectorAll('.cards>.card')];
+  assert(cards.length===project.cards.length,'alla originalsektioner');
+  for(const [i,card] of cards.entries()){
+   assert(fold(card.textContent).includes(fold(project.cards[i].title)),'rubrik/ordning '+i);
+   const r=card.getBoundingClientRect();assert(r.left>=0&&r.right<=size+1&&card.scrollWidth<=card.clientWidth+1,'sektion ryms '+i);
+  }
+  assert(d.querySelectorAll('[data-redesign-role=product]').length===2,'två produkter');
+  const products=[...d.querySelectorAll('[data-redesign-role=product]')].map(n=>n.getBoundingClientRect());
+  assert(size<=760?products[1].top>=products[0].bottom:Math.abs(products[0].top-products[1].top)<2,'produktpar desktop/mobil');
+  assert(d.querySelector('[data-redesign-role=team]').getBoundingClientRect().top>=products[1].bottom-1,'team börjar efter produkterna');
+  const prices=d.querySelector('[data-redesign-role=pricing]');assert(prices.textContent.includes('Workshop 450 kr\nStudiebesök 900 kr'),'priser och radbrytning bevarade');
+  const faq=d.querySelector('.faq-item');assert(!faq.open,'FAQ börjar kompakt');faq.querySelector('summary').click();assert(faq.open&&faq.textContent.includes('Beställ från vår butik.'),'svaret kan öppnas');
+  const logos=[...d.querySelectorAll('[data-redesign-role=logos] img')];assert(logos.every(n=>n.getBoundingClientRect().height<=52),'partnerloggor är kompakta');
+  assert(!d.querySelector('[data-redesign-role=logos] .customer-image-open'),'partnerloggor är inte ett fotogalleri');
+  const captions=[...d.querySelectorAll('[data-redesign-role=collection] figcaption')].map(n=>n.textContent);assert(captions.join('|')==='Bildtext A|Bildtext B|Bildtext C','bildtexter och bildordning');
+  const little=d.querySelector('.hero-image[alt="Liten testbild"]');assert(little.getBoundingClientRect().width<=80.1,'liten bild förstoras inte');
+  const crop=d.querySelector('.hero-image[alt="Manuellt vald bild"]'),style=w.getComputedStyle(crop);assert(style.objectFit==='cover'&&style.objectPosition==='20% 80%'&&style.aspectRatio==='1 / 1','manuellt utsnitt bevarat');
+  test.remove();out.textContent=checks+' kontroller körda…';
+ }
+ for(const templateId of redesignedTemplates){
+  const test=document.createElement('iframe');test.style.cssText='position:absolute;left:-10000px;width:1280px;height:900px';document.body.append(test);
+  await new Promise(resolve=>{test.onload=resolve;test.srcdoc=renderDemo({...project,templateId,hero:portrait,heroGallery:[{url:portrait,label:'Stående huvudbild'}]});});
+  const img=test.contentDocument.querySelector('.hero-image'),r=img.getBoundingClientRect();checks++;
+  if(Math.abs(r.width/r.height-.6)>.01||test.contentWindow.getComputedStyle(img).objectFit!=='contain')failures.push(templateId+': stående huvudbild beskärs automatiskt');
+  test.remove();
+ }
+ out.textContent=failures.length?'FAIL '+checks+'\n'+failures.join('\n'):'PASS '+checks+' · 14 designer · 320/390/820/1280 · bildserier · produkter · team · priser · FAQ · partnerloggor · manuella utsnitt';document.querySelector('#run').disabled=false;
+};
+</script></html>

@@ -70,3 +70,38 @@ test('generic secondary menu items stay reachable without competing with main na
   assert.match(html,/href="https:\/\/example.com\/other"/);
   assert.doesNotMatch(html,/href="https:\/\/example.com\/other" data-nav-priority/);
 });
+
+test('products, people, prices, questions and partner logos retain their semantic role',()=>{
+  for(const [card,expected] of [
+    [{title:'Samarbetspartners',gallery:[{url:'a'},{url:'b'}]},'logos'],
+    [{title:'Vårt team',description:'Anna, arkitekt',image:'a'},'team'],
+    [{title:'Vår kanna',kind:'product',description:'450 kr',image:'a'},'product'],
+    [{title:'Priser',description:'Klippning 450 kr\nFärgning 900 kr'},'pricing'],
+    [{title:'Vanliga frågor',description:'Hur bokar jag?\n\nRing oss.'},'faq'],
+    [{title:'Our products',gallery:[{url:'a'},{url:'b'}]},'collection'],
+  ])assert.equal(websiteSectionRole(card),expected);
+  assert.equal(websiteSectionRole({title:'Vårt arbetssätt',description:'Vårt team bygger produkter.'}),'text');
+});
+
+test('compact FAQs and product sections preserve exact answers, prices, links and source order',()=>{
+  const cards=[{title:'En handgjord kanna',kind:'product',anchor:'kanna',description:'450 kr\nHanddisk rekommenderas.',href:'https://example.com/kanna',image:'https://example.com/kanna.jpg'},{title:'Vanliga frågor',description:'Hur beställer jag?\n\nBeställ från vår butik.\n\nVad kostar frakten?\n\nFrakten kostar 49 kr.'}];
+  const p={name:'Testbutik',templateId:'retail',importedAt:'today',cards};
+  const before=JSON.stringify(p),html=renderDemo(p);
+  assert.match(html,/data-redesign-role="product"/);
+  assert.match(html,/href="https:\/\/example.com\/kanna"/);
+  assert.match(html,/450 kr\nHanddisk rekommenderas\./);
+  assert.match(html,/class="faq-item"><summary>Hur beställer jag\?/);
+  assert.match(html,/Frakten kostar 49 kr\./);
+  assert.doesNotMatch(html,/class="faq-item" open/);
+  assert.ok(html.indexOf('id="kanna"')<html.indexOf('data-redesign-role="faq"'));
+  assert.equal(JSON.stringify(p),before);
+});
+
+test('a hero series keeps every authored caption, crop, image and its sequence',()=>{
+  const gallery=[{url:'https://example.com/one.jpg',caption:'Den första bildtexten.',presentation:{fit:'contain',x:25,y:80,ratio:'original'}},{url:'https://example.com/two.jpg',caption:'Den andra bildtexten.'},{url:'https://example.com/three.jpg',caption:'Den tredje bildtexten.'}];
+  const html=renderDemo({name:'Nord',templateId:'editorial',heroGallery:gallery,heroPosition:80});
+  assert.match(html,/class="rd-image-frame" data-image-count="3" data-position="custom"/);
+  assert.match(html,/object-position:25% 80%!important/);
+  assert.ok(html.indexOf(gallery[0].url)<html.indexOf(gallery[1].url));
+  for(const {caption} of gallery)assert.ok(html.includes(caption));
+});
