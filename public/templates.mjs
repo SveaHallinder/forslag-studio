@@ -1,4 +1,5 @@
 export const templates = Object.freeze([
+  {id:'norriva',name:'Norriva',description:'Luftig, centrerad entré med lätt typografi, bred huvudbild, mjuka produktkort och ett tydligt avslut. För produkter, förpackningar och skandinaviska varumärken.',reference:'Nordiskt · produkter & eget uttryck'},
   {id:'gallery',name:'Galleri',description:'En stilla entré med bilden först, fin seriftypografi och välkomponerade bildserier. För design, kultur, inredning och personliga varumärken.',reference:'Lugnt · bild & hantverk'},
   {id:'poster',name:'Affisch',description:'Grafisk typografi, tydliga linjer och stora bildfält. Ett sammanhållet uttryck från meny till kontakt och sidfot. För kreativa företag, mat och kultur.',reference:'Grafiskt · typografi & kontrast'},
   {id:'cafe',name:'Little Café',description:'Pebble-uttrycket: en varm entré, välvald typografi, personliga bildberättelser och en genomarbetad sidfot.',reference:'Café · vår Pebble-pilot'},

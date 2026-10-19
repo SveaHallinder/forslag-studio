@@ -1,6 +1,7 @@
 import {detectSectionKind} from './section-design.mjs';
 import {sectionComposition} from './composition.mjs';
 const profiles = [
+  {cues:/^(forpackning|papperspase|pizzakartong|kraftpapper|packaging|emballage)/,ids:['norriva','retail','precision']},
   {cues:/^(journalist|forfattare|author$|novelist|poet$|dramatiker|fotograf|photographer|konstnar|artist$)/,ids:['editorial','story','atelier']},
   {cues:/^(webblosning|webbplats|hemsidor|mjukvara|software|webbutveckl|digitalbyra)/,ids:['precision','consulting','studio']},
   {cues:/^(annons|annonser|annonsera|dooh$|utomhusreklam|storbildsskarm)/,ids:['editorial','story','studio']},
@@ -14,6 +15,7 @@ const profiles = [
 ];
 
 const reasons = {
+  norriva:'Ger produkter och erbjudanden en luftig entré, lätt typografi och mjuka bildkort.',
   cinema:'Ger verksamheten en filmisk entré med panoramabild och stora bildberättelser.',
   pop:'Ger innehållet ett lekfullt uttryck med färgblock, fylliga rubriker och rundade bildkort.',
   atelier:'Ger bilder och text en elegant rytm med bildvalv och asymmetriska uppslag.',

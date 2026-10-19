@@ -5,7 +5,7 @@ import {cafeFontCSS} from './cafe-fonts.mjs';
 import {customerText} from './customer-language.mjs';
 
 // A presentation layer, never a rewrite of the saved company source.
-export const redesignedTemplates=new Set(['gallery','poster','cinema','pop','precision','story','studio','services','wellness','editorial','construction','hospitality','consulting','retail']);
+export const redesignedTemplates=new Set(['norriva','gallery','poster','cinema','pop','precision','story','studio','services','wellness','editorial','construction','hospitality','consulting','retail']);
 export function copyLead(value,limit=240) {
   const copy=String(value||'').trim();
   if(copy.length<=limit)return copy;
@@ -50,7 +50,7 @@ export function renderWebsiteRedesign(p,{e,pic,header,renderCard,benefits,ending
   const primary=p.ctaHref||(!imported&&p.cards.length)?`<a class="button rd-primary" href="${e(p.ctaHref||'#erbjudande')}"${external(p.ctaHref)}>${p.ctaHref?e(p.cta):e(t.explore)}<span aria-hidden="true">↗</span></a>`:'';
   const local=p.cards.find(card=>card.anchor&&websiteSectionRole(card)!=='source-contact');
   const secondary=local&&p.ctaHref&&p.ctaHref!=='#'+local.anchor?`<a class="rd-secondary" href="#${e(local.anchor)}">${e(t.discover)}<span aria-hidden="true">↓</span></a>`:'';
-  const heroHTML=`<div class="hero-layout"${personal?' data-profile="person"':''} data-hero="${hero.length?'image':'text'}"><section class="hero-copy"><div class="eyebrow">${e(p.eyebrow||p.name)}</div>${personal?`<p class="profile-name">${e(p.name)}</p>`:''}<h1 data-length="${p.headline.length>150?'extended':p.headline.length>80?'long':'short'}">${e(p.headline)}</h1>${p.description?readableCopy(p.description,e,160,t.more):''}<div class="rd-actions">${primary}${secondary}</div></section><div class="visual${hero.length?'':' no-image'}">${hero.length?`<div class="rd-image-frame" data-image-count="${hero.length}"${p.heroPosition!==50?' data-position="custom"':''}${hero.length>1?' data-gallery-title="'+e(p.name)+'"':''}>${pictures}</div>`:''}</div></div>`;
+  const heroHTML=`<div class="hero-layout"${personal?' data-profile="person"':''} data-hero="${hero.length?'image':'text'}"><section class="hero-copy">${p.eyebrow||p.templateId!=='norriva'?`<div class="eyebrow">${e(p.eyebrow||p.name)}</div>`:''}${personal?`<p class="profile-name">${e(p.name)}</p>`:''}<h1 data-length="${p.headline.length>150?'extended':p.headline.length>80?'long':'short'}">${e(p.headline)}</h1>${p.description?readableCopy(p.description,e,160,t.more):''}<div class="rd-actions">${primary}${secondary}</div></section><div class="visual${hero.length?'':' no-image'}">${hero.length?`<div class="rd-image-frame" data-image-count="${hero.length}"${p.heroPosition!==50?' data-position="custom"':''}${hero.length>1?' data-gallery-title="'+e(p.name)+'"':''}>${pictures}</div>`:''}</div></div>`;
   let projectIndex=0;
   const roles=p.cards.map(websiteSectionRole);
   const cards=p.cards.map((card,index)=>{

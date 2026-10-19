@@ -1,0 +1,6 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><title>Norriva · mallväljare QA</title><link rel="stylesheet" href="/studio.css"><link rel="stylesheet" href="/design-workbench.css"><link rel="stylesheet" href="/workspace.css"><button id="open" class="button primary">Välj design</button><p id="result" role="status">Isolerad mallväljare. Inga sparade projekt ändras.</p><script type="module">
+import {createTemplatePicker} from '/template-picker.mjs';
+const source=await(await fetch('/index.html')).text(),doc=new DOMParser().parseFromString(source,'text/html');document.body.append(doc.querySelector('#templateDialog'));
+const project={name:'QA Förpackningar',templateId:'studio',headline:'Ert varumärke. Ett eget uttryck.',intro:'Förpackningar med omtanke.',accent:'#0077ff',cards:[],email:'qa@example.com'},page={source:'website'},before=JSON.stringify(project);
+const picker=createTemplatePicker({getProject:()=>project,getPage:()=>page,onApply:id=>{document.querySelector('#result').textContent=(id==='norriva'&&JSON.stringify(project)===before?'PASS':'FAIL')+' · '+id+' vald, ursprungligt innehåll bevarat';}});document.querySelector('#open').onclick=()=>picker.open();
+</script></html>
