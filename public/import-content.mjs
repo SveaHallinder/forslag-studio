@@ -1,3 +1,4 @@
+import {chooseImportPhoto} from './import-photo.mjs';
 import {extractBrand} from './brand-content.mjs';
 import {prepareLegacyContent} from './legacy-content.mjs';
 import {logoScore,structuredLogo} from './import-assets.mjs';
@@ -209,7 +210,7 @@ export function extractContent(html, source, styles='',runtimeBrand=false) {
   const leadingSlide=heroHeading&&heroPhotos.find(i=>main.contains(i.el)&&i.el.closest('.carousel .active')&&(i.el.compareDocumentPosition(heroHeading)&4));
   const videoBackground=heroPhotos.find(i=>scope.contains(i.el)&&i.backgroundMode==='video');
   const videoPoster=videoBackground&&heroPhotos.find(i=>i.el.matches('video[poster]')&&videoBackground.el.contains(i.el));
-  const hero=videoPoster?.url||heroPhotos.find(i=>scope.contains(i.el))?.url||leadingSlide?.url||'';
+  const hero=videoPoster?.url||chooseImportPhoto(heroPhotos.filter(i=>scope.contains(i.el)))?.url||leadingSlide?.url||'';
   const heroGallery=galleryFor(scope,hero).filter(i=>!supportImages.has(i.url));
   const titleName=doc.title.split(/\s+[|–—-]\s+/)[0];
   const hostname=new URL(source).hostname.replace(/^www\./,''),fold=value=>clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -225,7 +226,7 @@ export function extractContent(html, source, styles='',runtimeBrand=false) {
     if(heading===heroHeading||cards.length>=40)continue;
     const title=clean(heading.textContent),block=scopeFor(heading),description=textIn(block);
     const key=title+'|'+description;if(seenCards.has(key)){renderedHeadings.set(heading,seenCards.get(key));continue;}
-    let image=((legacy&&photos.find(i=>i.url!==hero&&block.contains(i.el)))||photos.find(i=>i.url!==hero&&!i.el.hasAttribute('data-import-background')&&block.contains(i.el))||pictures.find(i=>i.url!==hero&&block.contains(i.el)))?.url||'';
+    let image=((legacy&&photos.find(i=>i.url!==hero&&block.contains(i.el)))||chooseImportPhoto(photos.filter(i=>i.url!==hero&&!i.el.hasAttribute('data-import-background')&&block.contains(i.el)),{hero:false})||pictures.find(i=>i.url!==hero&&block.contains(i.el)))?.url||'';
     const anchor='section-'+(cards.length+1);seenCards.set(key,anchor);renderedHeadings.set(heading,anchor);
     for(let el=heading;el&&el!==main&&el!==doc.body;el=el.parentElement){if(el.id&&!anchors.has(el.id))anchors.set(el.id,anchor);}
     const action=heading.closest('a[href]')||block.querySelectorAll('a[href]')[0];

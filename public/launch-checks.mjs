@@ -37,7 +37,7 @@ export async function checkLaunchAssets(raw,probe,{maximum=64,signal}={}) {
     const base={id:'asset',url:asset.url,label:use.label,pageIndex:use.pageIndex,field:'imageUpload',tab:'images',blocking:true};
     if(!result)return [{...base,ok:false,help:'Förslaget har fler än '+maximum+' valda bilder. Kontrollen är ofullständig; dela upp förslaget eller minska antalet bilder.'}];
     if(!result.ok)return [{...base,ok:false,help:'Bilden kunde inte hämtas eller avkodas. Byt den eller ladda upp en egen kopia. '+result.reason}];
-    const small=!result.vector&&asset.uses.some(use=>use.role==='hero'&&result.width<800||use.role==='card'&&Math.max(result.width,result.height)<400||use.role==='logo'&&Math.max(result.width,result.height)<80);
+    const small=!result.vector&&asset.uses.some(use=>use.role==='hero'&&result.width<800||['card','gallery'].includes(use.role)&&Math.max(result.width,result.height)<400||use.role==='logo'&&Math.max(result.width,result.height)<80);
     return [{...base,ok:!small,blocking:false,help:small?`Bilden är ${result.width} × ${result.height} px. Välj en större originalbild för en skarpare kunddemo.`:''}];
   });
   return {checks,results,checked:results.size,total:assets.length,signature:launchSignature(raw)};

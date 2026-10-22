@@ -45,3 +45,8 @@ test('a reviewed report is invalidated by any visible change, never by a saved i
   assert.equal(launchReportCurrent(project,report,2000),true);assert.equal(launchReportCurrent(project,report,302000),false);assert.equal(launchReportCurrent(project,report,999),false);
   assert.equal(launchReportCurrent({...project,address:'Changed'},report,2000),false);assert.equal(launchReportCurrent(project,{...report,checks:[{ok:false,blocking:true}]},2000),false);
 });
+test('small gallery photos stay visible quality reminders after a sharper hero is selected',async()=>{
+ const p={hero:image('large'),heroGallery:[{url:image('large')},{url:image('thumbnail')}],cards:[{title:'Gallery',gallery:[{url:image('small-detail')}]}]};
+ const report=await checkLaunchAssets(p,async url=>({width:url===image('large')?1600:320,height:url===image('large')?1000:240}));
+ for(const url of [image('thumbnail'),image('small-detail')]){const check=report.checks.find(c=>c.url===url);assert.equal(check.ok,false);assert.equal(check.blocking,false);assert.match(check.help,/320 × 240/);}
+});
