@@ -8,13 +8,19 @@ export function layoutIssues({width,pageWidth,clipped=[]}) {
 }
 function measureLayout(doc,width) {
   const win=doc.defaultView,clipped=[];
-  const nodes=[...doc.querySelectorAll('h1,.card h2,.hero-copy>p,.ending-action,.customer-mobile-actions a,.customer-action-label,.ending-action-label')];
+  const nodes=[...doc.querySelectorAll('h1,.card h2,.card h3,.hero-copy>p,.ending-action,.customer-mobile-actions a,.customer-action-label,.ending-action-label')];
   for(const node of nodes){
     const box=node.getBoundingClientRect(),style=win.getComputedStyle(node);
-    if(!box.width||!box.height||style.visibility==='hidden'||node.closest('[hidden],[aria-hidden="true"],template'))continue;
+    if(!box.width||!box.height&&!node.scrollHeight||style.visibility==='hidden'||node.closest('[hidden],[aria-hidden="true"],template'))continue;
     const clippedLabel=node.matches('.customer-action-label,.ending-action-label')&&node.scrollHeight>node.clientHeight+2;
-    if(node.scrollWidth>node.clientWidth+2||box.left<-2||box.right>width+2||clippedLabel){
-      const heading=node.matches('h1'),intro=node.matches('.hero-copy>p'),card=node.matches('.card h2')?node.closest('.card'):null,cardIndex=card?[...doc.querySelectorAll('main .card')].indexOf(card):-1;
+    let clippedHeight=false;
+    for(let ancestor=node;ancestor&&ancestor!==doc.body;ancestor=ancestor.parentElement){
+      if(!/^(hidden|clip)$/.test(win.getComputedStyle(ancestor).overflowY))continue;
+      const bounds=ancestor.getBoundingClientRect();
+      if(ancestor===node?node.scrollHeight>node.clientHeight+2:box.top<bounds.top-2||box.bottom>bounds.bottom+2){clippedHeight=true;break;}
+    }
+    if(node.scrollWidth>node.clientWidth+2||box.left<-2||box.right>width+2||clippedLabel||clippedHeight){
+      const heading=node.matches('h1'),intro=node.matches('.hero-copy>p'),card=node.matches('.card h2,.card h3')?node.closest('.card'):null,cardIndex=card?[...doc.querySelectorAll('main .card')].indexOf(card):-1;
       clipped.push({field:heading?'headline':cardIndex>=0?'card-title-'+cardIndex:intro?'description':'cta',tab:heading||intro||card?'content':'details',blocking:!clippedLabel,label:heading?'Huvudrubriken':card?'Sektionsrubriken':intro?'Introduktionen':'Kontaktknappen'});
     }
   }

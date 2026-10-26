@@ -33,8 +33,8 @@ function splitIntroduction(description) {
   return {intro,remainder};
 }
 function labelledIntroduction(description) {
-  const markers=[...String(description||'').matchAll(/^(meny|menu|meniu|öppettider|opening hours|program|tjänster|services|kundcase|case studies)[ \t]*\n/gim)];
-  if(markers.length<2)return;
+  const markers=[...String(description||'').matchAll(/^[ \t]*(meny|menu|meniu|öppettider|opening hours|program|tjänster|services|kundcase|case studies)[ \t]*:?[ \t]*\r?\n/gim)];
+  if(!markers.length)return;
   const intro=description.slice(0,markers[0].index).trim();if(intro.length<40||intro.length>320)return;
   const cards=markers.map((match,index)=>({title:match[1],description:description.slice(match.index+match[0].length,markers[index+1]?.index).trim(),...(/^(meny|menu|meniu)$/i.test(match[1])?{kind:'pricing'}:/^(tjänster|services)$/i.test(match[1])?{kind:'service'}:/^(kundcase|case studies)$/i.test(match[1])?{kind:'case'}:{})}));
   return cards.every(card=>card.description)&&description.length<=6000?{intro,cards}:undefined;
@@ -45,7 +45,7 @@ export function planCopyRefinements(raw) {
     if((page.cards||[]).length>=40)continue;
     const labelled=labelledIntroduction(page.description),split=labelled||splitIntroduction(page.description);if(!split||(page.cards||[]).length+(labelled?.cards.length||1)>40)continue;
     const reserved=new Set([...(page.cards||[]).map(c=>c.anchor),...(page.navigation||[]).map(n=>String(n.href||'').replace(/^#/,'')),...(raw.navigation||[]).map(n=>String(n.href||'').replace(/^#/,''))]);
-    let anchor='fordjupning',suffix=2;while(reserved.has(anchor))anchor='fordjupning-'+suffix++;
+    let anchor='fordjupning',suffix=2;while(reserved.has(anchor)||labelled?.cards.some((_,i)=>reserved.has(anchor+'-'+(i+1))))anchor='fordjupning-'+suffix++;
     const cards=labelled?labelled.cards.map((card,i)=>({...card,anchor:anchor+'-'+(i+1)})):[{title:customerText(page).about+' '+page.name,description:split.remainder,anchor}];
     if(cards.some(card=>reserved.has(card.anchor)))continue;
     changes.push({pageIndex:index-1,label:index?page.name||'Undersida':'Startsida',before:page.description,after:split.intro,card:cards[0],...(labelled?{cards}:{})});

@@ -23,7 +23,7 @@
 ## Kort QA-script
 
 1. Öppna `http://localhost:4183/` och en projektkopia. Gå till **Design → Fler verktyg → Få tre förslag**. Jämför komposition och typografi; kontrollera att kundens innehåll finns kvar.
-2. I kopian, använd en introduktion med en kort inledning följd av separata rubrikrader **MENY** och **ÖPPETTIDER**, med företagets bekräftade text under respektive rubrik. Välj **Förfina hela sidan** och kontrollera det föreslagna innehållet före tillämpning.
+2. I kopian, använd en introduktion med en kort inledning följd av rubrikraden **Öppettider:** och företagets bekräftade tider. Prova även inklistrade radbrytningar, meny samt tjänster/kundcase. Välj **Förfina hela sidan** och kontrollera det föreslagna innehållet före tillämpning.
 3. Välj text-, bild- och knappförbättringar var för sig. Kontrollera att inga ord/priser/destinationer uppfinns. Tillämpa, kontrollera förhandsvisningen och använd **Ångra förbättringar**. Gör därefter en manuell ändring och kontrollera att en gammal förbättringsplan inte kan skriva över den.
 4. Öppna **Bilder** och kontrollera bildfokus i mobil/desktop. En liten eller möjligen mjuk bild ska ge en granskningspunkt. Ett manuellt bildutsnitt ska vara kvar efter förfiningen.
 5. Välj **Granska & dela**. Kontrollera räknaren för bilder och layoutvyer, följ **Rätta** till rätt sida/fält och kontrollera igen. Stäng och öppna snabbt; den nya kontrollen ska kunna avslutas.
@@ -34,3 +34,10 @@
 Bildrelevans bygger på källans ord och bildmått, inte motivigenkänning. Bildfokus läses från säkra inline-värden; ingen ansiktsposition gissas. Den begränsade detaljskärpemätningen är en uppskattning för avkodade JPEG/WebP/AVIF-bilder, inte ett garanterat oskärpetest. Tom grafik undantas.
 
 Strukturerad text kräver tydliga befintliga rubriker och en kort inledning; saknade affärsuppgifter skapas inte. Layoutkontrollen täcker två bestämda bredder, högst de importerbara sex sidorna och utvalda viktiga textelement. Den ersätter inte visuell granskning av varje bild, sektion och interaktivt kundflöde.
+
+## Uppföljning samma dag
+
+- Tydligt märkta sektioner stöds även med en ensam rubrik, kolon, indrag och CRLF-radbrytningar. Tomma rubriker och rubrikord inne i vanlig prosa skapar inga sektioner. Befintliga sektionsankare och menylänkar bevaras utan kollisioner.
+- Layoutkontrollen upptäcker även vertikal klippning i en rubrik eller dess omgivande sektion. Både importerade sektioners h2 och nybyggda sektioners h3 granskas. Avsiktligt förkortade kontaktetiketter behåller sin påminnelsenivå.
+- Regressionen visade först två missade textfall och tre missade layoutfall. Efter rättning: `npm test` 494 godkända, 0 fel; lint och build godkända; visuellt webbläsartest 59 godkända och förfiningsflödet 124 godkända. Bildimporten ändrades inte i uppföljningen.
+- Kontrollerna använder isolerade exempel och ändrar inga sparade kundprojekt. Samma avgränsningar för bildbedömning, affärsfakta och externa kundsystem gäller fortsatt.
