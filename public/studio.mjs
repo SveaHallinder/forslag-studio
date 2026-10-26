@@ -20,6 +20,7 @@ import {createCustomerFunctions} from './customer-functions.mjs';
 import {cloudContext,selectCloudWorkspace,cloudRequest,refreshCloudSession,cloudDraftRevision,restoreCloudDraft} from './cloud-api.mjs';
 import {createCloudStudio} from './cloud-studio.mjs';
 import {createPilotSetup} from './pilot-setup.mjs';
+import {checkVisualLayout} from './visual-checks.mjs';
 import {createWholePageQuality,wholePageChecks} from './whole-page-quality.mjs';
 
 const $ = id => document.getElementById(id);
@@ -500,7 +501,7 @@ function renderLaunchReview(checks,checking=false) {
   $('confirmShare').disabled=blocked;
   $('reviewDialog').setAttribute('aria-busy',String(checking));
   const remaining=checks.filter(c=>!c.ok).length;
-  $('reviewProgress').textContent=checking?'Kontrollerar valda bilder och logotyp på alla sidor…':launchReport?`${launchReport.checked} av ${launchReport.total} bildfiler kontrollerade. ${remaining} ${remaining===1?'punkt':'punkter'} återstår.`:'';
+  $('reviewProgress').textContent=checking?'Kontrollerar bilder, logotyp och layout på mobil och desktop…':launchReport?`${launchReport.checked} av ${launchReport.total} bildfiler · ${launchReport.visual?.checked||0} av ${launchReport.visual?.total||0} layoutvyer kontrollerade. ${remaining} ${remaining===1?'punkt':'punkter'} återstår.`:'';
   $('reviewBlocker').textContent=checking?'Du kan fortsätta redigera efter kontrollen.':blocked?'Rätta de markerade uppgifterna och otillgängliga bilderna innan du skapar en kundlänk.':'De tekniska kontrollerna är klara. Eventuella påminnelser om fakta och varumärkesunderlag visas ovan.';
 }
 async function reviewBeforeShare() {
@@ -511,7 +512,7 @@ async function reviewBeforeShare() {
   renderLaunchReview(checks,true);
   if(!$('reviewDialog').open)$('reviewDialog').showModal();
   try{
-    const [report,forms]=await Promise.all([checkLaunchAssets(current,probeLaunchImage,{signal:controller.signal}),probeLaunchForm(current,controller.signal)]);report.checks.push(...forms);
+    const [report,forms,visual]=await Promise.all([checkLaunchAssets(current,probeLaunchImage,{signal:controller.signal}),probeLaunchForm(current,controller.signal),checkVisualLayout(current,{signal:controller.signal})]);report.checks.push(...forms,...visual.checks);report.visual=visual;
     if(sequence!==launchSequence||!$('reviewDialog').open)return;
     if(project!==current||launchSignature(current)!==signature){renderLaunchReview(checks,false);$('confirmShare').disabled=true;$('reviewProgress').textContent='Förslaget ändrades under kontrollen. Kör kontrollen igen för den nya versionen.';return;}
     launchReport={...report,checkedAt:Date.now()};renderLaunchReview([...checks,...report.checks],false);
@@ -519,7 +520,7 @@ async function reviewBeforeShare() {
   finally{clearTimeout(timer);}
 }
 $('recheckLaunch').addEventListener('click',reviewBeforeShare);
-$('reviewDialog').addEventListener('close',()=>{launchController?.abort();++launchSequence;});
+$('reviewDialog').addEventListener('close',()=>{if(!$('reviewDialog').open){launchController?.abort();++launchSequence;}});
 $('reviewChecks').addEventListener('click',event=>{
   const button=event.target.closest('[data-review-field]');if(!button)return;
   $('reviewDialog').close();showEditor();activePage=Number(button.dataset.reviewPage??-1);fillEditor();

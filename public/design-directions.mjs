@@ -10,7 +10,7 @@ const profiles = [
   {cues:/^(salong|behandling|klinik|traning|frisor|halsa|wellness|yoga|spa$)/,ids:['wellness','story','studio']},
   {cues:/^(bygg$|byggforetag|byggfirma|byggbolag|byggtjanst|hantverk|verkstad|snickeri|renover|construction)/,ids:['construction','services','studio']},
   {cues:/^(hotell|hotel|boende|resa$|resor|upplevelse|hospitality)/,ids:['hospitality','story','cinema']},
-  {cues:/^(radgiv|jurid|jurist|advokat|konsult|redovis|consult|law$|accounting)/,ids:['consulting','story','services']},
+  {cues:/^(radgiv|jurid|jurist|advokat|konsult|redovis|consult|law$|accounting)/,ids:['consulting','editorial','precision']},
   {cues:/^(arkitekt|architect|inred|kultur|magasin|editorial|design)/,ids:['story','editorial','atelier']},
 ];
 
@@ -34,7 +34,7 @@ const reasons = {
 
 const list = value=>Array.isArray(value)?value:[];
 const text = value=>typeof value==='string'?value:'';
-const sectorDirections={cafe:['dining','cinema','pop'],dining:['dining','cinema','pop'],wellness:['wellness','story','studio'],construction:['construction','services','studio'],hospitality:['hospitality','story','cinema'],consulting:['consulting','story','services'],retail:['retail','atelier','pop'],precision:['precision','consulting','studio']};
+const sectorDirections={cafe:['dining','cinema','pop'],dining:['dining','cinema','pop'],wellness:['wellness','story','studio'],construction:['construction','services','studio'],hospitality:['hospitality','story','cinema'],consulting:['consulting','editorial','precision'],retail:['retail','atelier','pop'],precision:['precision','consulting','studio']};
 
 export function recommendDirections(project={}) {
   const p=project&&typeof project==='object'?project:{};

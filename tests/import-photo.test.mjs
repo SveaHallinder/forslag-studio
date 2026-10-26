@@ -14,3 +14,6 @@ test('unknown dimensions and equivalent image quality retain authored order',()=
 test('section images retain certification content when explicitly allowed',()=>{
  const support=photo('/certificate.jpg',1200,800);assert.equal(chooseImportPhoto([support],{hero:false}),support);
 });
+test('relevant source words beat a bigger unrelated photo within the same block',()=>{
+ const coffee=photo('/kaffe.jpg',800,600,'Kaffe hos oss'),team=photo('/team.jpg',2000,1200,'Vårt team');assert.equal(chooseImportPhoto([team,coffee],{context:'Kaffe och nybakat'}),coffee);
+});

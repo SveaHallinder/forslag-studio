@@ -50,3 +50,7 @@ test('small gallery photos stay visible quality reminders after a sharper hero i
  const report=await checkLaunchAssets(p,async url=>({width:url===image('large')?1600:320,height:url===image('large')?1000:240}));
  for(const url of [image('thumbnail'),image('small-detail')]){const check=report.checks.find(c=>c.url===url);assert.equal(check.ok,false);assert.equal(check.blocking,false);assert.match(check.help,/320 × 240/);}
 });
+test('low-detail photographic hints remain explicit non-blocking review items',async()=>{
+ const report=await checkLaunchAssets({hero:image('soft')},async()=>({width:1600,height:1000,soft:true}));
+ assert.equal(report.checks[0].ok,false);assert.equal(report.checks[0].blocking,false);assert.match(report.checks[0].help,/uppskattning/);
+});

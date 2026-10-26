@@ -97,3 +97,7 @@ test('empty projects never promise a contact action without a supplied destinati
   assert.match(cafe,/class="cafe-button" href="https:\/\/www.google.com\/maps\/search/);
   assert.match(cafe,/Hitta hit/);
 });
+test('soft candidates are not proposed as better photos and equal-sized clearer originals may be suggested',()=>{
+ const soft=new Map(results);soft.set(large,{...results.get(large),soft:true});assert.equal(planImageRefinements(base,soft).changes.length,0);
+ const sameSize=new Map([[small,{ok:true,width:1280,height:960,soft:true}],[large,{ok:true,width:1280,height:960}]]);assert.equal(planImageRefinements(base,sameSize).project.hero,large);
+});

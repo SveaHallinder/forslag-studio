@@ -1,3 +1,4 @@
+import {photoDetail} from './photo-detail.mjs';
 import {initializeCloud,cloudContext,cloudProjectAPI} from './cloud-api.mjs';
 import {trimLogoBlob} from './logo-framing.mjs';
 import {logoTone,bestInk} from './branding.mjs';
@@ -46,7 +47,12 @@ export async function probeLaunchImage(url,signal) {
     const blob=await response.blob();if(blob.size>5_000_000)throw new Error('Bilden är större än importgränsen på 5 MB.');
     objectURL=URL.createObjectURL(blob);const image=new Image();
     await new Promise((resolve,reject)=>{const done=error=>{controller.signal.removeEventListener('abort',stop);image.onload=image.onerror=null;if(error){image.src='';reject(error);}else resolve();},stop=()=>done(new Error('Bilden tog för lång tid att läsa.'));controller.signal.addEventListener('abort',stop,{once:true});image.onload=()=>done();image.onerror=()=>done(new Error('Bilden kunde inte avkodas.'));if(controller.signal.aborted)return stop();image.src=objectURL;});
-    return {width:image.naturalWidth,height:image.naturalHeight,vector:blob.type.split(';')[0]==='image/svg+xml'};
+    let detail={};
+    if(/^image\/(?:jpeg|webp|avif)(?:;|$)/i.test(blob.type)&&Math.max(image.naturalWidth,image.naturalHeight)>=800)try{
+      const scale=256/Math.max(image.naturalWidth,image.naturalHeight),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));
+      const context=canvas.getContext('2d',{willReadFrequently:true});context.drawImage(image,0,0,canvas.width,canvas.height);detail=photoDetail(context.getImageData(0,0,canvas.width,canvas.height));
+    }catch{console.warn('[proposal images] Detail analysis unavailable; dimensions remain checked.');}
+    return {width:image.naturalWidth,height:image.naturalHeight,vector:blob.type.split(';')[0]==='image/svg+xml',...detail};
   }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);if(objectURL)URL.revokeObjectURL(objectURL);}
 }
 export async function probeLaunchForm(project,signal) {

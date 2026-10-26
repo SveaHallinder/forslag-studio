@@ -1,3 +1,4 @@
+import {sourceImagePresentation} from './image-presentation.mjs';
 import {chooseImportPhoto} from './import-photo.mjs';
 import {extractBrand} from './brand-content.mjs';
 import {prepareLegacyContent} from './legacy-content.mjs';
@@ -200,7 +201,7 @@ export function extractContent(html, source, styles='',runtimeBrand=false) {
   const galleryFor=(block,primary='',includeLogos=false)=>{
     const allowed=new Set(pictures),seen=new Set();
     if(includeLogos)for(const item of imageNodes)if(item.url!==logo&&item.el.matches('img')&&item.el.closest('ul,ol,[role="list"]')&&!excluded(item.el)&&!(/icon|favicon|sprite|decoration|ornament|spacer|tracking/i.test(item.label+' '+item.url))&&(!item.width||item.width>=64)&&(!item.height||item.height>=64))allowed.add(item);
-    const items=imageNodes.filter(item=>allowed.has(item)&&block.contains(item.el)).flatMap(item=>{if(seen.has(item.url))return [];seen.add(item.url);const presentation=legacy?.presentationFor(item.el);return [{url:item.url,label:item.label,caption:imageCaption(item.el),...(presentation?{presentation}:{})}];});
+    const items=imageNodes.filter(item=>allowed.has(item)&&block.contains(item.el)).flatMap(item=>{if(seen.has(item.url))return [];seen.add(item.url);const presentation=legacy?.presentationFor(item.el)||sourceImagePresentation({fit:item.el.style.objectFit,position:item.el.style.objectPosition,width:item.width,height:item.height},block===scope?headline:clean(block.querySelectorAll?.(headings)?.[0]?.textContent));return [{url:item.url,label:item.label,caption:imageCaption(item.el),...(presentation?{presentation}:{})}];});
     if(primary){const index=items.findIndex(item=>item.url===primary);if(index>0)items.unshift(...items.splice(index,1));}
     if(items.length>12)galleryTruncated=true;
     return items.slice(0,12);
@@ -210,7 +211,7 @@ export function extractContent(html, source, styles='',runtimeBrand=false) {
   const leadingSlide=heroHeading&&heroPhotos.find(i=>main.contains(i.el)&&i.el.closest('.carousel .active')&&(i.el.compareDocumentPosition(heroHeading)&4));
   const videoBackground=heroPhotos.find(i=>scope.contains(i.el)&&i.backgroundMode==='video');
   const videoPoster=videoBackground&&heroPhotos.find(i=>i.el.matches('video[poster]')&&videoBackground.el.contains(i.el));
-  const hero=videoPoster?.url||chooseImportPhoto(heroPhotos.filter(i=>scope.contains(i.el)))?.url||leadingSlide?.url||'';
+  const hero=videoPoster?.url||chooseImportPhoto(heroPhotos.filter(i=>scope.contains(i.el)),{context:headline+' '+description.slice(0,300)})?.url||leadingSlide?.url||'';
   const heroGallery=galleryFor(scope,hero).filter(i=>!supportImages.has(i.url));
   const titleName=doc.title.split(/\s+[|–—-]\s+/)[0];
   const hostname=new URL(source).hostname.replace(/^www\./,''),fold=value=>clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -226,7 +227,7 @@ export function extractContent(html, source, styles='',runtimeBrand=false) {
     if(heading===heroHeading||cards.length>=40)continue;
     const title=clean(heading.textContent),block=scopeFor(heading),description=textIn(block);
     const key=title+'|'+description;if(seenCards.has(key)){renderedHeadings.set(heading,seenCards.get(key));continue;}
-    let image=((legacy&&photos.find(i=>i.url!==hero&&block.contains(i.el)))||chooseImportPhoto(photos.filter(i=>i.url!==hero&&!i.el.hasAttribute('data-import-background')&&block.contains(i.el)),{hero:false})||pictures.find(i=>i.url!==hero&&block.contains(i.el)))?.url||'';
+    let image=((legacy&&photos.find(i=>i.url!==hero&&block.contains(i.el)))||chooseImportPhoto(photos.filter(i=>i.url!==hero&&!i.el.hasAttribute('data-import-background')&&block.contains(i.el)),{hero:false,context:title+' '+description.slice(0,300)})||pictures.find(i=>i.url!==hero&&block.contains(i.el)))?.url||'';
     const anchor='section-'+(cards.length+1);seenCards.set(key,anchor);renderedHeadings.set(heading,anchor);
     for(let el=heading;el&&el!==main&&el!==doc.body;el=el.parentElement){if(el.id&&!anchors.has(el.id))anchors.set(el.id,anchor);}
     const action=heading.closest('a[href]')||block.querySelectorAll('a[href]')[0];

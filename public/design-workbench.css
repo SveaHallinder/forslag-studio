@@ -100,3 +100,5 @@
 
 .whole-page-dialog .button{min-height:44px}
 .whole-page-header{flex-wrap:nowrap}.whole-page-header>div{min-width:0}.whole-page-header>form{flex:none}
+
+.whole-page-summary{grid-template-columns:repeat(4,minmax(0,1fr))}.whole-page-copy small{display:block;overflow-wrap:anywhere}@media(max-width:620px){.whole-page-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}

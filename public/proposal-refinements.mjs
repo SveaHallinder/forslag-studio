@@ -1,3 +1,4 @@
+import {customerJourney} from './customer-journey.mjs';
 import {customerText} from './customer-language.mjs';
 // Review suggestions never manufacture business facts. A copy improvement moves
 // the exact remainder of an introduction into an editable section, after opt-in.
@@ -31,20 +32,46 @@ function splitIntroduction(description) {
   if(remainder.length<120)return;
   return {intro,remainder};
 }
+function labelledIntroduction(description) {
+  const markers=[...String(description||'').matchAll(/^(meny|menu|meniu|öppettider|opening hours|program|tjänster|services|kundcase|case studies)[ \t]*\n/gim)];
+  if(markers.length<2)return;
+  const intro=description.slice(0,markers[0].index).trim();if(intro.length<40||intro.length>320)return;
+  const cards=markers.map((match,index)=>({title:match[1],description:description.slice(match.index+match[0].length,markers[index+1]?.index).trim(),...(/^(meny|menu|meniu)$/i.test(match[1])?{kind:'pricing'}:/^(tjänster|services)$/i.test(match[1])?{kind:'service'}:/^(kundcase|case studies)$/i.test(match[1])?{kind:'case'}:{})}));
+  return cards.every(card=>card.description)&&description.length<=6000?{intro,cards}:undefined;
+}
 export function planCopyRefinements(raw) {
   const changes=[];
   for(const [index,page] of [raw,...(raw.pages||[]).slice(0,5)].entries()){
     if((page.cards||[]).length>=40)continue;
-    const split=splitIntroduction(page.description);if(!split)continue;
+    const labelled=labelledIntroduction(page.description),split=labelled||splitIntroduction(page.description);if(!split||(page.cards||[]).length+(labelled?.cards.length||1)>40)continue;
     const reserved=new Set([...(page.cards||[]).map(c=>c.anchor),...(page.navigation||[]).map(n=>String(n.href||'').replace(/^#/,'')),...(raw.navigation||[]).map(n=>String(n.href||'').replace(/^#/,''))]);
     let anchor='fordjupning',suffix=2;while(reserved.has(anchor))anchor='fordjupning-'+suffix++;
-    changes.push({pageIndex:index-1,label:index?page.name||'Undersida':'Startsida',before:page.description,after:split.intro,card:{title:customerText(page).about+' '+page.name,description:split.remainder,anchor}});
+    const cards=labelled?labelled.cards.map((card,i)=>({...card,anchor:anchor+'-'+(i+1)})):[{title:customerText(page).about+' '+page.name,description:split.remainder,anchor}];
+    if(cards.some(card=>reserved.has(card.anchor)))continue;
+    changes.push({pageIndex:index-1,label:index?page.name||'Undersida':'Startsida',before:page.description,after:split.intro,card:cards[0],...(labelled?{cards}:{})});
   }
   return {signature:JSON.stringify(raw),changes};
 }
 export function applyCopyRefinements(current,plan) {
   if(JSON.stringify(current)!==plan.signature)throw new Error('Förslaget ändrades efter kontrollen. Kontrollera igen; dina senaste ändringar finns kvar.');
   const next=structuredClone(current);
-  for(const change of plan.changes){const page=change.pageIndex<0?next:next.pages[change.pageIndex];page.description=change.after;page.cards=[change.card,...(page.cards||[])];}
+  for(const change of plan.changes){const page=change.pageIndex<0?next:next.pages[change.pageIndex];page.description=change.after;page.cards=[...(change.cards||[change.card]),...(page.cards||[])];}
   return next;
+}
+
+export function planActionRefinements(raw={}) {
+  const changes=[];
+  for(const [index,page]of [raw,...(raw.pages||[])].entries()){
+    if(page.cta&&!/^(kontakta oss|contact us|läs mer|read more|learn more|klicka här|click here|citește mai mult)$/i.test(page.cta.trim()))continue;
+    const effective={...raw,...page,navigation:raw.navigation||[],cards:page.cards||[],email:page.email||raw.email,phone:page.phone||raw.phone},journey=customerJourney(effective),action=journey.primary;
+    if(!action?.href)continue;
+    const words=customerText(effective).journey,label=action.href.startsWith('mailto:')?words.email:action.href.startsWith('tel:')?words.phone:effective.navigation.find(n=>n.href===action.href&&n.label)?.label||(effective.requestForm?.url===action.href?action.label:'');
+    if(!label||label===page.cta&&action.href===page.ctaHref)continue;
+    changes.push({pageIndex:index-1,label:index?page.name||'Undersida':'Startsida',before:page.cta||'',after:label,href:action.href});
+  }
+  return {signature:JSON.stringify(raw),changes};
+}
+export function applyActionRefinements(current,plan) {
+  if(JSON.stringify(current)!==plan.signature)throw new Error('Förslaget ändrades efter kontrollen. Kontrollera igen.');
+  const next=structuredClone(current);for(const change of plan.changes){const page=change.pageIndex<0?next:next.pages[change.pageIndex];page.cta=change.after;page.ctaHref=change.href;}return next;
 }
